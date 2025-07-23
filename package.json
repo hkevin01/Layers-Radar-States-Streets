@@ -1,0 +1,17 @@
+{
+  "name": "layers-radar-states-streets",
+  "version": "1.0.0",
+  "description": "NEXRAD radar, state boundaries, and street map visualization using OpenLayers.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "echo \"No tests yet\" && exit 0",
+    "lint": "eslint src/"
+  },
+  "author": "hkevin01",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0"
+  }
+}

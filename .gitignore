@@ -1,0 +1,42 @@
+# Node.js
+node_modules/
+dist/
+.env
+.DS_Store
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.env
+
+# VSCode
+.vscode/
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+
+# Test and coverage
+coverage/
+*.cover
+
+# Data and assets
+/data/
+/assets/
+
+# Copilot
+.copilot/
+
+# Scripts
+/scripts/
+
+# Docs
+/docs/
+
+# Others
+*.swp
+*.swo
