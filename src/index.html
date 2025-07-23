@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Layers Radar States Streets Demo</title>
+  <!-- OpenLayers CDN -->
+  <link rel="stylesheet" href="https://openlayers.org/api/OpenLayers.js">
+  <script src="https://openlayers.org/api/OpenLayers.js"></script>
+  <!-- jQuery CDN -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    #map { width: 100vw; height: 90vh; }
+    header { padding: 1em; background: #222; color: #fff; text-align: center; }
+    footer { padding: 1em; background: #eee; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Layers Radar States Streets Visualization</h1>
+    <p>Modernized OpenLayers demo with radar, states, and streets layers</p>
+  </header>
+  <div id="map"></div>
+  <footer>
+    &copy; 2025 Layers Radar States Streets
+  </footer>
+  <script src="js/main.js"></script>
+  <script>
+    // Initialize the map when the page loads
+    window.onload = function() {
+      if (typeof window.initLoad === 'function') {
+        window.initLoad();
+      }
+    };
+  </script>
+</body>
+</html>
