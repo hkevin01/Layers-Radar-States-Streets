@@ -1,0 +1,497 @@
+/**
+ * Data Visualization Controls Styles
+ * Advanced styling for data visualization interface components
+ */
+
+/* Main Data Visualization Controls Panel */
+.data-viz-controls {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 320px;
+  max-height: 80vh;
+  overflow-y: auto;
+  z-index: 1000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.viz-panel {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+}
+
+.viz-section {
+  padding: 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.viz-section:last-child {
+  border-bottom: none;
+}
+
+.viz-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Animation Controls */
+.animation-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.animation-controls .button-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.play-pause-btn,
+.prev-frame-btn,
+.next-frame-btn {
+  background: #3b82f6;
+  border: none;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+}
+
+.play-pause-btn:hover,
+.prev-frame-btn:hover,
+.next-frame-btn:hover {
+  background: #2563eb;
+  transform: scale(1.05);
+}
+
+.timeline-container {
+  flex: 1;
+  margin-left: 12px;
+}
+
+.timeline-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #e5e7eb;
+  outline: none;
+  margin-bottom: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.timeline-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.timeline-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.speed-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.speed-controls label {
+  color: #374151;
+  font-weight: 500;
+}
+
+.speed-selector {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+.speed-selector:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Color Scheme Selector */
+.color-scheme-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.color-scheme-btn {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.color-scheme-btn:hover {
+  border-color: #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.color-scheme-btn.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.color-preview {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 8px;
+  height: 20px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.color-swatch {
+  flex: 1;
+  height: 100%;
+}
+
+.color-scheme-btn span {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* Streaming Controls */
+.streaming-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stream-toggle-btn {
+  background: #10b981;
+  border: none;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 500;
+}
+
+.stream-toggle-btn:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.stream-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #dc2626;
+  transition: all 0.3s ease;
+}
+
+.stream-indicator.active {
+  background: #22c55e;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.data-info {
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 12px;
+}
+
+.data-info div {
+  margin-bottom: 4px;
+}
+
+.data-info div:last-child {
+  margin-bottom: 0;
+}
+
+.status-text.success {
+  color: #059669;
+  font-weight: 500;
+}
+
+.status-text.error {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+/* Layer Visualization */
+.layer-visualization {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.layer-option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.layer-option label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+}
+
+.layer-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.layer-opacity {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #e5e7eb;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.layer-opacity::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6366f1;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.layer-opacity::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6366f1;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Performance Controls */
+.performance-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.performance-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.performance-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .data-viz-controls {
+    right: 10px;
+    width: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .data-viz-controls {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 320px;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  
+  .data-viz-controls.open {
+    transform: translateX(0);
+  }
+  
+  .viz-panel {
+    border-radius: 0;
+    height: 100%;
+  }
+  
+  .color-scheme-selector {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .viz-panel {
+    background: rgba(31, 41, 55, 0.95);
+    border: 1px solid rgba(75, 85, 99, 0.3);
+  }
+  
+  .viz-section {
+    border-bottom-color: rgba(75, 85, 99, 0.3);
+  }
+  
+  .viz-section h3 {
+    color: #f9fafb;
+  }
+  
+  .speed-controls label {
+    color: #e5e7eb;
+  }
+  
+  .speed-selector {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f9fafb;
+  }
+  
+  .color-scheme-btn {
+    background: #374151;
+    border-color: #4b5563;
+  }
+  
+  .color-scheme-btn:hover {
+    border-color: #60a5fa;
+  }
+  
+  .color-scheme-btn.active {
+    background: #1e3a8a;
+    border-color: #3b82f6;
+  }
+  
+  .color-scheme-btn span {
+    color: #e5e7eb;
+  }
+  
+  .data-info {
+    background: #374151;
+  }
+  
+  .layer-option label {
+    color: #e5e7eb;
+  }
+  
+  .performance-controls label {
+    color: #e5e7eb;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .viz-panel {
+    background: white;
+    border: 2px solid black;
+  }
+  
+  .play-pause-btn,
+  .prev-frame-btn,
+  .next-frame-btn {
+    background: #000;
+    border: 2px solid #000;
+  }
+  
+  .timeline-slider::-webkit-slider-thumb {
+    background: #000;
+    border: 2px solid white;
+  }
+  
+  .stream-toggle-btn {
+    background: #000;
+    border: 2px solid #000;
+  }
+  
+  .color-scheme-btn {
+    border: 2px solid #000;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .play-pause-btn:hover,
+  .prev-frame-btn:hover,
+  .next-frame-btn:hover,
+  .color-scheme-btn:hover,
+  .stream-toggle-btn:hover {
+    transform: none;
+  }
+  
+  .stream-indicator.active {
+    animation: none;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .data-viz-controls {
+    display: none;
+  }
+}

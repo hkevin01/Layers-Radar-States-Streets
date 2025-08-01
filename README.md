@@ -1,16 +1,38 @@
 # 🗺️ Layers Radar States Streets
 
-A modern, modular web application for visualizing NEXRAD radar data, state boundaries, and street maps using OpenLayers. Completely refactored with ES6+ modules and modern development practices.
+> A modern, accessible Progressive Web Application for visualizing NEXRAD radar data, state boundaries, and street maps using OpenLayers.
 
-## ✨ Features
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](CHANGELOG.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
+[![ES Modules](https://img.shields.io/badge/ES-Modules-orange.svg)](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
 
-- **Real-time NEXRAD radar visualization**
-- **Interactive state boundaries and street maps**
-- **Modular ES6+ architecture**
-- **Responsive design**
-- **Layer switching controls**
-- **Zoom restrictions and map controls**
-- **AJAX-based data loading**
+## ✨ Key Features
+
+### 🌦️ Weather Visualization
+- **Real-time NEXRAD radar data** with WebSocket streaming
+- **Historical radar animation** with timeline controls
+- **Multiple color schemes** for different analysis needs
+- **Multi-layer data visualization** with opacity controls
+
+### 📱 Progressive Web App
+- **Offline functionality** with service worker caching
+- **Installable** on mobile and desktop devices
+- **Push notifications** for weather alerts
+- **Background sync** for data updates
+
+### ♿ Universal Accessibility
+- **WCAG 2.1 AA compliant** interface design
+- **Screen reader optimization** with ARIA labels
+- **Keyboard navigation** with customizable shortcuts
+- **Color blindness support** with alternative color schemes
+
+### 🎯 Advanced Features
+- **Interactive state boundaries** and street maps
+- **Touch-optimized controls** for mobile devices
+- **Geolocation services** with privacy controls
+- **Performance optimization** with WebGL acceleration
+- **Modern UI/UX** with glassmorphism design
 
 ## 🏗️ Project Structure
 
@@ -116,75 +138,60 @@ Watch mode for development:
 npm run test:watch
 ```
 
-## 📚 API Reference
+## 📚 Documentation
 
-### Global Functions (Legacy Compatibility)
+Our comprehensive documentation is designed to help users, developers, and contributors:
 
-- `initLoad()` - Initialize the map (legacy)
-- `initializeApp(containerId)` - Modern initialization
-- `window.loading(show)` - Show/hide loading indicator
-- `window.errorAlert(xhr, exception, error)` - Display error messages
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| **[README.md](README.md)** | Project overview and quick start | All users |
+| **[REQUIREMENTS.md](docs/REQUIREMENTS.md)** | Functional and technical requirements | Developers, PMs |
+| **[DESIGN.md](docs/DESIGN.md)** | System architecture and design decisions | Developers, Architects |
+| **[API.md](docs/API.md)** | Complete API documentation | Developers, Integrators |
+| **[INSTALLATION.md](docs/INSTALLATION.md)** | Setup and deployment guide | DevOps, Developers |
+| **[CONTRIBUTING.md](docs/CONTRIBUTING.md)** | Contribution guidelines | Contributors |
+| **[TESTING.md](docs/TESTING.md)** | Testing strategies and procedures | QA, Developers |
+| **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Common issues and solutions | All users |
+| **[CHANGELOG.md](CHANGELOG.md)** | Version history and changes | All users |
 
-### Layer Types
+### Quick Links
 
-- **Radar Layer** - NEXRAD weather radar data
-- **States Layer** - US state boundaries
-- **Streets Layer** - Road and street data
-- **OSM Layer** - OpenStreetMap base layer
-- **Hazard Layer** - Hazard marker overlays
-
-## 🔧 Configuration
-
-Edit `src/config/map-config.js` to customize:
-
-- Map projections and center point
-- Layer URLs and settings
-- AJAX endpoints
-- Default zoom levels
+- **🚀 [Quick Start Guide](docs/INSTALLATION.md#quick-start)** - Get up and running in 5 minutes
+- **🏗️ [Architecture Overview](docs/DESIGN.md#system-architecture)** - Understand the system design
+- **🔧 [API Reference](docs/API.md)** - Complete API documentation
+- **🤝 [Contributing](docs/CONTRIBUTING.md)** - How to contribute to the project
+- **❓ [Getting Help](docs/TROUBLESHOOTING.md)** - Solutions to common problems
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Follow the coding standards in `.editorconfig`, `.prettierrc`, `.eslintrc.json`
-4. Write or update tests for new features
-5. Commit changes: `git commit -m 'Add amazing feature'`
-6. Push to branch: `git push origin feature/amazing-feature`
-7. Submit a pull request
+We welcome contributions from developers of all skill levels! Whether you're fixing bugs, adding features, improving documentation, or helping with testing, your contributions make this project better.
 
-See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for detailed guidelines.
+### Quick Contribution Steps
+
+1. **Fork the repository** and clone your fork
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Follow our coding standards** and write tests
+4. **Submit a pull request** with clear description
+
+For detailed guidelines, see our [Contributing Guide](docs/CONTRIBUTING.md).
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🔄 Migration from v1.x
+## 🔄 Version History
 
-If upgrading from the legacy version:
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
 
-1. The main script has moved from `script.js` to `src/main.js`
-2. Code is now modular - import specific components as needed
-3. HTML should reference `public/index.html`
-4. Configuration is centralized in `src/config/map-config.js`
+## � Support & Community
 
-Legacy function names are maintained for backward compatibility.
+- **📧 Issues**: [GitHub Issues](https://github.com/hkevin01/Layers-Radar-States-Streets/issues)
+- **� Discussions**: [GitHub Discussions](https://github.com/hkevin01/Layers-Radar-States-Streets/discussions)
+- **📖 Documentation**: [docs/](docs/) directory
+- **�️ Troubleshooting**: [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 
-## 📈 Roadmap
+---
 
-- [ ] Add TypeScript support
-- [ ] Implement real-time data streaming
-- [ ] Add mobile touch controls
-- [ ] Enhance error handling and recovery
-- [ ] Add more layer types and data sources
+**Built with ❤️ by the open source community**
 
-## 🐛 Known Issues
-
-- Legacy OpenLayers 2.x compatibility maintained for existing data sources
-- Some external tile services may have CORS restrictions
-- Modern browser required for ES6 module support
-
-## 📞 Support
-
-- 📧 Issues: [GitHub Issues](https://github.com/hkevin01/Layers-Radar-States-Streets/issues)
-- 📖 Documentation: [docs/](docs/)
-- 🔧 Architecture: [docs/project-plan.md](docs/project-plan.md)
+*For meteorologists, emergency management professionals, GIS developers, and weather enthusiasts worldwide.*
