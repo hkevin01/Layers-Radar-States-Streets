@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXRAD Radar Visualization - Weather Tracker</title>
+    
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+    
+    <!-- Font Awesome for weather icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Weather Icons Font -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css">
+    
+    <link rel="stylesheet" href="css/weather-gui.css">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#1e293b">
+    
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="icons/weather-192.png">
+</head>
+<body>
+    <!-- Skip Navigation for Accessibility -->
+    <a href="#main-map" class="skip-link">Skip to main map</a>
+    
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <i class="wi wi-day-thunderstorm loading-icon"></i>
+            <h2>Loading Weather Data</h2>
+            <div class="loading-bar">
+                <div class="loading-progress" id="loading-progress"></div>
+            </div>
+            <p id="loading-text">Initializing NEXRAD radar...</p>
+        </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <div id="app" class="app-container">
+        
+        <!-- Header with Weather Alerts -->
+        <header class="app-header" role="banner">
+            <div class="header-content">
+                <div class="app-title">
+                    <i class="wi wi-radar"></i>
+                    <h1>NEXRAD Weather Radar</h1>
+                </div>
+                
+                <!-- Active Weather Alerts -->
+                <div id="weather-alerts" class="weather-alerts" role="alert" aria-live="polite">
+                    <!-- Alerts will be populated by JavaScript -->
+                </div>
+                
+                <!-- Header Controls -->
+                <div class="header-controls">
+                    <button id="fullscreen-btn" class="control-btn" title="Toggle Fullscreen" aria-label="Toggle fullscreen mode">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button id="settings-btn" class="control-btn" title="Settings" aria-label="Open settings panel">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Layer Management Sidebar -->
+            <aside class="sidebar" id="layer-sidebar" aria-label="Map layers and controls">
+                <div class="sidebar-header">
+                    <h2><i class="fas fa-layer-group"></i> Map Layers</h2>
+                    <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle sidebar">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                </div>
+                
+                <div class="sidebar-content">
+                    
+                    <!-- Radar Controls Section -->
+                    <section class="control-section">
+                        <h3><i class="wi wi-radar"></i> Radar Data</h3>
+                        
+                        <!-- Radar Layer Toggle -->
+                        <div class="layer-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="radar-toggle" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">NEXRAD Radar</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Radar Opacity -->
+                        <div class="slider-control">
+                            <label for="radar-opacity">Radar Opacity</label>
+                            <input type="range" id="radar-opacity" min="0" max="100" value="80" 
+                                   aria-label="Radar layer opacity">
+                            <span class="slider-value">80%</span>
+                        </div>
+                        
+                        <!-- Color Scheme Selector -->
+                        <div class="select-control">
+                            <label for="color-scheme">Color Scheme</label>
+                            <select id="color-scheme" aria-label="Radar color scheme">
+                                <option value="classic">Classic Weather</option>
+                                <option value="velocity">Velocity</option>
+                                <option value="precipitation">Precipitation</option>
+                                <option value="temperature">Temperature</option>
+                                <option value="enhanced">Enhanced</option>
+                            </select>
+                        </div>
+                    </section>
+                    
+                    <!-- Base Map Layers Section -->
+                    <section class="control-section">
+                        <h3><i class="fas fa-map"></i> Base Maps</h3>
+                        
+                        <div class="layer-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="streets-toggle" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Street Maps</span>
+                            </label>
+                        </div>
+                        
+                        <div class="layer-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="states-toggle" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">State Boundaries</span>
+                            </label>
+                        </div>
+                        
+                        <div class="layer-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="counties-toggle">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">County Boundaries</span>
+                            </label>
+                        </div>
+                    </section>
+                    
+                    <!-- Weather Data Section -->
+                    <section class="control-section">
+                        <h3><i class="wi wi-lightning"></i> Weather Data</h3>
+                        
+                        <div class="layer-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="alerts-toggle" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Weather Alerts</span>
+                            </label>
+                        </div>
+                        
+                        <div class="layer-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="stations-toggle">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Weather Stations</span>
+                            </label>
+                        </div>
+                        
+                        <div class="layer-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="hazards-toggle" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Hazard Markers</span>
+                            </label>
+                        </div>
+                    </section>
+                    
+                    <!-- Radar Legend -->
+                    <section class="control-section">
+                        <h3><i class="fas fa-palette"></i> Radar Legend</h3>
+                        <div id="radar-legend" class="radar-legend">
+                            <!-- Legend will be populated by JavaScript -->
+                        </div>
+                    </section>
+                    
+                </div>
+            </aside>
+
+            <!-- Map Container -->
+            <div class="map-container">
+                <div id="main-map" class="map" role="application" aria-label="Interactive weather radar map">
+                    <!-- OpenLayers map will be initialized here -->
+                </div>
+                
+                <!-- Map Overlay Controls -->
+                <div class="map-overlays">
+                    
+                    <!-- Navigation Controls -->
+                    <fieldset class="control-panel navigation-controls">
+                        <legend class="sr-only">Map navigation controls</legend>
+                        <button id="zoom-in" class="map-control-btn" title="Zoom In" aria-label="Zoom in">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <button id="zoom-out" class="map-control-btn" title="Zoom Out" aria-label="Zoom out">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <button id="geolocation" class="map-control-btn" title="My Location" aria-label="Center map on my location">
+                            <i class="fas fa-crosshairs"></i>
+                        </button>
+                        <button id="reset-view" class="map-control-btn" title="Reset View" aria-label="Reset map to default view">
+                            <i class="fas fa-home"></i>
+                        </button>
+                    </fieldset>
+                    
+                    <!-- Radar Animation Controls -->
+                    <fieldset class="control-panel radar-controls">
+                        <legend class="sr-only">Radar animation controls</legend>
+                        <div class="radar-controls-header">
+                            <h3><i class="wi wi-time-4"></i> Radar Timeline</h3>
+                            <div class="time-display" id="current-time" aria-live="polite">
+                                Loading...
+                            </div>
+                        </div>
+                        
+                        <!-- Animation Control Buttons -->
+                        <div class="animation-controls">
+                            <button id="play-pause" class="animation-btn primary" aria-label="Play/pause radar animation">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button id="prev-frame" class="animation-btn" aria-label="Previous radar frame">
+                                <i class="fas fa-step-backward"></i>
+                            </button>
+                            <button id="next-frame" class="animation-btn" aria-label="Next radar frame">
+                                <i class="fas fa-step-forward"></i>
+                            </button>
+                            <button id="loop-toggle" class="animation-btn" aria-label="Toggle loop mode">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Timeline Scrubber -->
+                        <div class="timeline-container">
+                            <input type="range" id="timeline-scrubber" class="timeline-scrubber" 
+                                   min="0" max="100" value="100" aria-label="Radar timeline scrubber">
+                            <div class="timeline-markers" id="timeline-markers">
+                                <!-- Timeline markers will be generated by JavaScript -->
+                            </div>
+                        </div>
+                        
+                        <!-- Animation Speed Control -->
+                        <div class="speed-control">
+                            <label for="animation-speed">Speed</label>
+                            <select id="animation-speed" aria-label="Animation speed">
+                                <option value="0.5">0.5x</option>
+                                <option value="1" selected>1x</option>
+                                <option value="2">2x</option>
+                                <option value="4">4x</option>
+                            </select>
+                        </div>
+                    </fieldset>
+                    
+                    <!-- Weather Information Panel -->
+                    <fieldset class="control-panel weather-info">
+                        <legend class="sr-only">Current weather information</legend>
+                        <div class="weather-info-header">
+                            <h3><i class="wi wi-thermometer"></i> Current Conditions</h3>
+                            <button id="refresh-weather" class="refresh-btn" aria-label="Refresh weather data">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        
+                        <div id="weather-data" class="weather-data">
+                            <div class="weather-item">
+                                <span class="weather-label">Temperature:</span>
+                                <span class="weather-value" id="temperature">--°F</span>
+                            </div>
+                            <div class="weather-item">
+                                <span class="weather-label">Conditions:</span>
+                                <span class="weather-value" id="conditions">Loading...</span>
+                            </div>
+                            <div class="weather-item">
+                                <span class="weather-label">Wind:</span>
+                                <span class="weather-value" id="wind">-- mph</span>
+                            </div>
+                            <div class="weather-item">
+                                <span class="weather-label">Humidity:</span>
+                                <span class="weather-value" id="humidity">--%</span>
+                            </div>
+                            <div class="weather-item">
+                                <span class="weather-label">Pressure:</span>
+                                <span class="weather-value" id="pressure">-- inHg</span>
+                            </div>
+                        </div>
+                    </fieldset>
+                    
+                    <!-- Mobile Touch Controls -->
+                    <div class="mobile-controls" id="mobile-controls">
+                        <button id="mobile-menu" class="mobile-control-btn" aria-label="Open mobile menu">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                    </div>
+                    
+                </div>
+            </div>
+            
+        </main>
+        
+    </div>
+
+    <!-- Settings Modal -->
+    <dialog id="settings-modal" class="modal-overlay" aria-labelledby="settings-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="settings-title"><i class="fas fa-cog"></i> Settings</h2>
+                <button id="close-settings" class="close-btn" aria-label="Close settings">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                
+                <!-- Units Settings -->
+                <section class="settings-section">
+                    <h3>Units</h3>
+                    <div class="setting-item">
+                        <label for="temp-unit">Temperature</label>
+                        <select id="temp-unit">
+                            <option value="fahrenheit">Fahrenheit (°F)</option>
+                            <option value="celsius">Celsius (°C)</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label for="speed-unit">Wind Speed</label>
+                        <select id="speed-unit">
+                            <option value="mph">Miles per hour</option>
+                            <option value="kph">Kilometers per hour</option>
+                            <option value="kts">Knots</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label for="pressure-unit">Pressure</label>
+                        <select id="pressure-unit">
+                            <option value="inHg">Inches of Mercury</option>
+                            <option value="mb">Millibars</option>
+                            <option value="kPa">Kilopascals</option>
+                        </select>
+                    </div>
+                </section>
+                
+                <!-- Accessibility Settings -->
+                <section class="settings-section">
+                    <h3>Accessibility</h3>
+                    <div class="setting-item">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="high-contrast">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">High Contrast Mode</span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="reduced-motion">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Reduce Motion</span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="large-text">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Large Text</span>
+                        </label>
+                    </div>
+                </section>
+                
+                <!-- Notification Settings -->
+                <section class="settings-section">
+                    <h3>Notifications</h3>
+                    <div class="setting-item">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="weather-alerts" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Weather Alerts</span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="severe-weather" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Severe Weather Warnings</span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label for="alert-sound">Alert Sound</label>
+                        <select id="alert-sound">
+                            <option value="none">No Sound</option>
+                            <option value="beep">Beep</option>
+                            <option value="chime">Chime</option>
+                            <option value="alert">Alert Tone</option>
+                        </select>
+                    </div>
+                </section>
+                
+                <!-- Data Settings -->
+                <section class="settings-section">
+                    <h3>Data</h3>
+                    <div class="setting-item">
+                        <label for="update-interval">Update Interval</label>
+                        <select id="update-interval">
+                            <option value="1">1 minute</option>
+                            <option value="2">2 minutes</option>
+                            <option value="5" selected>5 minutes</option>
+                            <option value="10">10 minutes</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="auto-refresh" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Auto Refresh</span>
+                        </label>
+                    </div>
+                </section>
+                
+            </div>
+            
+            <div class="modal-footer">
+                <button id="reset-settings" class="btn btn-secondary">Reset to Defaults</button>
+                <button id="save-settings" class="btn btn-primary">Save Settings</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Mobile Drawer -->
+    <div id="mobile-drawer" class="mobile-drawer">
+        <div class="mobile-drawer-content">
+            <div class="mobile-drawer-header">
+                <h2>Weather Controls</h2>
+                <button id="close-mobile-drawer" class="close-btn" aria-label="Close mobile menu">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mobile-drawer-body">
+                <!-- Mobile-optimized controls will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- OpenLayers JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    
+    <!-- Application JavaScript Modules -->
+    <script type="module" src="../js/weather-radar-app.js"></script>
+    
+</body>
+</html>

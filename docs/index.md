@@ -12,7 +12,7 @@ Our documentation follows industry standards and is organized into distinct docu
 
 ### 📋 Project Information
 - **[README.md](README.md)** - Project overview and quick start guide
-- **[CHANGELOG.md](../CHANGELOG.md)** - Version history and release notes
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
 - **[LICENSE](../LICENSE)** - MIT License terms and conditions
 
 ### 🔧 Technical Documentation
@@ -29,8 +29,10 @@ Our documentation follows industry standards and is organized into distinct docu
 - **[TESTING.md](TESTING.md)** - Testing strategies and procedures
 
 ### 📊 Project Management
-- **[project-plan.md](project-plan.md)** - Development phases and progress tracking
-- **[gui-implementation-summary.md](gui-implementation-summary.md)** - GUI enhancement summary
+- **[📋 Project Progress Tracker](project-progress-tracker.md)** - Comprehensive progress analysis and plan comparison
+- **[🚀 Interactive GUI Guide](gui-readme.md)** - Complete guide to the React-based progress tracking GUI
+- **[📈 Project Plan](project-plan.md)** - Development phases and progress tracking
+- **[📋 GUI Implementation Summary](gui-implementation-summary.md)** - GUI enhancement summary
 
 ---
 

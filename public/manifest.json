@@ -1,13 +1,13 @@
 {
-  "name": "Layers Radar States Streets - Weather Map Visualization",
-  "short_name": "Radar Map",
-  "description": "Interactive weather radar and state boundaries visualization with real-time data",
+  "name": "NEXRAD Weather Radar - Professional Meteorological Visualization",
+  "short_name": "Weather Radar",
+  "description": "Real-time NEXRAD weather radar visualization with advanced controls for meteorologists and weather enthusiasts",
   "version": "2.0.0",
-  "start_url": "/",
+  "start_url": "/weather-radar.html",
   "display": "standalone",
   "orientation": "any",
-  "theme_color": "#1a365d",
-  "background_color": "#ffffff",
+  "theme_color": "#1e293b",
+  "background_color": "#0f172a",
   "lang": "en-US",
   "scope": "/",
   "categories": ["weather", "maps", "utilities"],
@@ -87,25 +87,37 @@
   },
   "shortcuts": [
     {
-      "name": "View Current Weather",
-      "short_name": "Weather",
-      "description": "View current weather radar data",
-      "url": "/?view=weather",
+      "name": "Current Radar",
+      "short_name": "Current",
+      "description": "View current NEXRAD weather radar",
+      "url": "/weather-radar.html#current",
       "icons": [
         {
-          "src": "/assets/icons/weather-shortcut.png",
+          "src": "/assets/icons/current-radar.png",
           "sizes": "96x96"
         }
       ]
     },
     {
-      "name": "My Location",
-      "short_name": "Location",
-      "description": "Center map on your current location",
-      "url": "/?action=locate",
+      "name": "Radar Animation",
+      "short_name": "Animation",
+      "description": "View animated radar timeline",
+      "url": "/weather-radar.html#animation",
       "icons": [
         {
-          "src": "/assets/icons/location-shortcut.png",
+          "src": "/assets/icons/animation-shortcut.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Weather Alerts",
+      "short_name": "Alerts",
+      "description": "View active weather alerts",
+      "url": "/weather-radar.html#alerts",
+      "icons": [
+        {
+          "src": "/assets/icons/alerts-shortcut.png",
           "sizes": "96x96"
         }
       ]
