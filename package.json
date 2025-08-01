@@ -1,17 +1,60 @@
 {
   "name": "layers-radar-states-streets",
-  "version": "1.0.0",
-  "description": "NEXRAD radar, state boundaries, and street map visualization using OpenLayers.",
+  "version": "2.0.0",
+  "description": "Modern NEXRAD radar, state boundaries, and street map visualization using OpenLayers with modular ES6+ architecture.",
   "main": "src/main.js",
+  "type": "module",
   "scripts": {
-    "start": "node src/main.js",
-    "test": "echo \"No tests yet\" && exit 0",
-    "lint": "eslint src/"
+    "start": "npx http-server public -p 8080 -o",
+    "dev": "npx http-server . -p 8080 -o",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
+    "format": "prettier --write src/ tests/ public/",
+    "build": "echo 'Building application...' && npm run lint && npm run test",
+    "serve": "npm run start"
   },
+  "keywords": [
+    "openlayers",
+    "radar",
+    "nexrad",
+    "maps",
+    "gis",
+    "weather",
+    "visualization"
+  ],
   "author": "hkevin01",
   "license": "MIT",
   "devDependencies": {
     "eslint": "^8.0.0",
-    "prettier": "^3.0.0"
+    "prettier": "^3.0.0",
+    "jest": "^29.0.0",
+    "jest-environment-jsdom": "^29.0.0",
+    "@types/jest": "^29.0.0"
+  },
+  "dependencies": {
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ],
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+    "moduleFileExtensions": ["js", "json"],
+    "transform": {
+      "^.+\\.js$": "babel-jest"
+    },
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/src/js/"
+    ]
   }
 }

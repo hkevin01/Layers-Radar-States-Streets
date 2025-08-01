@@ -1,0 +1,20 @@
+{
+  "obs": [
+    {
+      "file": "sample-nexrad-20250101-120000.png",
+      "timestamp": "2025-01-01T12:00:00Z",
+      "type": "nexrad-n0q",
+      "bounds": {
+        "west": -180,
+        "south": -90,
+        "east": 180,
+        "north": 90
+      }
+    }
+  ],
+  "metadata": {
+    "source": "Sample data for testing",
+    "generated": "2025-01-01T00:00:00Z",
+    "version": "1.0"
+  }
+}

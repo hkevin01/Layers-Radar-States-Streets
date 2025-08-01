@@ -1,0 +1,14 @@
+{
+  "behavior": {
+    "suggestionMode": "smart",
+    "enableComments": true,
+    "preferredLanguages": ["javascript", "python"],
+    "maxSuggestions": 5
+  },
+  "prompts": [
+    {
+      "name": "map-layer-setup",
+      "description": "Suggest code for setting up OpenLayers TMS layers and AJAX data loading."
+    }
+  ]
+}

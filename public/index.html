@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Layers Radar States Streets Demo</title>
+  
+  <!-- OpenLayers CSS and JS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/openlayers/2.13.1/theme/default/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/openlayers/2.13.1/OpenLayers.js"></script>
+  
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+    }
+    
+    header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    header h1 {
+      font-size: 1.8rem;
+      margin-bottom: 0.3rem;
+    }
+    
+    header p {
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+    
+    #map {
+      width: 100vw;
+      height: calc(100vh - 140px);
+      border: none;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+    }
+    
+    footer {
+      background: #333;
+      color: #ccc;
+      padding: 0.8rem 2rem;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+    
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255,255,255,0.9);
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      z-index: 10000;
+      display: none;
+    }
+    
+    .error {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #ff4444;
+      color: white;
+      padding: 1rem;
+      border-radius: 4px;
+      z-index: 10001;
+      display: none;
+    }
+    
+    /* OpenLayers layer switcher styling */
+    .olControlLayerSwitcher {
+      background: rgba(255,255,255,0.95) !important;
+      border-radius: 4px !important;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🗺️ Layers Radar States Streets Visualization</h1>
+    <p>Interactive map displaying NEXRAD radar data, state boundaries, and street layers</p>
+  </header>
+  
+  <div id="map"></div>
+  <div class="loading" id="loading">Loading map data...</div>
+  <div class="error" id="error"></div>
+  
+  <footer>
+    &copy; 2025 Layers Radar States Streets | Built with OpenLayers
+  </footer>
+
+  <!-- Main application script -->
+  <script type="module" src="../src/main.js"></script>
+  
+  <!-- Fallback for browsers that don't support modules -->
+  <script nomodule>
+    // For older browsers, load individual scripts
+    console.warn('ES6 modules not supported. Please use a modern browser.');
+  </script>
+  
+  <script>
+    // Global utility functions for backward compatibility
+    window.loading = function(show) {
+      const loader = document.getElementById('loading');
+      loader.style.display = show ? 'block' : 'none';
+    };
+    
+    window.errorAlert = function(jqXHR, exception, errorThrown) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.textContent = `Error: ${errorThrown || exception || 'Unknown error'}`;
+      errorDiv.style.display = 'block';
+      setTimeout(() => {
+        errorDiv.style.display = 'none';
+      }, 5000);
+    };
+    
+    window.waitForMSG = function(file, flag) {
+      console.log('Processing message:', file, flag);
+      // Add your message processing logic here
+    };
+    
+    // Initialize map when page loads (fallback)
+    window.addEventListener('load', function() {
+      if (typeof window.initLoad === 'function') {
+        window.initLoad();
+      }
+    });
+  </script>
+</body>
+</html>
