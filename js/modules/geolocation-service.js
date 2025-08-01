@@ -5,12 +5,12 @@
  * @version 2.0.0
  */
 
-import { Feature } from 'ol';
-import { Point } from 'ol/geom';
-import { Vector as VectorLayer } from 'ol/layer';
-import { fromLonLat } from 'ol/proj';
-import { Vector as VectorSource } from 'ol/source';
-import { Circle, Fill, Stroke, Style } from 'ol/style';
+import { Feature } from 'https://cdn.skypack.dev/ol';
+import { Point } from 'https://cdn.skypack.dev/ol/geom';
+import { Vector as VectorLayer } from 'https://cdn.skypack.dev/ol/layer';
+import { fromLonLat } from 'https://cdn.skypack.dev/ol/proj';
+import { Vector as VectorSource } from 'https://cdn.skypack.dev/ol/source';
+import { Circle, Fill, Stroke, Style } from 'https://cdn.skypack.dev/ol/style';
 
 /**
  * Geolocation Service Class

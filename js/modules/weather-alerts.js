@@ -5,9 +5,9 @@
  * @version 2.0.0
  */
 
-import { Feature } from 'ol';
-import GeoJSON from 'ol/format/GeoJSON';
-import { transform } from 'ol/proj';
+import { Feature } from 'https://cdn.skypack.dev/ol';
+import GeoJSON from 'https://cdn.skypack.dev/ol/format/GeoJSON';
+import { transform } from 'https://cdn.skypack.dev/ol/proj';
 
 /**
  * Weather Alerts Manager Class

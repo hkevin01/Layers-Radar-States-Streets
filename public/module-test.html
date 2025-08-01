@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ES Module Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #0f172a;
+            color: white;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        .info { background: #3b82f6; }
+    </style>
+</head>
+<body>
+    <h1>ES Module Test</h1>
+    <div id="status">Testing...</div>
+    
+    <script type="module">
+        const statusDiv = document.getElementById('status');
+        
+        function updateStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        async function testESModules() {
+            try {
+                updateStatus('Testing ES modules...', 'info');
+                
+                // Test basic import
+                const response = await fetch('../js/modules/layer-manager.js');
+                if (response.ok) {
+                    updateStatus('✅ ES modules loading successful!', 'success');
+                } else {
+                    updateStatus(`❌ ES module loading failed: ${response.status}`, 'error');
+                }
+                
+            } catch (error) {
+                updateStatus(`❌ ES module test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        testESModules();
+    </script>
+</body>
+</html>

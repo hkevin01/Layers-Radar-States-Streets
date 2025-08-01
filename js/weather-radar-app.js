@@ -5,10 +5,7 @@
  * @version 2.0.0
  */
 
-import { Map, View } from 'ol';
-import { defaults as defaultControls, ScaleLine, ZoomSlider } from 'ol/control';
-import { defaults as defaultInteractions, DragRotateAndZoom } from 'ol/interaction';
-import { fromLonLat, transformExtent } from 'ol/proj';
+// Remove ES module imports - using global ol object instead
 
 import { GeolocationService } from './modules/geolocation-service.js';
 import { LayerManager } from './modules/layer-manager.js';
@@ -42,7 +39,7 @@ export class WeatherRadarApp {
             defaultZoom: 5,
             minZoom: 3,
             maxZoom: 15,
-            extent: transformExtent([-180, -85, 180, 85], 'EPSG:4326', 'EPSG:3857'),
+            extent: ol.proj.transformExtent([-180, -85, 180, 85], 'EPSG:4326', 'EPSG:3857'),
             radarUpdateInterval: 300000, // 5 minutes
             alertsUpdateInterval: 60000,  // 1 minute
             animationFrames: 10,
@@ -98,8 +95,8 @@ export class WeatherRadarApp {
      * Initialize the OpenLayers map
      */
     initializeMap() {
-        const view = new View({
-            center: fromLonLat(this.config.defaultCenter),
+        const view = new ol.View({
+            center: ol.proj.fromLonLat(this.config.defaultCenter),
             zoom: this.config.defaultZoom,
             minZoom: this.config.minZoom,
             maxZoom: this.config.maxZoom,
@@ -108,16 +105,16 @@ export class WeatherRadarApp {
             constrainResolution: true
         });
 
-        this.map = new Map({
+        this.map = new ol.Map({
             target: 'map',
             view: view,
-            controls: defaultControls({
+            controls: ol.control.defaults({
                 attribution: true,
                 zoom: true,
                 rotate: true
             }).extend([
-                new ZoomSlider(),
-                new ScaleLine({
+                new ol.control.ZoomSlider(),
+                new ol.control.ScaleLine({
                     units: 'us',
                     bar: true,
                     steps: 4,
@@ -125,7 +122,7 @@ export class WeatherRadarApp {
                     minWidth: 140
                 })
             ]),
-            interactions: defaultInteractions({
+            interactions: ol.interaction.defaults({
                 doubleClickZoom: true,
                 dragPan: true,
                 dragRotate: false,
@@ -135,7 +132,7 @@ export class WeatherRadarApp {
                 pointer: true,
                 select: true
             }).extend([
-                new DragRotateAndZoom()
+                new ol.interaction.DragRotateAndZoom()
             ])
         });
 

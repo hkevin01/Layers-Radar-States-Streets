@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXRAD Weather Radar - Simple Version</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+    
+    <!-- Font Awesome for weather icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Weather Icons Font -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: white;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-content {
+            text-align: center;
+            max-width: 400px;
+            padding: 2rem;
+        }
+
+        .loading-icon {
+            font-size: 4rem;
+            color: #3b82f6;
+            margin-bottom: 1rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading-content h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #e2e8f0;
+        }
+
+        .loading-bar {
+            width: 100%;
+            height: 4px;
+            background: #475569;
+            border-radius: 2px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+            border-radius: 2px;
+            animation: progress 3s infinite;
+        }
+
+        @keyframes progress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+
+        #loading-text {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+
+        /* Map Controls */
+        .weather-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 15px;
+            z-index: 1000;
+            min-width: 200px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-button {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .control-button:hover {
+            background: #334155;
+            border-color: #3b82f6;
+        }
+
+        .control-button.active {
+            background: #3b82f6;
+            border-color: #2563eb;
+        }
+
+        /* Status indicator */
+        .status-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            z-index: 1000;
+        }
+
+        .status-online {
+            color: #10b981;
+        }
+
+        .status-error {
+            color: #ef4444;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .weather-controls {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+            
+            .status-indicator {
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <i class="wi wi-day-thunderstorm loading-icon"></i>
+            <h2>Loading Weather Data</h2>
+            <div class="loading-bar">
+                <div class="loading-progress" id="loading-progress"></div>
+            </div>
+            <p id="loading-text">Initializing NEXRAD radar...</p>
+        </div>
+    </div>
+
+    <!-- Main Map Container -->
+    <div id="map"></div>
+
+    <!-- Weather Controls -->
+    <div class="weather-controls">
+        <div class="control-group">
+            <div class="control-label">Base Map</div>
+            <button class="control-button active" onclick="switchBaseLayer('osm')">Street</button>
+            <button class="control-button" onclick="switchBaseLayer('satellite')">Satellite</button>
+        </div>
+        
+        <div class="control-group">
+            <div class="control-label">Weather Layers</div>
+            <button class="control-button active" onclick="toggleLayer('radar')">
+                <i class="wi wi-radar"></i> Radar
+            </button>
+            <button class="control-button" onclick="toggleLayer('alerts')">
+                <i class="wi wi-storm-warning"></i> Alerts
+            </button>
+        </div>
+        
+        <div class="control-group">
+            <div class="control-label">Tools</div>
+            <button class="control-button" onclick="centerOnLocation()">
+                <i class="fas fa-crosshairs"></i> My Location
+            </button>
+            <button class="control-button" onclick="refreshData()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Status Indicator -->
+    <div class="status-indicator">
+        <span id="status-text">Initializing...</span>
+    </div>
+
+    <!-- OpenLayers JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    
+    <!-- Simple Weather Radar Application -->
+    <script src="../js/simple-weather-radar.js"></script>
+    
+    <script>
+        // Control functions
+        function switchBaseLayer(type) {
+            console.log('Switching base layer to:', type);
+            // Implementation would go here
+            updateStatus('Switched to ' + type + ' view');
+        }
+        
+        function toggleLayer(type) {
+            console.log('Toggling layer:', type);
+            // Implementation would go here
+            updateStatus('Toggled ' + type + ' layer');
+        }
+        
+        function centerOnLocation() {
+            console.log('Centering on user location...');
+            updateStatus('Locating...');
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const coords = [position.coords.longitude, position.coords.latitude];
+                        if (window.weatherRadarApp && window.weatherRadarApp.map) {
+                            window.weatherRadarApp.map.getView().setCenter(ol.proj.fromLonLat(coords));
+                            window.weatherRadarApp.map.getView().setZoom(10);
+                            updateStatus('Centered on your location');
+                        }
+                    },
+                    function(error) {
+                        console.error('Geolocation error:', error);
+                        updateStatus('Location unavailable', 'error');
+                    }
+                );
+            } else {
+                updateStatus('Geolocation not supported', 'error');
+            }
+        }
+        
+        function refreshData() {
+            console.log('Refreshing weather data...');
+            updateStatus('Refreshing data...');
+            
+            // Simulate refresh
+            setTimeout(() => {
+                updateStatus('Data refreshed');
+            }, 1000);
+        }
+        
+        function updateStatus(message, type = 'normal') {
+            const statusElement = document.getElementById('status-text');
+            if (statusElement) {
+                statusElement.textContent = message;
+                statusElement.className = type === 'error' ? 'status-error' : 'status-online';
+            }
+        }
+        
+        // Update status when app initializes
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (window.weatherRadarApp && window.weatherRadarApp.initialized) {
+                    updateStatus('Weather radar online');
+                } else {
+                    updateStatus('Connecting...', 'error');
+                }
+            }, 3000);
+        });
+    </script>
+</body>
+</html>

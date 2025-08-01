@@ -3,11 +3,11 @@
  * Simplified version for debugging initialization issues
  */
 
-import { Map, View } from 'ol';
-import { defaults as defaultControls } from 'ol/control';
-import { TileLayer } from 'ol/layer';
-import { fromLonLat } from 'ol/proj';
-import { OSM } from 'ol/source';
+import { Map, View } from 'https://cdn.skypack.dev/ol';
+import { defaults as defaultControls } from 'https://cdn.skypack.dev/ol/control';
+import { TileLayer } from 'https://cdn.skypack.dev/ol/layer';
+import { fromLonLat } from 'https://cdn.skypack.dev/ol/proj';
+import { OSM } from 'https://cdn.skypack.dev/ol/source';
 
 class SimpleWeatherRadarApp {
     constructor() {
