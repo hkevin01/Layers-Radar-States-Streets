@@ -164,7 +164,7 @@ export class WeatherRadarApp {
         await this.radarController.init();
 
         // Initialize weather alerts manager
-        this.alertsManager = new WeatherAlertsManager(this.map, this.config);
+        this.alertsManager = new WeatherAlertsManager(this.map, this.layerManager, this.config);
         await this.alertsManager.init();
 
         // Initialize timeline controller

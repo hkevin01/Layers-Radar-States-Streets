@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
+  <rect width="144" height="144" fill="#1e293b" rx="20"/>
+  <circle cx="72" cy="72" r="45" fill="none" stroke="#3b82f6" stroke-width="6"/>
+  <circle cx="72" cy="72" r="30" fill="none" stroke="#06b6d4" stroke-width="4"/>
+  <circle cx="72" cy="72" r="15" fill="none" stroke="#10b981" stroke-width="3"/>
+  <circle cx="72" cy="72" r="6" fill="#10b981"/>
+  
+  <!-- Radar sweep lines -->
+  <path d="M 25 25 Q 72 15 119 25" stroke="#3b82f6" stroke-width="2" fill="none" opacity="0.7"/>
+  <path d="M 25 119 Q 72 129 119 119" stroke="#3b82f6" stroke-width="2" fill="none" opacity="0.7"/>
+  <path d="M 25 72 Q 15 72 25 72" stroke="#06b6d4" stroke-width="2" fill="none"/>
+  <path d="M 119 72 Q 129 72 119 72" stroke="#06b6d4" stroke-width="2" fill="none"/>
+  
+  <!-- Weather symbols -->
+  <circle cx="50" cy="50" r="3" fill="#f59e0b" opacity="0.8"/>
+  <circle cx="94" cy="45" r="4" fill="#ef4444" opacity="0.9"/>
+  <circle cx="85" cy="95" r="2" fill="#06b6d4" opacity="0.7"/>
+  <circle cx="45" cy="95" r="3" fill="#10b981" opacity="0.8"/>
+</svg>

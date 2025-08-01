@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Radar Debug Test</title>
+    
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #3b82f6;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        #map {
+            width: 100%;
+            height: 400px;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .console-output {
+            background: #000;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+        
+        .log-line {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        
+        .log-error { color: #ef4444; }
+        .log-warn { color: #f59e0b; }
+        .log-info { color: #10b981; }
+        .log-debug { color: #3b82f6; }
+        
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .controls button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        
+        .controls button:hover {
+            background: #2563eb;
+        }
+        
+        /* Loading screen styles matching the main app */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            color: white;
+        }
+        
+        .loading-content {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading-icon {
+            font-size: 4rem;
+            color: #3b82f6;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading-bar {
+            width: 300px;
+            height: 4px;
+            background: #1e293b;
+            border-radius: 2px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: loadingProgress 3s infinite;
+        }
+        
+        @keyframes loadingProgress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="loading-content">
+            <div class="loading-icon">🌦️</div>
+            <h2>Loading Weather Data</h2>
+            <div class="loading-bar">
+                <div class="loading-progress" id="loading-progress"></div>
+            </div>
+            <p id="loading-text">Initializing debug mode...</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>🌦️ Weather Radar Debug Test</h1>
+        
+        <div class="status">
+            <h3>🔧 Debug Mode Active</h3>
+            <p>This is a simplified version to help identify initialization issues.</p>
+            <p><strong>Status:</strong> <span id="init-status">Starting...</span></p>
+        </div>
+        
+        <div class="controls">
+            <button onclick="testFullApp()">Test Full App</button>
+            <button onclick="testDiagnostic()">Run Diagnostic</button>
+            <button onclick="clearConsole()">Clear Console</button>
+            <button onclick="window.location.reload()">Reload</button>
+        </div>
+        
+        <!-- Map will be created here by JavaScript -->
+        
+        <div class="console-output" id="console-output">
+            Console output will appear here...
+        </div>
+    </div>
+
+    <!-- OpenLayers JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    
+    <!-- Font Awesome for icons (optional) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        // Console capture for debugging
+        const consoleOutput = document.getElementById('console-output');
+        const statusElement = document.getElementById('init-status');
+        
+        function logToPage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-line log-${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            consoleOutput.appendChild(logEntry);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        // Override console methods
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const originalInfo = console.info;
+
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            logToPage(args.join(' '), 'info');
+        };
+
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            logToPage(args.join(' '), 'error');
+            statusElement.textContent = 'Error detected';
+            statusElement.style.color = '#ef4444';
+        };
+
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            logToPage(args.join(' '), 'warn');
+        };
+
+        console.info = function(...args) {
+            originalInfo.apply(console, args);
+            logToPage(args.join(' '), 'debug');
+        };
+        
+        function clearConsole() {
+            consoleOutput.innerHTML = 'Console cleared...';
+        }
+        
+        function testFullApp() {
+            console.log('🔄 Attempting to load full weather radar app...');
+            window.location.href = 'weather-radar.html';
+        }
+        
+        function testDiagnostic() {
+            console.log('🔍 Opening diagnostic tool...');
+            window.open('../diagnostic-test.html', '_blank');
+        }
+        
+        // Update status when app initializes
+        document.addEventListener('DOMContentLoaded', () => {
+            statusElement.textContent = 'Loading modules...';
+            statusElement.style.color = '#f59e0b';
+        });
+        
+        // Listen for successful initialization
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (window.simpleWeatherRadarApp && window.simpleWeatherRadarApp.initialized) {
+                    statusElement.textContent = 'Initialized successfully';
+                    statusElement.style.color = '#10b981';
+                } else {
+                    statusElement.textContent = 'Initialization may have failed';
+                    statusElement.style.color = '#f59e0b';
+                }
+            }, 2000);
+        });
+    </script>
+    
+    <!-- Debug Application -->
+    <script type="module" src="../js/simple-weather-debug.js"></script>
+</body>
+</html>

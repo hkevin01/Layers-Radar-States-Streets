@@ -14,9 +14,10 @@ import { transform } from 'ol/proj';
  * Handles weather alert data loading, parsing, and display
  */
 export class WeatherAlertsManager extends EventTarget {
-    constructor(map, config) {
+    constructor(map, layerManager, config) {
         super();
         this.map = map;
+        this.layerManager = layerManager;
         this.config = config;
         
         this.alerts = new Map();
@@ -325,8 +326,8 @@ export class WeatherAlertsManager extends EventTarget {
         });
         
         // Update layer features
-        this.map.layerManager.addWeatherFeatures('warnings', warningFeatures);
-        this.map.layerManager.addWeatherFeatures('watches', watchFeatures);
+        this.layerManager.addWeatherFeatures('warnings', warningFeatures);
+        this.layerManager.addWeatherFeatures('watches', watchFeatures);
     }
 
     /**
@@ -391,12 +392,12 @@ export class WeatherAlertsManager extends EventTarget {
      */
     highlightAlerts() {
         // Increase opacity of alert layers
-        this.map.layerManager.setLayerOpacity('weather_warnings', 0.8);
-        this.map.layerManager.setLayerOpacity('weather_watches', 0.7);
+        this.layerManager.setLayerOpacity('weather_warnings', 0.8);
+        this.layerManager.setLayerOpacity('weather_watches', 0.7);
         
         // Ensure alert layers are visible
-        this.map.layerManager.setLayerVisibility('weather_warnings', true);
-        this.map.layerManager.setLayerVisibility('weather_watches', true);
+        this.layerManager.setLayerVisibility('weather_warnings', true);
+        this.layerManager.setLayerVisibility('weather_watches', true);
         
         this.dispatchEvent(new CustomEvent('alerts:highlighted'));
     }
