@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Radar - Modern Edition</title>
+    
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Weather Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: rgba(30, 30, 30, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .sidebar h1 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #4ade80;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .control-section {
+            margin-bottom: 30px;
+        }
+        
+        .control-section h3 {
+            font-size: 1rem;
+            margin-bottom: 15px;
+            color: #a1a1aa;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding: 8px 0;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #374151;
+            transition: 0.3s;
+            border-radius: 12px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #4ade80;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        .slider-control {
+            margin-bottom: 15px;
+        }
+        
+        .slider-control label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #a1a1aa;
+        }
+        
+        .slider-control input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #374151;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4ade80;
+            cursor: pointer;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 8px 12px;
+            background: rgba(74, 222, 128, 0.1);
+            border: 1px solid #4ade80;
+            border-radius: 6px;
+            color: #4ade80;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: rgba(74, 222, 128, 0.2);
+        }
+        
+        .btn.active {
+            background: #4ade80;
+            color: #1a1a1a;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #main-map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .map-control-btn {
+            width: 40px;
+            height: 40px;
+            background: rgba(30, 30, 30, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+        }
+        
+        .map-control-btn:hover {
+            background: rgba(74, 222, 128, 0.2);
+            border-color: #4ade80;
+        }
+        
+        .status-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(30, 30, 30, 0.9);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+        }
+        
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        
+        .loading-content {
+            text-align: center;
+        }
+        
+        .loading-icon {
+            font-size: 3rem;
+            color: #4ade80;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading-content h2 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #ffffff;
+        }
+        
+        .loading-progress {
+            width: 200px;
+            height: 3px;
+            background: rgba(74, 222, 128, 0.3);
+            border-radius: 1.5px;
+            overflow: hidden;
+            margin: 0 auto 15px;
+        }
+        
+        .loading-progress::after {
+            content: '';
+            display: block;
+            width: 50%;
+            height: 100%;
+            background: #4ade80;
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
+        }
+        
+        #loading-text {
+            color: #a1a1aa;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <i class="wi wi-radar loading-icon"></i>
+            <h2>Loading Weather Radar</h2>
+            <div class="loading-progress"></div>
+            <p id="loading-text">Initializing NEXRAD radar...</p>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="app-container">
+        <!-- Sidebar Controls -->
+        <div class="sidebar">
+            <h1>
+                <i class="wi wi-radar"></i>
+                Weather Radar
+            </h1>
+            
+            <!-- Radar Controls -->
+            <div class="control-section">
+                <h3><i class="wi wi-radar"></i> Radar Data</h3>
+                
+                <div class="control-item">
+                    <label for="radar-toggle">NEXRAD Radar</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="radar-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </div>
+                </div>
+                
+                <div class="slider-control">
+                    <label for="radar-opacity">Radar Opacity</label>
+                    <input type="range" id="radar-opacity" min="0" max="100" value="80">
+                    <span class="slider-value">80%</span>
+                </div>
+            </div>
+            
+            <!-- Base Layers -->
+            <div class="control-section">
+                <h3><i class="fas fa-map"></i> Base Maps</h3>
+                
+                <div class="control-item">
+                    <label for="streets-toggle">Street Maps</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="streets-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn active" onclick="switchBaseLayer('osm')">Streets</button>
+                    <button class="btn" onclick="switchBaseLayer('satellite')">Satellite</button>
+                </div>
+            </div>
+            
+            <!-- Weather Data -->
+            <div class="control-section">
+                <h3><i class="wi wi-lightning"></i> Weather Data</h3>
+                
+                <div class="control-item">
+                    <label for="alerts-toggle">Weather Alerts</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="alerts-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="control-section">
+                <h3><i class="fas fa-tools"></i> Actions</h3>
+                
+                <div class="button-group">
+                    <button class="btn" onclick="centerOnLocation()">
+                        <i class="fas fa-crosshairs"></i> Locate
+                    </button>
+                    <button class="btn" onclick="refreshData()">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Map Container -->
+        <div class="map-container">
+            <div id="main-map"></div>
+            
+            <!-- Map Controls -->
+            <div class="map-controls">
+                <button class="map-control-btn" id="zoom-in" title="Zoom In">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button class="map-control-btn" id="zoom-out" title="Zoom Out">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button class="map-control-btn" id="geolocation" title="My Location">
+                    <i class="fas fa-crosshairs"></i>
+                </button>
+            </div>
+            
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <span id="status-text">Initializing...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- OpenLayers JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    
+    <!-- Weather Radar Application -->
+    <script src="../src/shared/global-weather-radar.js"></script>
+    
+    <script>
+        // UI enhancements
+        document.addEventListener('DOMContentLoaded', () => {
+            // Button group toggle functionality
+            document.querySelectorAll('.button-group .btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const group = e.target.closest('.button-group');
+                    group.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                });
+            });
+            
+            // Opacity slider value display
+            const opacitySlider = document.getElementById('radar-opacity');
+            const sliderValue = document.querySelector('.slider-value');
+            
+            opacitySlider.addEventListener('input', (e) => {
+                sliderValue.textContent = e.target.value + '%';
+            });
+        });
+    </script>
+</body>
+</html>
