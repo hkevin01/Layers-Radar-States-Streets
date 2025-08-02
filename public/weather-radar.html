@@ -12,6 +12,10 @@
     <!-- OpenLayers CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
     
+    <!-- OpenLayers LayerSwitcher -->
+    <link rel="stylesheet" href="https://unpkg.com/ol-layerswitcher@4.1.1/dist/ol-layerswitcher.css" />
+    <script src="https://unpkg.com/ol-layerswitcher@4.1.1"></script>
+    
     <!-- Layer Switcher CSS -->
     <style>
         /* Loading screen styles */
@@ -1154,21 +1158,29 @@
                     loadingScreen.style.display = 'flex';
                 }
                 
-                // Create base OpenStreetMap layer
-                const osmLayer = new ol.layer.Tile({
-                    preload: Infinity,
-                    source: new ol.source.OSM({
-                        crossOrigin: 'anonymous',
-                        wrapX: true,
-                        attributions: [
-                            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                        ]
-                    }),
-                    name: 'OpenStreetMap',
-                    title: 'OpenStreetMap',
-                    type: 'base',
-                    visible: true
-                });
+                // Create LayerSwitcher control
+            const layerSwitcher = new LayerSwitcher({
+                tipLabel: 'Layers', // Optional label for button
+                groupSelectStyle: 'group', // Optional, 'group' or 'none'
+                reverse: true, // Optional, show layers in reverse order
+                collapseTipLabel: 'Collapse layers' // Optional
+            });
+
+            // Create base OpenStreetMap layer
+            const osmLayer = new ol.layer.Tile({
+                preload: Infinity,
+                source: new ol.source.OSM({
+                    crossOrigin: 'anonymous',
+                    wrapX: true,
+                    attributions: [
+                        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    ]
+                }),
+                name: 'OpenStreetMap',
+                title: 'OpenStreetMap',
+                type: 'base',
+                visible: true
+            });
             
             const satelliteLayer = new ol.layer.Tile({
                 source: new ol.source.XYZ({
@@ -1232,10 +1244,16 @@
                 })
             ]);
             
+            // Create base layer group
+            const baseMaps = new ol.layer.Group({
+                title: 'Base Maps',
+                layers: [osmLayer, satelliteLayer, terrainLayer]
+            });
+
             // Create map with enhanced configuration
             const map = new ol.Map({
                 target: 'main-map',
-                layers: [osmLayer],  // Start with just OSM layer
+                layers: [baseMaps],  // Add the base layer group
                 view: view,
                 controls: controls,
                 interactions: ol.interaction.defaults({
@@ -1334,7 +1352,13 @@
                     loadingScreen.style.display = 'flex';
                 }
                 
-                // Add NEXRAD radar base reflectivity layer - simplified and working
+                // Create a layer group for weather layers
+                const weatherLayerGroup = new ol.layer.Group({
+                    title: 'Weather Data',
+                    layers: []
+                });
+
+                // Add NEXRAD radar base reflectivity layer
                 console.log('🌧️ Creating NEXRAD radar layer...');
                 
                 const radarLayer = new ol.layer.Tile({
@@ -1350,7 +1374,7 @@
                     type: 'overlay'
                 });
 
-                // Add error handling
+                // Add error handling for radar layer
                 radarLayer.getSource().on('tileloaderror', (event) => {
                     console.warn('⚠️ Failed to load radar tile, will retry automatically');
                     setTimeout(() => radarLayer.getSource().refresh(), 5000);
@@ -1358,7 +1382,6 @@
 
                 radarLayer.getSource().on('tileloadend', () => {
                     console.log('✅ Radar tile loaded successfully');
-                    const loadingScreen = document.getElementById('loading-screen');
                     if (loadingScreen) {
                         loadingScreen.classList.add('hidden');
                         setTimeout(() => {
@@ -1367,42 +1390,7 @@
                     }
                 });
 
-                // Add layer to map
-                map.addLayer(radarLayer);
-                console.log('✅ Weather layer added successfully');
-                
-                // Store layer reference globally for controls
-                window.weatherLayers = {
-                    radarReflectivity: radarLayer
-                };
-                
-                // Set up automatic refresh every 5 minutes
-                setInterval(() => {
-                    console.log('🔄 Refreshing radar data...');
-                    radarLayer.getSource().refresh();
-                }, 300000); // 5 minutes
-
-                return radarLayer;
-            } catch (error) {
-                console.error('❌ Failed to add weather layers:', error);
-                const loadingScreen = document.getElementById('loading-screen');
-                if (loadingScreen) {
-                    loadingScreen.style.display = 'none';
-                    loadingScreen.innerHTML = '<div class="error-text">Failed to load weather data</div>';
-                }
-                throw error;
-            }
-        }
-
-                // Add error handling for velocity layer
-                radarVelocityLayer.getSource().on('tileloaderror', (event) => {
-                    console.warn('⚠️ Failed to load velocity tile, retrying...');
-                    setTimeout(() => {
-                        event.tile.load();  // Retry loading the tile
-                    }, 2000);  // Wait 2 seconds before retry
-                });
-                
-                // Add weather alerts layer with preloading
+                // Add weather alerts layer
                 const weatherAlertsLayer = new ol.layer.Tile({
                     source: new ol.source.TileWMS({
                         url: 'https://mapservices.weather.noaa.gov/eventdriven/services/WWA/watch_warn_adv/MapServer/WMSServer',
@@ -1433,34 +1421,40 @@
                     type: 'overlay'
                 });
                 
-                // Add all weather layers to map
-                map.addLayer(radarReflectivityLayer);
-                console.log('✅ NEXRAD radar layer added to map');
+                // Add all layers to the weather group
+                weatherLayerGroup.getLayers().extend([radarLayer, weatherAlertsLayer, precipitationLayer]);
+                
+                // Add weather layer group to map
+                map.addLayer(weatherLayerGroup);
+                console.log('✅ Weather layers added to map');
                 
                 // Store layer references globally for controls
                 window.weatherLayers = {
-                    radarReflectivity: radarReflectivityLayer
+                    radarReflectivity: radarLayer,
+                    weatherAlerts: weatherAlertsLayer,
+                    precipitation: precipitationLayer,
+                    group: weatherLayerGroup
                 };
+                
+                // Set up automatic refresh every 5 minutes for radar data
+                setInterval(() => {
+                    console.log('🔄 Refreshing radar data...');
+                    radarLayer.getSource().refresh();
+                }, 300000); // 5 minutes
                 
                 console.log('✅ Weather layers initialized successfully');
                 
-                // Force hide loading screen after 5 seconds regardless of tile loading
-                setTimeout(() => {
-                    const loadingScreen = document.getElementById('loading-screen');
-                    if (loadingScreen) {
-                        loadingScreen.style.display = 'none';
-                    }
-                }, 5000);
+                return weatherLayerGroup;
                 
             } catch (error) {
                 console.error('❌ Failed to add weather layers:', error);
                 showError('Failed to load weather data: ' + error.message);
                 
                 // Hide loading screen on error
-                const loadingScreen = document.getElementById('loading-screen');
                 if (loadingScreen) {
                     loadingScreen.style.display = 'none';
                 }
+                throw error; // Re-throw to handle in the calling function
             }
         }
         
