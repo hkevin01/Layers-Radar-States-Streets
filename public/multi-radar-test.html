@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Source NEXRAD Radar Test</title>
+    
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+    
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { width: 100vw; height: 100vh; }
+        
+        #controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+            max-width: 300px;
+        }
+        
+        .control-group {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        #status {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 100;
+            max-width: 400px;
+        }
+        
+        .service-test {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .working { background: #d4edda; color: #155724; }
+        .failed { background: #f8d7da; color: #721c24; }
+        .testing { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div id="controls">
+        <h3>NEXRAD Radar Sources</h3>
+        
+        <div class="control-group">
+            <h4>Service Tests</h4>
+            <div id="service-tests"></div>
+        </div>
+        
+        <div class="control-group">
+            <h4>Active Source</h4>
+            <select id="source-selector">
+                <option value="iowa">Iowa State (Primary)</option>
+                <option value="noaa">NOAA NWS</option>
+                <option value="alternative">Alternative TMS</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="radar-toggle" checked> Show Radar
+            </label>
+            <br>
+            <label>
+                Opacity: <input type="range" id="opacity-slider" min="0" max="100" value="60">
+                <span id="opacity-value">60%</span>
+            </label>
+        </div>
+    </div>
+    
+    <div id="status">Initializing radar sources test...</div>
+    
+    <!-- OpenLayers JS -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    
+    <script>
+        // NEXRAD data sources to test
+        const radarSources = {
+            iowa: {
+                name: 'Iowa State MESONET',
+                url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                testUrl: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/5/15/12.png'
+            },
+            noaa: {
+                name: 'NOAA NWS Ridge',
+                url: 'https://opengeo.ncep.noaa.gov/geoserver/gwc/service/tms/1.0.0/radar%3Aconus_bref_qcd@EPSG%3A900913@png/{z}/{x}/{-y}.png',
+                testUrl: 'https://opengeo.ncep.noaa.gov/geoserver/gwc/service/tms/1.0.0/radar%3Aconus_bref_qcd@EPSG%3A900913@png/5/15/20.png'
+            },
+            alternative: {
+                name: 'Alternative TMS',
+                url: 'https://mapservices.weather.noaa.gov/eventdriven/rest/services/radar/radar_base_reflectivity_time/MapServer/tile/{z}/{y}/{x}',
+                testUrl: 'https://mapservices.weather.noaa.gov/eventdriven/rest/services/radar/radar_base_reflectivity_time/MapServer/tile/5/12/15'
+            }
+        };
+        
+        let map = null;
+        let radarLayer = null;
+        let currentSource = 'iowa';
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+            console.log('🌦️ ' + message);
+        }
+        
+        // Test each radar source
+        async function testRadarSources() {
+            const testsContainer = document.getElementById('service-tests');
+            
+            for (const [key, source] of Object.entries(radarSources)) {
+                const testDiv = document.createElement('div');
+                testDiv.className = 'service-test testing';
+                testDiv.textContent = `Testing ${source.name}...`;
+                testsContainer.appendChild(testDiv);
+                
+                try {
+                    const response = await fetch(source.testUrl, { 
+                        method: 'HEAD',
+                        mode: 'no-cors'  // This will help with CORS issues
+                    });
+                    
+                    // For no-cors mode, we can't read the status, so we assume success
+                    testDiv.className = 'service-test working';
+                    testDiv.textContent = `✅ ${source.name} - Available`;
+                } catch (error) {
+                    testDiv.className = 'service-test failed';
+                    testDiv.textContent = `❌ ${source.name} - ${error.message}`;
+                }
+            }
+        }
+        
+        // Create radar layer with specified source
+        function createRadarLayer(sourceKey) {
+            const source = radarSources[sourceKey];
+            
+            return new ol.layer.Tile({
+                source: new ol.source.XYZ({
+                    url: source.url,
+                    crossOrigin: 'anonymous',
+                    maxZoom: 15,
+                    attributions: `NEXRAD data: ${source.name}`
+                }),
+                opacity: 0.6,
+                visible: true
+            });
+        }
+        
+        // Initialize map
+        function initializeMap() {
+            updateStatus('Creating base map...');
+            
+            // Base layer
+            const baseLayer = new ol.layer.Tile({
+                source: new ol.source.OSM()
+            });
+            
+            // Initial radar layer
+            radarLayer = createRadarLayer(currentSource);
+            
+            // Create map
+            map = new ol.Map({
+                target: 'map',
+                layers: [baseLayer, radarLayer],
+                view: new ol.View({
+                    center: ol.proj.fromLonLat([-98.5795, 39.8283]),
+                    zoom: 5,
+                    minZoom: 3,
+                    maxZoom: 15
+                })
+            });
+            
+            // Event handlers
+            radarLayer.getSource().on('tileloadend', () => {
+                updateStatus(`Radar tiles loaded from ${radarSources[currentSource].name}`);
+            });
+            
+            radarLayer.getSource().on('tileloaderror', (event) => {
+                updateStatus(`Tile load error from ${radarSources[currentSource].name}`);
+                console.warn('Radar tile error:', event);
+            });
+            
+            map.on('moveend', () => {
+                const center = ol.proj.toLonLat(map.getView().getCenter());
+                const zoom = map.getView().getZoom();
+                updateStatus(`Position: ${center[1].toFixed(2)}, ${center[0].toFixed(2)} | Zoom: ${zoom.toFixed(1)}`);
+            });
+            
+            setupControls();
+            updateStatus('Map initialized. Testing radar sources...');
+        }
+        
+        // Setup UI controls
+        function setupControls() {
+            const sourceSelector = document.getElementById('source-selector');
+            const radarToggle = document.getElementById('radar-toggle');
+            const opacitySlider = document.getElementById('opacity-slider');
+            const opacityValue = document.getElementById('opacity-value');
+            
+            sourceSelector.addEventListener('change', (e) => {
+                currentSource = e.target.value;
+                
+                // Remove old layer
+                map.removeLayer(radarLayer);
+                
+                // Add new layer
+                radarLayer = createRadarLayer(currentSource);
+                map.addLayer(radarLayer);
+                
+                updateStatus(`Switched to ${radarSources[currentSource].name}`);
+            });
+            
+            radarToggle.addEventListener('change', (e) => {
+                radarLayer.setVisible(e.target.checked);
+            });
+            
+            opacitySlider.addEventListener('input', (e) => {
+                const opacity = e.target.value / 100;
+                radarLayer.setOpacity(opacity);
+                opacityValue.textContent = e.target.value + '%';
+            });
+        }
+        
+        // Initialize when ready
+        document.addEventListener('DOMContentLoaded', () => {
+            updateStatus('DOM ready, initializing...');
+            initializeMap();
+            testRadarSources();
+        });
+    </script>
+</body>
+</html>

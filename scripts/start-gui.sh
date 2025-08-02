@@ -101,8 +101,10 @@ if port is None:
 print("🌐 Starting enhanced HTTP server...")
 print(f"✨ Serving with CORS and proper MIME types enabled on port {port}")
 print(f"🌍 Open http://localhost:{port}/public/project-tracker.html in your browser")
-print(f"�️  Or try http://localhost:{port}/public/weather-radar.html for radar view")
-print("�📂 Serving from:", os.getcwd())
+print(f"🌦️ Or try http://localhost:{port}/public/weather-radar-fixed.html for FIXED radar view")
+print(f"🗺️ Or try http://localhost:{port}/public/simple-radar-test.html for simple test")
+print(f"📡 Original: http://localhost:{port}/public/weather-radar.html")
+print("📂 Serving from:", os.getcwd())
 
 try:
     with socketserver.TCPServer(("", port), CORSRequestHandler) as httpd:

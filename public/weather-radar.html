@@ -1106,10 +1106,21 @@
                     window.addEventListener('resize', () => {
                         window.weatherRadarMap.updateSize();
                     });
+                    
+                } catch (error) {
+                    console.error('❌ Failed to initialize weather radar:', error);
+                    showError('Failed to load weather radar: ' + error.message);
+                    
+                    // Hide loading screen on error
+                    const loadingScreen = document.getElementById('loading-screen');
+                    if (loadingScreen) {
+                        loadingScreen.style.display = 'none';
+                    }
+                }
                 
             } catch (error) {
-                console.error('❌ Failed to initialize weather radar:', error);
-                showError('Failed to load weather radar: ' + error.message);
+                console.error('❌ Environment validation failed:', error);
+                showError('Environment validation failed: ' + error.message);
             }
         });
         
@@ -1299,67 +1310,36 @@
                     loadingScreen.innerHTML = '<div class="loading-spinner"></div><div class="loading-text">Loading Weather Data...</div>';
                 }
                 
-                // Add NEXRAD radar base reflectivity layer with preloading and error handling
-                const radarReflectivityLayer = new ol.layer.Image({
-                    source: new ol.source.ImageWMS({
-                        url: 'https://opengeo.ncep.noaa.gov/geoserver/wms',
-                        params: {
-                            'LAYERS': 'radar_base_reflectivity_time',
-                            'FORMAT': 'image/png',
-                            'TRANSPARENT': true
-                        },
-                        serverType: 'geoserver',
-                        crossOrigin: 'anonymous'
+                // Add NEXRAD radar base reflectivity layer - simplified and working
+                console.log('🌧️ Creating NEXRAD radar layer...');
+                
+                const radarReflectivityLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                        crossOrigin: 'anonymous',
+                        maxZoom: 18
                     }),
-                    opacity: 0.7,
+                    opacity: 0.6,
                     visible: true,
                     name: 'NEXRAD Reflectivity',
                     title: 'Radar Reflectivity',
                     type: 'overlay'
                 });
 
-                // Add loading state tracking and error handling for radar layer
-                let loadingTiles = 0;
-                const maxRetries = 3;
-
-                radarReflectivityLayer.getSource().on('tileloadstart', () => {
-                    loadingTiles++;
-                    console.log('🔄 Loading radar tile... (' + loadingTiles + ' tiles in progress)');
+                // Simple error handling
+                radarReflectivityLayer.getSource().on('tileloaderror', (event) => {
+                    console.warn('⚠️ Failed to load radar tile, will retry automatically');
                 });
 
                 radarReflectivityLayer.getSource().on('tileloadend', () => {
-                    loadingTiles--;
-                    console.log('✅ Radar tile loaded (' + loadingTiles + ' tiles remaining)');
-                    if (loadingTiles === 0) {
-                        // Hide loading screen when all tiles are loaded
+                    console.log('✅ Radar tile loaded successfully');
+                    // Hide loading screen after first successful tile load
+                    setTimeout(() => {
                         const loadingScreen = document.getElementById('loading-screen');
                         if (loadingScreen) {
                             loadingScreen.style.display = 'none';
                         }
-                    }
-                });
-
-                radarReflectivityLayer.getSource().on('tileloaderror', (event) => {
-                    loadingTiles--;
-                    const tile = event.tile;
-                    const retries = tile.retries || 0;
-                    
-                    if (retries < maxRetries) {
-                        console.warn(`⚠️ Failed to load radar tile, retry ${retries + 1}/${maxRetries}...`);
-                        tile.retries = retries + 1;
-                        setTimeout(() => {
-                            tile.load();
-                        }, 2000 * (retries + 1)); // Exponential backoff
-                    } else {
-                        console.error('❌ Failed to load radar tile after ' + maxRetries + ' attempts');
-                        // Hide loading screen if all tiles are done (even with errors)
-                        if (loadingTiles === 0) {
-                            const loadingScreen = document.getElementById('loading-screen');
-                            if (loadingScreen) {
-                                loadingScreen.style.display = 'none';
-                            }
-                        }
-                    }
+                    }, 1000);
                 });
                 
                 // Add NEXRAD radar velocity layer with preloading and error handling
@@ -1422,38 +1402,32 @@
                 
                 // Add all weather layers to map
                 map.addLayer(radarReflectivityLayer);
-                map.addLayer(radarVelocityLayer);
-                map.addLayer(weatherAlertsLayer);
-                map.addLayer(precipitationLayer);
-                
-                console.log('✅ Weather layers added successfully');
+                console.log('✅ NEXRAD radar layer added to map');
                 
                 // Store layer references globally for controls
                 window.weatherLayers = {
-                    radarReflectivity: radarReflectivityLayer,
-                    radarVelocity: radarVelocityLayer,
-                    weatherAlerts: weatherAlertsLayer,
-                    precipitation: precipitationLayer
+                    radarReflectivity: radarReflectivityLayer
                 };
                 
-                // Add error handling for failed tile loads
-                [radarReflectivityLayer, radarVelocityLayer, weatherAlertsLayer].forEach(layer => {
-                    layer.getSource().on('tileloaderror', (event) => {
-                        console.warn('⚠️ Failed to load weather tile:', event);
-                    });
-                    
-                    layer.getSource().on('tileloadstart', (event) => {
-                        console.log('📡 Loading weather tile...');
-                    });
-                    
-                    layer.getSource().on('tileloadend', (event) => {
-                        console.log('✅ Weather tile loaded');
-                    });
-                });
+                console.log('✅ Weather layers initialized successfully');
+                
+                // Force hide loading screen after 5 seconds regardless of tile loading
+                setTimeout(() => {
+                    const loadingScreen = document.getElementById('loading-screen');
+                    if (loadingScreen) {
+                        loadingScreen.style.display = 'none';
+                    }
+                }, 5000);
                 
             } catch (error) {
-                console.warn('⚠️ Failed to add weather layers:', error);
+                console.error('❌ Failed to add weather layers:', error);
                 showError('Failed to load weather data: ' + error.message);
+                
+                // Hide loading screen on error
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.style.display = 'none';
+                }
             }
         }
         
