@@ -117,7 +117,7 @@ export class WeatherRadarCore {
             target: this.config.target,
             view: view,
             layers: [],
-            controls: ol.control.defaults({
+            controls: ol.control.defaultControls({
                 attribution: true,
                 zoom: true
             })

@@ -162,26 +162,22 @@
                 
                 updateStatus('Creating map...');
                 
-                // Create map
-                map = new ol.Map({
-                    target: 'map',
-                    layers: [baseLayer, radarLayer],
-                    view: new ol.View({
-                        center: ol.proj.fromLonLat([-98.5795, 39.8283]), // Center of US
-                        zoom: 5,
-                        minZoom: 3,
-                        maxZoom: 15
-                    }),
-                    controls: ol.control.defaults({
-                        attribution: true,
-                        zoom: true
-                    }).extend([
-                        new ol.control.ScaleLine(),
-                        new ol.control.FullScreen()
-                    ])
-                });
-                
-                updateStatus('Setting up event handlers...');
+            // Create the map
+            map = new ol.Map({
+                target: 'map',
+                layers: [
+                    baseLayer,
+                    radarLayer
+                ],
+                view: new ol.View({
+                    center: ol.proj.fromLonLat([-95.0, 39.0]),
+                    zoom: 4
+                }),
+                controls: ol.control.defaultControls({
+                    attribution: false,
+                    zoom: true
+                })
+            });                updateStatus('Setting up event handlers...');
                 
                 // Add event handlers
                 map.once('rendercomplete', () => {
