@@ -95,6 +95,7 @@ archive/                             # Old/duplicate files (safely archived)
 3. **Open your browser to:**
    - Main Application: `http://localhost:8000/public/weather-radar.html`
    - Modern Application: `http://localhost:8000/public/apps/modern-weather-radar.html`
+   - Welcome Page: `http://localhost:8000/` (auto-redirects to main app)
 
 ### Alternative: Direct File Access
 
@@ -213,6 +214,12 @@ Our comprehensive documentation includes:
 - **URL**: `http://localhost:8000/public/apps/modern-weather-radar.html`
 - **Features**: Streamlined UI, better accessibility, mobile-responsive
 - **Status**: ✅ Working - Clean, modern interface
+
+### Welcome Page (New)
+
+- **URL**: `http://localhost:8000/`
+- **Features**: Application launcher with feature overview
+- **Status**: ✅ Working - Auto-redirects to main application
 
 ## 🤝 Contributing
 
