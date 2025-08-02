@@ -21,7 +21,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.8);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -29,26 +29,41 @@
             z-index: 9999;
             color: white;
             font-family: Arial, sans-serif;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        #loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
 
         .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
+            width: 60px;
+            height: 60px;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #3498db;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
         }
 
         .loading-text {
-            font-size: 18px;
+            font-size: 20px;
             text-align: center;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            animation: pulse 2s ease-in-out infinite;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
         }
 
         .layer-switcher {
@@ -580,7 +595,7 @@
                 <div id="main-map" class="map" role="application" aria-label="Interactive weather radar map"></div>
                 
                 <!-- Loading Screen -->
-                <div id="loading-screen" class="loading-screen">
+                <div id="loading-screen">
                     <div class="loading-spinner"></div>
                     <div class="loading-text">Loading Weather Data...</div>
                 </div>
@@ -1315,8 +1330,8 @@
                 // Show loading indicator
                 const loadingScreen = document.getElementById('loading-screen');
                 if (loadingScreen) {
+                    loadingScreen.classList.remove('hidden');
                     loadingScreen.style.display = 'flex';
-                    loadingScreen.innerHTML = '<div class="loading-spinner"></div><div class="loading-text">Loading Weather Data...</div>';
                 }
                 
                 // Add NEXRAD radar base reflectivity layer - simplified and working
@@ -1345,7 +1360,10 @@
                     console.log('✅ Radar tile loaded successfully');
                     const loadingScreen = document.getElementById('loading-screen');
                     if (loadingScreen) {
-                        loadingScreen.style.display = 'none';
+                        loadingScreen.classList.add('hidden');
+                        setTimeout(() => {
+                            loadingScreen.style.display = 'none';
+                        }, 300); // Wait for fade out animation
                     }
                 });
 
