@@ -176,11 +176,19 @@
         .map-container {
             flex: 1;
             position: relative;
+            overflow: hidden;
         }
         
         #main-map {
-            width: 100%;
-            height: 100%;
+            width: 100% !important;
+            height: 100% !important;
+            background: #1a1a1a;
+        }
+        
+        /* Ensure OpenLayers canvas renders properly */
+        #main-map canvas {
+            width: 100% !important;
+            height: 100% !important;
         }
         
         .map-controls {
@@ -412,13 +420,162 @@
     <!-- OpenLayers JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
     
-    <!-- Weather Radar Application -->
-    <script src="../src/shared/global-weather-radar.js"></script>
-    
     <script>
-        // UI enhancements
-        document.addEventListener('DOMContentLoaded', () => {
-            // Button group toggle functionality
+        // Modern Weather Radar Application
+        let weatherMap = null;
+        let radarLayer = null;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🌦️ Starting Modern Weather Radar...');
+            
+            try {
+                // Verify OpenLayers
+                if (typeof ol === 'undefined') {
+                    throw new Error('OpenLayers not loaded');
+                }
+                
+                console.log('✅ OpenLayers loaded:', ol.VERSION);
+                
+                // Initialize the map
+                await initializeModernWeatherMap();
+                
+                // Set up UI controls
+                setupModernControls();
+                
+                updateStatus('Weather radar online');
+                
+            } catch (error) {
+                console.error('❌ Failed to initialize modern weather radar:', error);
+                updateStatus('Error: ' + error.message);
+            }
+        });
+        
+        async function initializeModernWeatherMap() {
+            console.log('🗺️ Creating modern weather map...');
+            
+            // Base layer
+            const osmLayer = new ol.layer.Tile({
+                source: new ol.source.OSM(),
+                name: 'OpenStreetMap'
+            });
+            
+            // Satellite layer
+            const satelliteLayer = new ol.layer.Tile({
+                source: new ol.source.XYZ({
+                    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    attributions: 'Tiles © Esri'
+                }),
+                visible: false,
+                name: 'Satellite'
+            });
+            
+            // NEXRAD Radar layer
+            radarLayer = new ol.layer.Tile({
+                source: new ol.source.TileWMS({
+                    url: 'https://mapservices.weather.noaa.gov/eventdriven/services/radar/radar_base_reflectivity_time/MapServer/WMSServer',
+                    params: {
+                        'LAYERS': 'radar_base_reflectivity_time',
+                        'FORMAT': 'image/png',
+                        'TRANSPARENT': true
+                    }
+                }),
+                opacity: 0.7,
+                visible: false,
+                name: 'NEXRAD Radar'
+            });
+            
+            // Create map
+            weatherMap = new ol.Map({
+                target: 'main-map',
+                layers: [osmLayer, satelliteLayer, radarLayer],
+                view: new ol.View({
+                    center: ol.proj.fromLonLat([-98.5795, 39.8283]),
+                    zoom: 5,
+                    minZoom: 3,
+                    maxZoom: 15
+                }),
+                controls: ol.control.defaults({
+                    attribution: true,
+                    zoom: false
+                })
+            });
+            
+            // Map events
+            weatherMap.once('rendercomplete', () => {
+                console.log('✅ Modern weather map rendered');
+                updateStatus('Map loaded successfully');
+            });
+            
+            weatherMap.on('click', (event) => {
+                const coordinate = ol.proj.toLonLat(event.coordinate);
+                console.log('🗺️ Map clicked:', coordinate);
+            });
+            
+            console.log('✅ Modern weather map initialized');
+        }
+        
+        function setupModernControls() {
+            console.log('🎛️ Setting up modern controls...');
+            
+            // Base layer buttons
+            document.querySelector('[data-layer="streets"]')?.addEventListener('click', () => {
+                setBaseLayer('streets');
+            });
+            
+            document.querySelector('[data-layer="satellite"]')?.addEventListener('click', () => {
+                setBaseLayer('satellite');
+            });
+            
+            // Weather layer toggles
+            document.getElementById('radar-toggle')?.addEventListener('change', (e) => {
+                if (radarLayer) {
+                    radarLayer.setVisible(e.target.checked);
+                    updateStatus(e.target.checked ? 'Radar enabled' : 'Radar disabled');
+                }
+            });
+            
+            // Opacity slider
+            document.getElementById('radar-opacity')?.addEventListener('input', (e) => {
+                if (radarLayer) {
+                    const opacity = parseFloat(e.target.value);
+                    radarLayer.setOpacity(opacity);
+                    document.querySelector('.slider-value').textContent = Math.round(opacity * 100) + '%';
+                }
+            });
+            
+            // Map controls
+            document.getElementById('zoom-in')?.addEventListener('click', () => {
+                if (weatherMap) {
+                    const view = weatherMap.getView();
+                    view.animate({ zoom: view.getZoom() + 1, duration: 250 });
+                }
+            });
+            
+            document.getElementById('zoom-out')?.addEventListener('click', () => {
+                if (weatherMap) {
+                    const view = weatherMap.getView();
+                    view.animate({ zoom: view.getZoom() - 1, duration: 250 });
+                }
+            });
+            
+            document.getElementById('geolocation')?.addEventListener('click', () => {
+                if (navigator.geolocation && weatherMap) {
+                    updateStatus('Getting your location...');
+                    navigator.geolocation.getCurrentPosition((position) => {
+                        const coords = [position.coords.longitude, position.coords.latitude];
+                        weatherMap.getView().animate({
+                            center: ol.proj.fromLonLat(coords),
+                            zoom: 10,
+                            duration: 1000
+                        });
+                        updateStatus('Location found');
+                    }, () => {
+                        updateStatus('Location access denied');
+                    });
+                }
+            });
+            
+            // Button group functionality
             document.querySelectorAll('.button-group .btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const group = e.target.closest('.button-group');
@@ -431,10 +588,39 @@
             const opacitySlider = document.getElementById('radar-opacity');
             const sliderValue = document.querySelector('.slider-value');
             
-            opacitySlider.addEventListener('input', (e) => {
-                sliderValue.textContent = e.target.value + '%';
+            if (opacitySlider && sliderValue) {
+                opacitySlider.addEventListener('input', (e) => {
+                    sliderValue.textContent = Math.round(parseFloat(e.target.value) * 100) + '%';
+                });
+            }
+            
+            console.log('✅ Modern controls setup complete');
+        }
+        
+        function setBaseLayer(layerType) {
+            if (!weatherMap) return;
+            
+            const layers = weatherMap.getLayers().getArray();
+            
+            layers.forEach(layer => {
+                const name = layer.get('name');
+                if (name === 'OpenStreetMap') {
+                    layer.setVisible(layerType === 'streets');
+                } else if (name === 'Satellite') {
+                    layer.setVisible(layerType === 'satellite');
+                }
             });
-        });
+            
+            updateStatus(`Switched to ${layerType} view`);
+        }
+        
+        function updateStatus(message) {
+            const statusElement = document.getElementById('status-text');
+            if (statusElement) {
+                statusElement.textContent = message;
+            }
+            console.log('📊 Status:', message);
+        }
     </script>
 </body>
 </html>

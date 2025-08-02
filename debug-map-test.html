@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Radar Debug Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+        }
+        
+        .debug-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .debug-sidebar {
+            width: 300px;
+            background: #2a2a2a;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #test-map {
+            width: 100% !important;
+            height: 100% !important;
+            background: #333;
+        }
+        
+        .debug-log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+            border: 1px solid #555;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        
+        .test-button:hover {
+            background: #45a049;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        
+        .status.success { background: #4CAF50; }
+        .status.error { background: #f44336; }
+        .status.warning { background: #ff9800; }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <div class="debug-sidebar">
+            <h2>Weather Radar Debug</h2>
+            
+            <div id="test-results">
+                <div class="status" id="ol-status">Checking OpenLayers...</div>
+                <div class="status" id="map-status">Checking map container...</div>
+                <div class="status" id="init-status">Map not initialized</div>
+            </div>
+            
+            <div>
+                <h3>Manual Tests</h3>
+                <button class="test-button" onclick="testBasicMap()">Test Basic Map</button>
+                <button class="test-button" onclick="testRadarLayer()">Test Radar Layer</button>
+                <button class="test-button" onclick="testCoordinates()">Test Coordinates</button>
+                <button class="test-button" onclick="clearMap()">Clear Map</button>
+            </div>
+            
+            <div>
+                <h3>Map Info</h3>
+                <div id="map-info">
+                    <div>Zoom: <span id="zoom-level">-</span></div>
+                    <div>Center: <span id="center-coords">-</span></div>
+                    <div>Layers: <span id="layer-count">-</span></div>
+                </div>
+            </div>
+            
+            <div class="debug-log" id="debug-log"></div>
+        </div>
+        
+        <div class="map-container">
+            <div id="test-map"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    <script>
+        let debugMap = null;
+        let radarLayer = null;
+        
+        function log(message, type = 'info') {
+            const debugLog = document.getElementById('debug-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = `[${timestamp}] ${message}\n`;
+            debugLog.textContent += entry;
+            debugLog.scrollTop = debugLog.scrollHeight;
+            
+            console.log(`🐛 [DEBUG] ${message}`);
+        }
+        
+        function updateStatus(elementId, message, status = 'success') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${status}`;
+        }
+        
+        function updateMapInfo() {
+            if (debugMap) {
+                const view = debugMap.getView();
+                document.getElementById('zoom-level').textContent = view.getZoom().toFixed(2);
+                
+                const center = ol.proj.toLonLat(view.getCenter());
+                document.getElementById('center-coords').textContent = 
+                    `${center[1].toFixed(4)}, ${center[0].toFixed(4)}`;
+                
+                document.getElementById('layer-count').textContent = 
+                    debugMap.getLayers().getLength();
+            }
+        }
+        
+        async function runInitialTests() {
+            log('Starting debug tests...');
+            
+            // Test 1: OpenLayers availability
+            if (typeof ol === 'undefined') {
+                updateStatus('ol-status', 'OpenLayers NOT loaded', 'error');
+                log('❌ OpenLayers not loaded', 'error');
+                return;
+            } else {
+                updateStatus('ol-status', `OpenLayers ${ol.VERSION} loaded`, 'success');
+                log(`✅ OpenLayers ${ol.VERSION} loaded`);
+            }
+            
+            // Test 2: Map container
+            const mapContainer = document.getElementById('test-map');
+            if (!mapContainer) {
+                updateStatus('map-status', 'Map container not found', 'error');
+                log('❌ Map container not found', 'error');
+                return;
+            } else {
+                updateStatus('map-status', 'Map container found', 'success');
+                log(`✅ Map container found: ${mapContainer.offsetWidth}x${mapContainer.offsetHeight}`);
+            }
+            
+            // Test 3: Initialize basic map
+            try {
+                await testBasicMap();
+            } catch (error) {
+                updateStatus('init-status', 'Map initialization failed', 'error');
+                log(`❌ Map initialization failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testBasicMap() {
+            log('Testing basic map initialization...');
+            
+            try {
+                // Clear existing map
+                if (debugMap) {
+                    debugMap.setTarget(null);
+                    debugMap = null;
+                }
+                
+                // Create basic OSM layer
+                const osmLayer = new ol.layer.Tile({
+                    source: new ol.source.OSM(),
+                    name: 'OpenStreetMap'
+                });
+                
+                // Create map
+                debugMap = new ol.Map({
+                    target: 'test-map',
+                    layers: [osmLayer],
+                    view: new ol.View({
+                        center: ol.proj.fromLonLat([-98.5795, 39.8283]),
+                        zoom: 5
+                    })
+                });
+                
+                // Set up event handlers
+                debugMap.once('rendercomplete', () => {
+                    log('✅ Map rendered successfully');
+                    updateStatus('init-status', 'Map initialized and rendered', 'success');
+                    updateMapInfo();
+                });
+                
+                debugMap.on('moveend', updateMapInfo);
+                
+                debugMap.on('click', (event) => {
+                    const coord = ol.proj.toLonLat(event.coordinate);
+                    log(`🗺️ Clicked: ${coord[1].toFixed(4)}, ${coord[0].toFixed(4)}`);
+                });
+                
+                log('✅ Basic map created successfully');
+                
+            } catch (error) {
+                log(`❌ Basic map test failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        async function testRadarLayer() {
+            if (!debugMap) {
+                log('❌ No map available for radar test', 'error');
+                return;
+            }
+            
+            log('Testing NEXRAD radar layer...');
+            
+            try {
+                // Remove existing radar layer
+                if (radarLayer) {
+                    debugMap.removeLayer(radarLayer);
+                }
+                
+                // Create radar layer
+                radarLayer = new ol.layer.Tile({
+                    source: new ol.source.TileWMS({
+                        url: 'https://mapservices.weather.noaa.gov/eventdriven/services/radar/radar_base_reflectivity_time/MapServer/WMSServer',
+                        params: {
+                            'LAYERS': 'radar_base_reflectivity_time',
+                            'FORMAT': 'image/png',
+                            'TRANSPARENT': true
+                        }
+                    }),
+                    opacity: 0.7,
+                    name: 'NEXRAD Radar'
+                });
+                
+                debugMap.addLayer(radarLayer);
+                
+                // Test tile loading
+                radarLayer.getSource().on('tileloadstart', () => {
+                    log('🌦️ Radar tile loading started...');
+                });
+                
+                radarLayer.getSource().on('tileloadend', () => {
+                    log('✅ Radar tile loaded successfully');
+                });
+                
+                radarLayer.getSource().on('tileloaderror', (event) => {
+                    log(`❌ Radar tile load error: ${event.tile.src_}`, 'error');
+                });
+                
+                log('✅ Radar layer added to map');
+                updateMapInfo();
+                
+            } catch (error) {
+                log(`❌ Radar layer test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function testCoordinates() {
+            if (!debugMap) {
+                log('❌ No map available for coordinate test', 'error');
+                return;
+            }
+            
+            log('Testing coordinate transformations...');
+            
+            const testCoords = [
+                [-98.5795, 39.8283], // Center of US
+                [-74.006, 40.7128],  // New York
+                [-118.2437, 34.0522], // Los Angeles
+                [-87.6298, 41.8781]   // Chicago
+            ];
+            
+            testCoords.forEach((coord, index) => {
+                const projected = ol.proj.fromLonLat(coord);
+                const backToLonLat = ol.proj.toLonLat(projected);
+                
+                log(`Test ${index + 1}: [${coord[0]}, ${coord[1]}] -> [${projected[0].toFixed(2)}, ${projected[1].toFixed(2)}] -> [${backToLonLat[0].toFixed(6)}, ${backToLonLat[1].toFixed(6)}]`);
+            });
+            
+            log('✅ Coordinate transformation tests completed');
+        }
+        
+        function clearMap() {
+            if (debugMap) {
+                debugMap.setTarget(null);
+                debugMap = null;
+                radarLayer = null;
+                updateStatus('init-status', 'Map cleared', 'warning');
+                log('🧹 Map cleared');
+                updateMapInfo();
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            log('Debug page loaded');
+            setTimeout(runInitialTests, 100);
+        });
+    </script>
+</body>
+</html>

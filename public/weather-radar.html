@@ -20,6 +20,70 @@
     
     <link rel="stylesheet" href="css/weather-gui.css">
     
+    <!-- Critical CSS for Map Rendering -->
+    <style>
+        /* Ensure map container has proper dimensions */
+        .map-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 400px; /* Fallback minimum height */
+        }
+        
+        .map {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 400px;
+            background: #1a1a1a;
+        }
+        
+        /* Override any conflicting styles */
+        #main-map {
+            width: 100% !important;
+            height: 100% !important;
+            position: relative;
+        }
+        
+        /* Ensure OpenLayers canvas renders */
+        #main-map canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
+        /* Main content area fix */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        /* App container height fix */
+        .app-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Loading screen styles */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+    </style>
+    
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     
@@ -456,7 +520,220 @@
     <!-- OpenLayers JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
     
-    <!-- Weather Radar Application - New Consolidated Version -->
-    <script src="../src/shared/global-weather-radar.js"></script>
+    <!-- Debug: Log OpenLayers availability -->
+    <script>
+        console.log('🔍 OpenLayers loaded:', typeof ol !== 'undefined');
+        if (typeof ol !== 'undefined') {
+            console.log('📦 OpenLayers version:', ol.VERSION);
+            console.log('🗺️ OpenLayers Map available:', typeof ol.Map !== 'undefined');
+        }
+    </script>
+    
+    <!-- Weather Radar Application -->
+    <script>
+        // Initialize weather radar when DOM is ready
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🌦️ Starting Weather Radar Application...');
+            
+            try {
+                // Check if map container exists
+                const mapContainer = document.getElementById('main-map');
+                if (!mapContainer) {
+                    throw new Error('Map container #main-map not found');
+                }
+                
+                console.log('✅ Map container found:', mapContainer);
+                
+                // Verify OpenLayers is loaded
+                if (typeof ol === 'undefined') {
+                    throw new Error('OpenLayers not loaded');
+                }
+                
+                // Initialize map with error handling
+                window.weatherRadarMap = await initializeWeatherRadarMap();
+                console.log('✅ Weather radar map initialized successfully');
+                
+            } catch (error) {
+                console.error('❌ Failed to initialize weather radar:', error);
+                showError('Failed to load weather radar: ' + error.message);
+            }
+        });
+        
+        // Weather radar map initialization function
+        async function initializeWeatherRadarMap() {
+            console.log('🗺️ Creating OpenLayers map...');
+            
+            // Hide loading screen initially
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.style.display = 'flex';
+            }
+            
+            // Create base layer (OpenStreetMap)
+            const osmLayer = new ol.layer.Tile({
+                source: new ol.source.OSM(),
+                name: 'OpenStreetMap'
+            });
+            
+            // Create map view centered on US
+            const view = new ol.View({
+                center: ol.proj.fromLonLat([-98.5795, 39.8283]), // Center of US
+                zoom: 5,
+                minZoom: 3,
+                maxZoom: 15
+            });
+            
+            // Create map
+            const map = new ol.Map({
+                target: 'main-map',
+                layers: [osmLayer],
+                view: view,
+                controls: ol.control.defaults({
+                    attribution: true,
+                    zoom: true
+                })
+            });
+            
+            // Map event handlers
+            map.once('rendercomplete', () => {
+                console.log('✅ Map rendered successfully');
+                
+                // Hide loading screen after map renders
+                setTimeout(() => {
+                    if (loadingScreen) {
+                        loadingScreen.style.display = 'none';
+                    }
+                }, 500);
+            });
+            
+            map.on('click', (event) => {
+                const coordinate = ol.proj.toLonLat(event.coordinate);
+                console.log('🗺️ Map clicked at:', coordinate);
+            });
+            
+            // Add additional layers
+            await addWeatherLayers(map);
+            
+            // Initialize controls
+            initializeMapControls(map);
+            
+            return map;
+        }
+        
+        // Add weather layers to map
+        async function addWeatherLayers(map) {
+            try {
+                console.log('🌦️ Adding weather layers...');
+                
+                // Add NEXRAD radar layer (simplified for now)
+                const radarLayer = new ol.layer.Tile({
+                    source: new ol.source.TileWMS({
+                        url: 'https://mapservices.weather.noaa.gov/eventdriven/services/radar/radar_base_reflectivity_time/MapServer/WMSServer',
+                        params: {
+                            'LAYERS': 'radar_base_reflectivity_time',
+                            'FORMAT': 'image/png',
+                            'TRANSPARENT': true
+                        }
+                    }),
+                    opacity: 0.7,
+                    visible: false,
+                    name: 'NEXRAD Radar'
+                });
+                
+                map.addLayer(radarLayer);
+                console.log('✅ NEXRAD radar layer added');
+                
+                // Store layer reference globally for controls
+                window.radarLayer = radarLayer;
+                
+            } catch (error) {
+                console.warn('⚠️ Failed to add weather layers:', error);
+            }
+        }
+        
+        // Initialize map controls
+        function initializeMapControls(map) {
+            console.log('🎛️ Initializing map controls...');
+            
+            // Zoom controls
+            const zoomInBtn = document.getElementById('zoom-in');
+            const zoomOutBtn = document.getElementById('zoom-out');
+            const geoBtn = document.getElementById('geolocation');
+            
+            if (zoomInBtn) {
+                zoomInBtn.addEventListener('click', () => {
+                    const view = map.getView();
+                    const zoom = view.getZoom();
+                    view.animate({ zoom: zoom + 1, duration: 250 });
+                });
+            }
+            
+            if (zoomOutBtn) {
+                zoomOutBtn.addEventListener('click', () => {
+                    const view = map.getView();
+                    const zoom = view.getZoom();
+                    view.animate({ zoom: zoom - 1, duration: 250 });
+                });
+            }
+            
+            if (geoBtn) {
+                geoBtn.addEventListener('click', () => {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition((position) => {
+                            const coords = [position.coords.longitude, position.coords.latitude];
+                            map.getView().animate({
+                                center: ol.proj.fromLonLat(coords),
+                                zoom: 10,
+                                duration: 1000
+                            });
+                        });
+                    }
+                });
+            }
+            
+            // Layer toggles
+            const radarToggle = document.querySelector('input[data-layer="radar"]');
+            if (radarToggle && window.radarLayer) {
+                radarToggle.addEventListener('change', (e) => {
+                    window.radarLayer.setVisible(e.target.checked);
+                });
+            }
+            
+            console.log('✅ Map controls initialized');
+        }
+        
+        // Error handling
+        function showError(message) {
+            console.error('💥 Error:', message);
+            
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                const loadingText = document.getElementById('loading-text');
+                if (loadingText) {
+                    loadingText.textContent = 'Error: ' + message;
+                    loadingText.style.color = '#ef4444';
+                }
+            }
+            
+            // Also show in toast if available
+            showToast('Error: ' + message, 'error');
+        }
+        
+        // Simple toast notification
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) return;
+            
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+    </script>
 </body>
 </html>
