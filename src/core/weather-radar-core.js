@@ -117,10 +117,13 @@ export class WeatherRadarCore {
             target: this.config.target,
             view: view,
             layers: [],
-            controls: ol.control.defaultControls({
-                attribution: true,
-                zoom: true
-            })
+            controls: new ol.Collection([
+                new ol.control.Zoom(),
+                new ol.control.Attribution(),
+                new ol.control.ScaleLine({
+                    units: 'imperial'
+                })
+            ])
         });
         
         // Set up event handlers

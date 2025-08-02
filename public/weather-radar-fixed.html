@@ -173,10 +173,10 @@
                     center: ol.proj.fromLonLat([-95.0, 39.0]),
                     zoom: 4
                 }),
-                controls: ol.control.defaultControls({
-                    attribution: false,
-                    zoom: true
-                })
+                controls: new ol.Collection([
+                    new ol.control.Zoom(),
+                    new ol.control.ScaleLine()
+                ])
             });                updateStatus('Setting up event handlers...');
                 
                 // Add event handlers

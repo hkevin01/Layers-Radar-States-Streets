@@ -494,10 +494,12 @@
                     minZoom: 3,
                     maxZoom: 15
                 }),
-                controls: ol.control.defaultControls({
-                    attribution: true,
-                    zoom: false
-                })
+                controls: new ol.Collection([
+                    new ol.control.Attribution(),
+                    new ol.control.ScaleLine({
+                        units: 'imperial'
+                    })
+                ])
             });
             
             // Map events

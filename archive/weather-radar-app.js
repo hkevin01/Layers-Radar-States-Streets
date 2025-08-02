@@ -108,11 +108,10 @@ export class WeatherRadarApp {
         this.map = new ol.Map({
             target: 'map',
             view: view,
-            controls: ol.control.defaultControls({
-                attribution: true,
-                zoom: true,
-                rotate: true
-            }).extend([
+            controls: new ol.Collection([
+                new ol.control.Zoom(),
+                new ol.control.Attribution(),
+                new ol.control.Rotate(),
                 new ol.control.ZoomSlider(),
                 new ol.control.ScaleLine({
                     units: 'us',

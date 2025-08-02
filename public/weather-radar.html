@@ -577,8 +577,12 @@
 
             <!-- Map Container -->
             <div class="map-container">
-                <div id="main-map" class="map" role="application" aria-label="Interactive weather radar map">
-                    <!-- OpenLayers map will be initialized here -->
+                <div id="main-map" class="map" role="application" aria-label="Interactive weather radar map"></div>
+                
+                <!-- Loading Screen -->
+                <div id="loading-screen" class="loading-screen">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Loading Weather Data...</div>
                 </div>
                 
                 <!-- Expandable Overlay Panel -->
@@ -1188,11 +1192,12 @@
             });
             
             // Default OpenLayers controls with customizations
-            const controls = ol.control.defaultControls({
-                attribution: true,
-                zoom: true,
-                rotate: false
-            }).extend([
+            const controls = new ol.Collection([
+                new ol.control.Zoom(),
+                new ol.control.Attribution(),
+                new ol.control.ScaleLine({
+                    units: 'imperial'
+                }),
                 new ol.control.ScaleLine({
                     units: 'imperial',
                     bar: true,
@@ -1300,6 +1305,10 @@
         
         // Add weather layers to map
         async function addWeatherLayers(map) {
+            if (!map) {
+                throw new Error('Map not provided to addWeatherLayers');
+            }
+            
             try {
                 console.log('🌦️ Adding weather layers...');
                 
@@ -1313,7 +1322,7 @@
                 // Add NEXRAD radar base reflectivity layer - simplified and working
                 console.log('🌧️ Creating NEXRAD radar layer...');
                 
-                const radarReflectivityLayer = new ol.layer.Tile({
+                const radarLayer = new ol.layer.Tile({
                     source: new ol.source.XYZ({
                         url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
                         crossOrigin: 'anonymous',
@@ -1326,40 +1335,46 @@
                     type: 'overlay'
                 });
 
-                // Simple error handling
-                radarReflectivityLayer.getSource().on('tileloaderror', (event) => {
+                // Add error handling
+                radarLayer.getSource().on('tileloaderror', (event) => {
                     console.warn('⚠️ Failed to load radar tile, will retry automatically');
+                    setTimeout(() => radarLayer.getSource().refresh(), 5000);
                 });
 
-                radarReflectivityLayer.getSource().on('tileloadend', () => {
+                radarLayer.getSource().on('tileloadend', () => {
                     console.log('✅ Radar tile loaded successfully');
-                    // Hide loading screen after first successful tile load
-                    setTimeout(() => {
-                        const loadingScreen = document.getElementById('loading-screen');
-                        if (loadingScreen) {
-                            loadingScreen.style.display = 'none';
-                        }
-                    }, 1000);
+                    const loadingScreen = document.getElementById('loading-screen');
+                    if (loadingScreen) {
+                        loadingScreen.style.display = 'none';
+                    }
                 });
+
+                // Add layer to map
+                map.addLayer(radarLayer);
+                console.log('✅ Weather layer added successfully');
                 
-                // Add NEXRAD radar velocity layer with preloading and error handling
-                const radarVelocityLayer = new ol.layer.Image({
-                    source: new ol.source.ImageWMS({
-                        url: 'https://opengeo.ncep.noaa.gov/geoserver/wms',
-                        params: {
-                            'LAYERS': 'radar_base_velocity_time',
-                            'FORMAT': 'image/png',
-                            'TRANSPARENT': true
-                        },
-                        serverType: 'geoserver',
-                        crossOrigin: 'anonymous'
-                    }),
-                    opacity: 0.7,
-                    visible: false,
-                    name: 'NEXRAD Velocity',
-                    title: 'Radar Velocity',
-                    type: 'overlay'
-                });
+                // Store layer reference globally for controls
+                window.weatherLayers = {
+                    radarReflectivity: radarLayer
+                };
+                
+                // Set up automatic refresh every 5 minutes
+                setInterval(() => {
+                    console.log('🔄 Refreshing radar data...');
+                    radarLayer.getSource().refresh();
+                }, 300000); // 5 minutes
+
+                return radarLayer;
+            } catch (error) {
+                console.error('❌ Failed to add weather layers:', error);
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.style.display = 'none';
+                    loadingScreen.innerHTML = '<div class="error-text">Failed to load weather data</div>';
+                }
+                throw error;
+            }
+        }
 
                 // Add error handling for velocity layer
                 radarVelocityLayer.getSource().on('tileloaderror', (event) => {
@@ -1430,6 +1445,23 @@
                 }
             }
         }
+        
+        // Initialize map when document is ready
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Initialize the weather radar map
+                window.weatherRadarMap = await initializeWeatherRadarMap();
+                console.log('✅ Weather radar map initialized successfully');
+                
+                // Add event listener for window resize
+                window.addEventListener('resize', () => {
+                    window.weatherRadarMap.updateSize();
+                });
+            } catch (error) {
+                console.error('❌ Error initializing map:', error);
+                showError(error.message);
+            }
+        });
         
         // Initialize map controls
         function initializeMapControls(map) {
@@ -1546,21 +1578,7 @@
             const weatherAlertsToggle = document.getElementById('weather-alerts-toggle');
             const precipitationToggle = document.getElementById('precipitation-toggle');
             
-            if (weatherAlertsToggle && window.weatherLayers) {
-                weatherAlertsToggle.addEventListener('change', (e) => {
-                    window.weatherLayers.weatherAlerts.setVisible(e.target.checked);
-                });
-            }
-            
-                    }
-                });
-            }
-            
-            // Weather data controls
-            const weatherAlertsToggle = document.getElementById('weather-alerts-toggle');
-            const precipitationToggle = document.getElementById('precipitation-toggle');
-            
-            if (weatherAlertsToggle && window.weatherLayers) {
+            if (weatherAlertsToggle && window.weatherLayers && window.weatherLayers.weatherAlerts) {
                 weatherAlertsToggle.addEventListener('change', (e) => {
                     window.weatherLayers.weatherAlerts.setVisible(e.target.checked);
                 });
