@@ -19,4 +19,4 @@ COPY . .
 EXPOSE 8080
 
 # Start the enhanced Python server
-CMD ["python3", "scripts/start-gui.sh"]
+CMD ["python3", "scripts/server.py"]

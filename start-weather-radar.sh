@@ -6,9 +6,9 @@
 echo "🌦️  Setting up NEXRAD Weather Radar Application..."
 
 # Check if we're in the right directory
-if [ ! -f "public/weather-radar.html" ]; then
+if [ ! -f "public/weather-radar-debug.html" ]; then
     echo "❌ Error: Please run this script from the project root directory"
-    echo "   Expected to find: public/weather-radar.html"
+    echo "   Expected to find: public/weather-radar-debug.html"
     exit 1
 fi
 
@@ -30,7 +30,7 @@ echo "🚀 Starting development server..."
 
 if command -v python3 &> /dev/null; then
     echo "   Using Python 3 HTTP server"
-    echo "   Open your browser to: http://localhost:8000/public/weather-radar.html"
+    echo "   Open your browser to: http://localhost:8000/public/weather-radar-debug.html"
     echo ""
     echo "   Press Ctrl+C to stop the server"
     echo ""
@@ -38,7 +38,7 @@ if command -v python3 &> /dev/null; then
     python3 -m http.server 8000
 elif command -v node &> /dev/null && command -v npx &> /dev/null; then
     echo "   Using Node.js HTTP server"
-    echo "   Open your browser to: http://localhost:8000/public/weather-radar.html"
+    echo "   Open your browser to: http://localhost:8000/public/weather-radar-debug.html"
     echo ""
     echo "   Press Ctrl+C to stop the server"
     echo ""
@@ -54,6 +54,6 @@ else
     echo "   python3 -m http.server 8000"
     echo "   npx http-server -p 8000"
     echo ""
-    echo "Then open: http://localhost:8000/public/weather-radar.html"
+    echo "Then open: http://localhost:8000/public/weather-radar-debug.html"
     exit 1
 fi

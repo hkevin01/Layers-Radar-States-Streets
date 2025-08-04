@@ -398,19 +398,19 @@
 
             const nexradEndpoints = [
                 {
-                    name: 'Iowa State Mesonet',
-                    testUrl: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/5/8/12.png',
-                    description: 'Primary NEXRAD source'
+                    name: 'Iowa State Mesonet TMS',
+                    testUrl: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q/5/8/12.png',
+                    description: 'Primary NEXRAD TMS source'
                 },
                 {
-                    name: 'NOAA nowCOAST',
-                    testUrl: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/tile/5/12/8',
-                    description: 'Alternative NOAA source'
+                    name: 'NOAA nowCOAST WMS',
+                    testUrl: 'https://nowcoast.noaa.gov/arcgis/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/WMSServer?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=1&STYLES=&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857&BBOX=-10018754.171394622,5009377.085697311,-10009377.085697308,5018754.171394624&WIDTH=256&HEIGHT=256',
+                    description: 'NOAA WMS NEXRAD source'
                 },
                 {
-                    name: 'RainViewer',
-                    testUrl: 'https://tilecache.rainviewer.com/v2/radar/0/256/5/8/12/2/1_1.png',
-                    description: 'Backup weather radar'
+                    name: 'Iowa State Mesonet WMS',
+                    testUrl: 'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=nexrad-n0q&STYLES=&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857&BBOX=-10018754.171394622,5009377.085697311,-10009377.085697308,5018754.171394624&WIDTH=256&HEIGHT=256',
+                    description: 'Alternative IEM WMS source'
                 }
             ];
 
@@ -420,16 +420,16 @@
             for (const endpoint of nexradEndpoints) {
                 try {
                     console.log(`🧪 Testing ${endpoint.name}...`);
-                    await fetch(endpoint.testUrl, { 
+                    await fetch(endpoint.testUrl, {
                         method: 'HEAD',
                         mode: 'no-cors' // Allow cross-origin requests
                     });
-                    
+
                     // For no-cors, we can't check status, but if it doesn't throw, it's likely working
                     workingServices++;
                     results.push(`✅ ${endpoint.name}: Available`);
                     console.log(`✅ ${endpoint.name} is working`);
-                    
+
                 } catch (error) {
                     results.push(`❌ ${endpoint.name}: ${error.message}`);
                     console.error(`❌ ${endpoint.name} failed:`, error);
@@ -606,60 +606,86 @@
         async function initializeWeatherLayers() {
             try {
                 updateDebugStatus('weather-status', 'warning', 'Loading...');
-                
-                // NEXRAD radar sources with different fallbacks
-                const nexradSources = [
-                    {
-                        name: 'Iowa State NEXRAD',
-                        url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
-                        attribution: 'Iowa Environmental Mesonet'
-                    },
-                    {
-                        name: 'Alternative NEXRAD',
-                        url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/tile/{z}/{y}/{x}',
-                        attribution: 'NOAA nowCOAST'
-                    },
-                    {
-                        name: 'RainViewer Radar',
-                        url: 'https://tilecache.rainviewer.com/v2/radar/0/256/{z}/{x}/{y}/2/1_1.png',
-                        attribution: 'RainViewer'
-                    }
-                ];
 
-                let successfulLayer = null;
+                // NEXRAD radar sources with different fallbacks
+            const nexradSources = [
+                {
+                    name: 'Iowa State Mesonet (TMS)',
+                    url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q/{z}/{x}/{y}.png',
+                    attribution: '© Iowa Environmental Mesonet'
+                },
+                {
+                    name: 'NOAA nowCOAST (WMS)',
+                    url: 'https://nowcoast.noaa.gov/arcgis/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/WMSServer',
+                    attribution: '© NOAA/NWS',
+                    type: 'wms',
+                    params: {
+                        'LAYERS': '1',
+                        'FORMAT': 'image/png',
+                        'TRANSPARENT': true
+                    }
+                },
+                {
+                    name: 'Iowa State Mesonet (WMS)',
+                    url: 'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi',
+                    attribution: '© Iowa Environmental Mesonet',
+                    type: 'wms',
+                    params: {
+                        'LAYERS': 'nexrad-n0q',
+                        'FORMAT': 'image/png',
+                        'TRANSPARENT': true
+                    }
+                }
+            ];                let successfulLayer = null;
                 let lastError = null;
 
                 // Try each NEXRAD source
                 for (const source of nexradSources) {
                     console.log(`🌦️ Attempting to load ${source.name}...`);
-                    
-                    try {
-                        const layer = new ol.layer.Tile({
-                            title: `NEXRAD - ${source.name}`,
-                            source: new ol.source.XYZ({
-                                url: source.url,
-                                crossOrigin: 'anonymous',
-                                transition: 250,
-                                maxZoom: 16,
-                                attributions: source.attribution
-                            }),
-                            opacity: 0.7,
-                            visible: true,
-                            extent: ol.proj.transformExtent(
-                                [-130, 20, -60, 55], // CONUS bounds
-                                'EPSG:4326',
-                                'EPSG:3857'
-                            )
-                        });
 
-                        // Test this specific layer
+                    try {
+                        let layer;
+
+                        if (source.type === 'wms') {
+                            // Create WMS layer
+                            layer = new ol.layer.Image({
+                                title: `NEXRAD - ${source.name}`,
+                                source: new ol.source.ImageWMS({
+                                    url: source.url,
+                                    params: source.params,
+                                    crossOrigin: 'anonymous',
+                                    attributions: [source.attribution]
+                                }),
+                                opacity: 0.7,
+                                visible: true
+                            });
+                        } else {
+                            // Create XYZ tile layer
+                            layer = new ol.layer.Tile({
+                                title: `NEXRAD - ${source.name}`,
+                                source: new ol.source.XYZ({
+                                    url: source.url,
+                                    crossOrigin: 'anonymous',
+                                    transition: 250,
+                                    maxZoom: 16,
+                                    attributions: [source.attribution]
+                                }),
+                                opacity: 0.7,
+                                visible: true,
+                                extent: ol.proj.transformExtent(
+                                    [-130, 20, -60, 55], // CONUS bounds
+                                    'EPSG:4326',
+                                    'EPSG:3857'
+                                )
+                            });
+                        }                        // Test this specific layer
                         const testResult = await testNexradLayer(layer, source.name);
                         if (testResult.success) {
                             map.addLayer(layer);
                             successfulLayer = layer;
                             updateDebugStatus('weather-status', 'success', `${source.name} OK`);
                             console.log(`✅ Successfully loaded ${source.name}`);
-                            
+
                             // Add layer controls
                             addWeatherControls(layer);
                             break;
@@ -677,7 +703,7 @@
                 if (!successfulLayer) {
                     updateDebugStatus('weather-status', 'error', 'All Failed');
                     showError('NEXRAD Loading Failed', `Unable to load weather radar data. Last error: ${lastError}`);
-                    
+
                     // Add a placeholder layer to show the issue
                     addPlaceholderWeatherLayer();
                 } else {
@@ -724,7 +750,7 @@
                 source.on('tileloaderror', (event) => {
                     tileLoadErrors++;
                     console.warn(`Tile load error for ${sourceName}:`, event);
-                    
+
                     // If we've had too many errors, fail
                     if (tileLoadErrors > 3) {
                         cleanup();
@@ -737,14 +763,14 @@
                     // Trigger tile loading by temporarily adding to map
                     map.addLayer(layer);
                     source.refresh();
-                    
+
                     // Remove after test (will be re-added if successful)
                     setTimeout(() => {
                         if (map.getLayers().getArray().includes(layer)) {
                             map.removeLayer(layer);
                         }
                     }, 100);
-                    
+
                 } catch (testError) {
                     cleanup();
                     resolve({ success: false, error: `Test setup failed: ${testError.message}` });
@@ -811,7 +837,7 @@
                 geometry: new ol.geom.Point(ol.proj.fromLonLat([-95.7129, 37.0902]))
             });
             placeholderLayer.getSource().addFeature(feature);
-            
+
             map.addLayer(placeholderLayer);
         }
 

@@ -47,13 +47,13 @@ open_browser() {
 # Start the enhanced HTTP server if available
 if command -v python3 > /dev/null; then
     echo "🐍 Starting enhanced HTTP server..."
-    cd "$APP_DIR" && "$(dirname "$0")/server.py" &
+    cd "$APP_DIR" && python3 "$(dirname "$0")/server.py" &
     sleep 2
     open_browser
 elif command -v python > /dev/null; then
     echo "🐍 Starting local HTTP server with Python 2..."
     echo "📡 Server will be available at: http://localhost:8080"
-    echo "🚪 Open http://localhost:8080/public/weather-radar.html in your browser"
+    echo "🚪 Open http://localhost:8080/public/weather-radar-debug.html in your browser"
     echo ""
     echo "✋ Press Ctrl+C to stop the server"
     echo ""
@@ -62,7 +62,7 @@ elif command -v python > /dev/null; then
 elif command -v node > /dev/null; then
     echo "🟢 Starting local HTTP server with Node.js..."
     echo "📡 Server will be available at: http://localhost:8080"
-    echo "🚪 Open http://localhost:8080/public/weather-radar.html in your browser"
+    echo "🚪 Open http://localhost:8080/public/weather-radar-debug.html in your browser"
     echo ""
     echo "✋ Press Ctrl+C to stop the server"
     echo ""
