@@ -200,9 +200,12 @@
         <div class="sidebar">
             <div class="control-section">
                 <h3>🛠️ System Diagnostics</h3>
+                <button onclick="testBasicJS()">Test Basic JS</button>
+                <button onclick="testOpenLayers()">Test OpenLayers</button>
                 <button onclick="runFullDiagnostics()">Run Full Diagnostics</button>
                 <button onclick="testNEXRADEndpoints()">Test NEXRAD Sources</button>
                 <button onclick="validateLayerConfig()">Validate Layers</button>
+                <button onclick="checkRadarController()">Check Controller Status</button>
                 <div id="diagnostic-status" class="status">Ready for testing</div>
             </div>
 
@@ -239,10 +242,16 @@
 
     <!-- OpenLayers and Application Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
-    <script type="module">
-        import { WeatherRadarCore } from './src/core/weather-radar-core.js';
-        import { RadarController } from './src/modules/radar-controller.js';
-        import { LayerManager } from './src/modules/layer-manager.js';
+    <script>
+        // Basic debug to verify script is loading
+        console.log('🚀 Script started loading...');
+
+        // Test basic functionality immediately
+        try {
+            document.getElementById('debug-log').textContent += '[INIT] JavaScript is loading...\n';
+        } catch (e) {
+            console.error('Cannot access debug-log element:', e);
+        }
 
         // Global variables for debugging
         window.weatherRadar = null;
@@ -280,13 +289,44 @@
             debugLog(args.join(' '), 'warning');
         };
 
-        // Initialize application
+        // Wait for OpenLayers to load, then dynamically import modules
+        function waitForOpenLayers() {
+            return new Promise((resolve, reject) => {
+                if (typeof ol !== 'undefined') {
+                    debugLog('✅ OpenLayers already loaded', 'success');
+                    resolve();
+                    return;
+                }
+
+                let attempts = 0;
+                const maxAttempts = 50; // 5 seconds
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    if (typeof ol !== 'undefined') {
+                        clearInterval(checkInterval);
+                        debugLog('✅ OpenLayers loaded after waiting', 'success');
+                        resolve();
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                        debugLog('❌ OpenLayers failed to load after timeout', 'error');
+                        reject(new Error('OpenLayers loading timeout'));
+                    }
+                }, 100);
+            });
+        }
+
+        // Initialize application after OpenLayers is ready
         async function initializeApplication() {
             try {
                 debugLog('🚀 Starting Enhanced Radar Test Application');
+
+                // Wait for OpenLayers to be ready
+                await waitForOpenLayers();
+
                 showLoading('Initializing application...');
 
                 // Create map
+                debugLog('Creating OpenLayers map...');
                 window.map = new ol.Map({
                     target: 'map',
                     view: new ol.View({
@@ -296,16 +336,34 @@
                         maxZoom: 15
                     })
                 });
+                debugLog('✅ Map created successfully', 'success');
+
+                // Now dynamically import and initialize modules
+                showLoading('Loading modules...');
+                debugLog('Importing LayerManager module...');
+
+                const { LayerManager } = await import('../src/modules/layer-manager.js');
+                debugLog('✅ LayerManager imported', 'success');
+
+                debugLog('Importing RadarController module...');
+                const { RadarController } = await import('../src/modules/radar-controller.js');
+                debugLog('✅ RadarController imported', 'success');
 
                 // Initialize layer manager
                 showLoading('Initializing layer manager...');
+                debugLog('Creating LayerManager instance...');
                 window.layerManager = new LayerManager(window.map, { debug: true });
+                debugLog('LayerManager created, calling init()...');
                 await window.layerManager.init();
+                debugLog('✅ LayerManager initialized', 'success');
 
                 // Initialize radar controller with debug mode
                 showLoading('Initializing radar controller...');
+                debugLog('Creating RadarController instance...');
                 window.radarController = new RadarController(window.map, window.layerManager, { debug: true });
+                debugLog('RadarController created, calling init()...');
                 await window.radarController.init();
+                debugLog('✅ RadarController initialized', 'success');
 
                 // Set up event listeners
                 setupEventListeners();
@@ -320,11 +378,15 @@
                 debugLog('✅ Application initialized successfully', 'success');
 
                 // Run initial diagnostics
-                setTimeout(runFullDiagnostics, 1000);
+                setTimeout(() => {
+                    debugLog('Running initial diagnostics...');
+                    runFullDiagnostics();
+                }, 2000);
 
             } catch (error) {
                 hideLoading();
                 debugLog(`❌ Failed to initialize application: ${error.message}`, 'error');
+                console.error('Full error:', error);
                 showStatus('Application initialization failed: ' + error.message, 'error');
             }
         }
@@ -405,10 +467,19 @@
             document.getElementById('last-error').textContent = stats.lastError || 'None';
         }
 
+        // Simple test functions that don't depend on modules
+        window.testBasicJS = function() {
+            debugLog('✅ Basic JavaScript is working!');
+            debugLog('Document ready state: ' + document.readyState);
+            debugLog('OpenLayers type: ' + typeof ol);
+        };
+
         // Global functions for UI
         window.runFullDiagnostics = async function() {
+            debugLog('🔧 runFullDiagnostics button clicked');
             if (!window.radarController) {
                 debugLog('Radar controller not initialized', 'error');
+                showStatus('Radar controller not ready', 'error');
                 return;
             }
 
@@ -419,15 +490,19 @@
                 const results = await window.radarController.runDiagnostics();
                 hideLoading();
                 debugLog(`✅ Diagnostics completed: ${results.availableSources}/${results.totalSources} sources available`, 'success');
+                showStatus(`Diagnostics complete: ${results.availableSources}/${results.totalSources} sources available`, 'success');
             } catch (error) {
                 hideLoading();
                 debugLog(`❌ Diagnostics failed: ${error.message}`, 'error');
+                showStatus(`Diagnostics failed: ${error.message}`, 'error');
             }
         };
 
         window.testNEXRADEndpoints = async function() {
+            debugLog('🧪 testNEXRADEndpoints button clicked');
             if (!window.radarController) {
                 debugLog('Radar controller not initialized', 'error');
+                showStatus('Radar controller not ready', 'error');
                 return;
             }
 
@@ -438,15 +513,19 @@
                 const results = await window.radarController.validateNEXRADEndpoints();
                 hideLoading();
                 debugLog(`✅ Endpoint test completed: ${results.filter(r => r.available).length} working`, 'success');
+                showStatus(`Endpoint test complete: ${results.filter(r => r.available).length} working`, 'success');
             } catch (error) {
                 hideLoading();
                 debugLog(`❌ Endpoint test failed: ${error.message}`, 'error');
+                showStatus(`Endpoint test failed: ${error.message}`, 'error');
             }
         };
 
         window.validateLayerConfig = async function() {
+            debugLog('🔍 validateLayerConfig button clicked');
             if (!window.radarController) {
                 debugLog('Radar controller not initialized', 'error');
+                showStatus('Radar controller not ready', 'error');
                 return;
             }
 
@@ -458,13 +537,16 @@
                 hideLoading();
                 debugLog(`${result ? '✅ Layer configuration valid' : '❌ Layer configuration invalid'}`,
                         result ? 'success' : 'error');
+                showStatus(`Layer config ${result ? 'valid' : 'invalid'}`, result ? 'success' : 'error');
             } catch (error) {
                 hideLoading();
                 debugLog(`❌ Layer validation failed: ${error.message}`, 'error');
+                showStatus(`Layer validation failed: ${error.message}`, 'error');
             }
         };
 
         window.updateRadarOpacity = function(value) {
+            debugLog(`updateRadarOpacity called with value: ${value}`);
             document.getElementById('opacity-value').textContent = value + '%';
             const opacity = value / 100;
 
@@ -472,14 +554,18 @@
                 const radarLayers = window.layerManager.getLayerGroup('radar') || [];
                 radarLayers.forEach(layer => layer.setOpacity(opacity));
                 debugLog(`Updated radar opacity to ${value}%`);
+            } else {
+                debugLog('LayerManager not available', 'warning');
             }
         };
 
         window.clearLog = function() {
+            debugLog('clearLog called');
             document.getElementById('debug-log').textContent = 'Log cleared...\n';
         };
 
         window.exportLog = function() {
+            debugLog('exportLog called');
             const log = document.getElementById('debug-log').textContent;
             const blob = new Blob([log], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
@@ -490,8 +576,58 @@
             URL.revokeObjectURL(url);
         };
 
-        // Start the application
-        document.addEventListener('DOMContentLoaded', initializeApplication);
+        // Debug function to check what methods are available
+        window.checkRadarController = function() {
+            debugLog('=== Radar Controller Status ===');
+            debugLog(`window.radarController exists: ${!!window.radarController}`);
+            if (window.radarController) {
+                debugLog(`runDiagnostics method: ${typeof window.radarController.runDiagnostics}`);
+                debugLog(`validateNEXRADEndpoints method: ${typeof window.radarController.validateNEXRADEndpoints}`);
+                debugLog(`testLayerConfiguration method: ${typeof window.radarController.testLayerConfiguration}`);
+            }
+            debugLog('========================');
+        };
+
+        // Simple test function to verify OpenLayers works
+        window.testOpenLayers = function() {
+            debugLog('🧪 Testing basic OpenLayers functionality...');
+            try {
+                if (typeof ol === 'undefined') {
+                    debugLog('❌ OpenLayers not loaded', 'error');
+                    return;
+                }
+
+                debugLog('✅ OpenLayers is available', 'success');
+                debugLog(`OpenLayers version: ${ol.util.VERSION || 'unknown'}`);
+
+                // Test creating a simple map
+                const testMap = new ol.Map({
+                    target: 'map',
+                    layers: [
+                        new ol.layer.Tile({
+                            source: new ol.source.OSM()
+                        })
+                    ],
+                    view: new ol.View({
+                        center: ol.proj.fromLonLat([-98.5795, 39.8283]),
+                        zoom: 5
+                    })
+                });
+
+                debugLog('✅ Basic OpenLayers map created successfully', 'success');
+                window.map = testMap;
+
+            } catch (error) {
+                debugLog(`❌ OpenLayers test failed: ${error.message}`, 'error');
+                console.error('OpenLayers test error:', error);
+            }
+        };
+
+        // Start the application when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            debugLog('DOM loaded, starting initialization...');
+            initializeApplication();
+        });
     </script>
 </body>
 </html>

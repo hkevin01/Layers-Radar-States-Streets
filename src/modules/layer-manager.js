@@ -5,10 +5,11 @@
  * @version 2.0.0
  */
 
-import GeoJSON from 'https://cdn.skypack.dev/ol/format/GeoJSON';
-import { ImageLayer, TileLayer, VectorLayer } from 'https://cdn.skypack.dev/ol/layer';
-import { ImageWMS, OSM, Vector as VectorSource, XYZ } from 'https://cdn.skypack.dev/ol/source';
-import { Circle, Fill, Stroke, Style, Text } from 'https://cdn.skypack.dev/ol/style';
+// Use global OpenLayers from CDN instead of importing
+const { GeoJSON } = ol.format;
+const { ImageLayer, TileLayer, VectorLayer } = ol.layer;
+const { ImageWMS, OSM, Vector: VectorSource, XYZ } = ol.source;
+const { Circle, Fill, Stroke, Style, Text } = ol.style;
 
 /**
  * Layer Manager Class
