@@ -4,20 +4,52 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NEXRAD Radar Visualization - Weather Tracker</title>
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="icon" type="image/png" href="../assets/icons/icon-144x144.png">
-    
-    <!-- OpenLayers CSS -->
+
+    <!-- OpenLayers and Dependencies -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
-    
-    <!-- OpenLayers LayerSwitcher -->
     <link rel="stylesheet" href="https://unpkg.com/ol-layerswitcher@4.1.1/dist/ol-layerswitcher.css" />
+
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
     <script src="https://unpkg.com/ol-layerswitcher@4.1.1"></script>
-    
-    <!-- Layer Switcher CSS -->
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Weather Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css">
+
+    <!-- Error Display -->
     <style>
+        .error-container {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            max-width: 400px;
+            z-index: 9999;
+        }
+
+        .error-message {
+            background-color: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .error-message i {
+            color: #dc2626;
+        }
+
         /* Loading screen styles */
         #loading-screen {
             position: fixed;
@@ -70,17 +102,80 @@
             100% { opacity: 0.8; }
         }
 
+        /* Critical map styles */
+        .map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            background: #f8f9fa;
+            touch-action: none;
+        }
+
+        /* Performance optimizations */
+        #map canvas {
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            perspective: 1000px;
+        }
+
+        /* Layer loading indicators */
+        .layer-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .layer-loading.visible {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Layer switcher improvements */
         .layer-switcher {
             position: absolute;
             top: 0.5em;
             right: 0.5em;
             text-align: left;
+            background: white;
+            padding: 0.5em;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            max-height: calc(100% - 4em);
+            overflow-y: auto;
+            scrollbar-width: thin;
         }
-        
+
+        .layer-switcher.shown {
+            padding: 0.5em;
+            top: 0.5em;
+            right: 0.5em;
+            text-align: left;
+        }
+
         .layer-switcher.shown.layer-switcher > button {
             display: none;
         }
-        
+
         .layer-switcher > button {
             float: right;
             height: 1.375em;
@@ -94,19 +189,19 @@
             border-radius: 2px;
             cursor: pointer;
         }
-        
+
         .layer-switcher.shown > button:hover,
         .layer-switcher > button:focus,
         .layer-switcher > button:hover {
             background-color: rgba(0,60,136,.7);
         }
-        
+
         .layer-switcher.shown {
             background-color: white;
             border-radius: 2px;
             padding: 2px;
         }
-        
+
         .layer-switcher ul {
             list-style: none;
             padding: 0;
@@ -114,32 +209,32 @@
             color: #333;
             font-size: 0.85em;
         }
-        
+
         .layer-switcher li {
             padding: 0.1em 0.3em;
             margin: 0;
         }
-        
+
         .layer-switcher label {
             font-weight: normal;
             margin: 0;
             display: block;
         }
-        
+
         .layer-switcher input[type="radio"],
         .layer-switcher input[type="checkbox"] {
             margin: 0 0.3em 0 0;
         }
     </style>
-    
+
     <!-- Font Awesome for weather icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Weather Icons Font -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css">
-    
+
     <link rel="stylesheet" href="css/weather-gui.css">
-    
+
     <!-- Critical CSS for Map Rendering -->
     <style>
         /* Critical map container styles */
@@ -151,7 +246,7 @@
             height: calc(100vh - 60px); /* Full height minus header */
             width: 100%;
         }
-        
+
         .map {
             width: 100% !important;
             height: 100% !important;
@@ -162,7 +257,7 @@
             bottom: 0;
             background: #f2f2f2; /* Light background if tiles fail */
         }
-        
+
         /* Override any conflicting styles */
         #main-map {
             width: 100% !important;
@@ -170,20 +265,20 @@
             position: absolute !important;
             background: #f2f2f2;
         }
-        
+
         /* Ensure OpenLayers canvas renders */
         #main-map canvas {
             width: 100% !important;
             height: 100% !important;
         }
-        
+
         /* OpenLayers specific overrides */
         .ol-control {
             background-color: rgba(255, 255, 255, 0.9);
             border-radius: 4px;
             padding: 2px;
         }
-        
+
         .ol-control button {
             display: block;
             margin: 1px;
@@ -200,25 +295,25 @@
             border: 2px solid rgba(255, 255, 255, 0.9);
             border-radius: 2px;
         }
-        
+
         .ol-control button:hover {
             background-color: rgba(0, 60, 136, 1);
         }
-        
+
         /* Main content area fix */
         .main-content {
             display: flex;
             flex: 1;
             overflow: hidden;
         }
-        
+
         /* App container height fix */
         .app-container {
             height: 100vh;
             display: flex;
             flex-direction: column;
         }
-        
+
         /* Loading screen styles */
         .loading-screen {
             position: fixed;
@@ -232,12 +327,12 @@
             justify-content: center;
             z-index: 9999;
         }
-        
+
         .loading-content {
             text-align: center;
             color: white;
         }
-        
+
         /* Expandable Overlay Panel */
         .overlay-panel {
             position: absolute;
@@ -254,18 +349,18 @@
             transition: all 0.3s ease-in-out;
             overflow: hidden;
         }
-        
+
         .overlay-panel.collapsed {
             width: 50px;
             height: 50px;
         }
-        
+
         .overlay-panel.expanded {
             width: 320px;
             min-height: 400px;
             max-height: 80vh;
         }
-        
+
         .panel-toggle {
             position: absolute;
             top: 0;
@@ -282,26 +377,26 @@
             justify-content: center;
             transition: all 0.2s ease;
         }
-        
+
         .panel-toggle:hover {
             background: rgba(255, 255, 255, 0.1);
             border-radius: 12px;
         }
-        
+
         .panel-content {
             padding: 60px 20px 20px 20px;
             opacity: 0;
             transition: opacity 0.3s ease;
         }
-        
+
         .overlay-panel.expanded .panel-content {
             opacity: 1;
         }
-        
+
         .panel-section {
             margin-bottom: 24px;
         }
-        
+
         .panel-section h3 {
             margin: 0 0 12px 0;
             font-size: 16px;
@@ -310,23 +405,23 @@
             border-bottom: 1px solid rgba(148, 163, 184, 0.2);
             padding-bottom: 8px;
         }
-        
+
         .control-group {
             margin-bottom: 16px;
         }
-        
+
         .control-label {
             display: block;
             font-size: 14px;
             margin-bottom: 6px;
             color: #cbd5e1;
         }
-        
+
         .range-control {
             width: 100%;
             margin: 8px 0;
         }
-        
+
         .range-control input[type="range"] {
             width: 100%;
             height: 6px;
@@ -336,7 +431,7 @@
             -webkit-appearance: none;
             appearance: none;
         }
-        
+
         .range-control input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
@@ -346,7 +441,7 @@
             background: #3b82f6;
             cursor: pointer;
         }
-        
+
         .range-control input[type="range"]::-moz-range-thumb {
             width: 18px;
             height: 18px;
@@ -355,26 +450,26 @@
             cursor: pointer;
             border: none;
         }
-        
+
         .toggle-control {
             display: flex;
             align-items: center;
             margin: 8px 0;
         }
-        
+
         .toggle-switch {
             position: relative;
             width: 44px;
             height: 24px;
             margin-right: 12px;
         }
-        
+
         .toggle-switch input {
             opacity: 0;
             width: 0;
             height: 0;
         }
-        
+
         .toggle-slider {
             position: absolute;
             cursor: pointer;
@@ -386,7 +481,7 @@
             transition: .4s;
             border-radius: 24px;
         }
-        
+
         .toggle-slider:before {
             position: absolute;
             content: "";
@@ -398,15 +493,15 @@
             transition: .4s;
             border-radius: 50%;
         }
-        
+
         input:checked + .toggle-slider {
             background-color: #3b82f6;
         }
-        
+
         input:checked + .toggle-slider:before {
             transform: translateX(20px);
         }
-        
+
         .select-control select {
             width: 100%;
             padding: 8px 12px;
@@ -416,27 +511,27 @@
             border-radius: 6px;
             font-size: 14px;
         }
-        
+
         .value-display {
             font-size: 12px;
             color: #94a3b8;
             margin-top: 4px;
         }
     </style>
-    
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
-    
+
     <!-- Theme Color -->
     <meta name="theme-color" content="#1e293b">
-    
+
     <!-- Apple Touch Icon -->
     <link rel="apple-touch-icon" href="icons/weather-192.png">
 </head>
 <body>
     <!-- Skip Navigation for Accessibility -->
     <a href="#main-map" class="skip-link">Skip to main map</a>
-    
+
     <!-- Loading Screen -->
     <div id="loading-screen" class="loading-screen">
         <div class="loading-content">
@@ -451,7 +546,7 @@
 
     <!-- Main Application Container -->
     <div id="app" class="app-container">
-        
+
         <!-- Header with Weather Alerts -->
         <header class="app-header" role="banner">
             <div class="header-content">
@@ -459,12 +554,12 @@
                     <i class="wi wi-radar"></i>
                     <h1>NEXRAD Weather Radar</h1>
                 </div>
-                
+
                 <!-- Active Weather Alerts -->
                 <div id="weather-alerts" class="weather-alerts" role="alert" aria-live="polite">
                     <!-- Alerts will be populated by JavaScript -->
                 </div>
-                
+
                 <!-- Header Controls -->
                 <div class="header-controls">
                     <button id="fullscreen-btn" class="control-btn" title="Toggle Fullscreen" aria-label="Toggle fullscreen mode">
@@ -479,7 +574,7 @@
 
         <!-- Main Content Area -->
         <main class="main-content">
-            
+
             <!-- Layer Management Sidebar -->
             <aside class="sidebar" id="layer-sidebar" aria-label="Map layers and controls">
                 <div class="sidebar-header">
@@ -488,13 +583,13 @@
                         <i class="fas fa-chevron-left"></i>
                     </button>
                 </div>
-                
+
                 <div class="sidebar-content">
-                    
+
                     <!-- Radar Controls Section -->
                     <section class="control-section">
                         <h3><i class="wi wi-radar"></i> Radar Data</h3>
-                        
+
                         <!-- Radar Layer Toggle -->
                         <div class="layer-control">
                             <label class="toggle-switch">
@@ -503,15 +598,15 @@
                                 <span class="toggle-label">NEXRAD Radar</span>
                             </label>
                         </div>
-                        
+
                         <!-- Radar Opacity -->
                         <div class="slider-control">
                             <label for="radar-opacity">Radar Opacity</label>
-                            <input type="range" id="radar-opacity" min="0" max="100" value="80" 
+                            <input type="range" id="radar-opacity" min="0" max="100" value="80"
                                    aria-label="Radar layer opacity">
                             <span class="slider-value">80%</span>
                         </div>
-                        
+
                         <!-- Color Scheme Selector -->
                         <div class="select-control">
                             <label for="color-scheme">Color Scheme</label>
@@ -524,11 +619,11 @@
                             </select>
                         </div>
                     </section>
-                    
+
                     <!-- Base Map Layers Section -->
                     <section class="control-section">
                         <h3><i class="fas fa-map"></i> Base Maps</h3>
-                        
+
                         <div class="layer-control">
                             <label class="toggle-switch">
                                 <input type="checkbox" id="streets-toggle" checked>
@@ -536,7 +631,7 @@
                                 <span class="toggle-label">Street Maps</span>
                             </label>
                         </div>
-                        
+
                         <div class="layer-control">
                             <label class="toggle-switch">
                                 <input type="checkbox" id="states-toggle" checked>
@@ -544,7 +639,7 @@
                                 <span class="toggle-label">State Boundaries</span>
                             </label>
                         </div>
-                        
+
                         <div class="layer-control">
                             <label class="toggle-switch">
                                 <input type="checkbox" id="counties-toggle">
@@ -553,11 +648,11 @@
                             </label>
                         </div>
                     </section>
-                    
+
                     <!-- Weather Data Section -->
                     <section class="control-section">
                         <h3><i class="wi wi-lightning"></i> Weather Data</h3>
-                        
+
                         <div class="layer-control">
                             <label class="toggle-switch">
                                 <input type="checkbox" id="alerts-toggle" checked>
@@ -565,7 +660,7 @@
                                 <span class="toggle-label">Weather Alerts</span>
                             </label>
                         </div>
-                        
+
                         <div class="layer-control">
                             <label class="toggle-switch">
                                 <input type="checkbox" id="stations-toggle">
@@ -573,7 +668,7 @@
                                 <span class="toggle-label">Weather Stations</span>
                             </label>
                         </div>
-                        
+
                         <div class="layer-control">
                             <label class="toggle-switch">
                                 <input type="checkbox" id="hazards-toggle" checked>
@@ -582,7 +677,7 @@
                             </label>
                         </div>
                     </section>
-                    
+
                     <!-- Radar Legend -->
                     <section class="control-section">
                         <h3><i class="fas fa-palette"></i> Radar Legend</h3>
@@ -590,20 +685,30 @@
                             <!-- Legend will be populated by JavaScript -->
                         </div>
                     </section>
-                    
+
                 </div>
             </aside>
 
             <!-- Map Container -->
             <div class="map-container">
+                <!-- Error Container -->
+                <div id="error-container" class="error-container"></div>
+
                 <div id="main-map" class="map" role="application" aria-label="Interactive weather radar map"></div>
-                
+
                 <!-- Loading Screen -->
                 <div id="loading-screen">
                     <div class="loading-spinner"></div>
                     <div class="loading-text">Loading Weather Data...</div>
                 </div>
-                
+
+                <!-- Debug Info -->
+                <div id="debug-info" style="display: none; position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 4px; font-family: monospace; z-index: 1000;">
+                    <div>OpenLayers: <span id="ol-status">❌</span></div>
+                    <div>LayerSwitcher: <span id="layerswitcher-status">❌</span></div>
+                    <div>Map Container: <span id="container-status">❌</span></div>
+                </div>
+
                 <!-- Expandable Overlay Panel -->
                 <div id="overlay-panel" class="overlay-panel collapsed">
                     <button id="panel-toggle" class="panel-toggle" title="Toggle Controls">
@@ -612,7 +717,7 @@
                     <div class="panel-content">
                         <div class="panel-section">
                             <h3><i class="wi wi-radar"></i> Radar Controls</h3>
-                            
+
                             <div class="control-group">
                                 <div class="toggle-control">
                                     <label class="toggle-switch" for="radar-reflectivity-toggle">
@@ -622,7 +727,7 @@
                                     <span class="control-label">Reflectivity</span>
                                 </div>
                             </div>
-                            
+
                             <div class="control-group">
                                 <div class="toggle-control">
                                     <label class="toggle-switch" for="radar-velocity-toggle">
@@ -632,7 +737,7 @@
                                     <span class="control-label">Velocity</span>
                                 </div>
                             </div>
-                            
+
                             <div class="control-group">
                                 <label class="control-label" for="radar-opacity-slider">Radar Opacity</label>
                                 <div class="range-control">
@@ -641,10 +746,10 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="panel-section">
                             <h3><i class="wi wi-lightning"></i> Weather Data</h3>
-                            
+
                             <div class="control-group">
                                 <div class="toggle-control">
                                     <label class="toggle-switch" for="weather-alerts-toggle">
@@ -654,7 +759,7 @@
                                     <span class="control-label">Weather Alerts</span>
                                 </div>
                             </div>
-                            
+
                             <div class="control-group">
                                 <div class="toggle-control">
                                     <label class="toggle-switch" for="precipitation-toggle">
@@ -665,10 +770,10 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="panel-section">
                             <h3><i class="fas fa-map"></i> Base Layer</h3>
-                            
+
                             <div class="control-group">
                                 <label class="control-label" for="base-layer-select">Map Type</label>
                                 <div class="select-control">
@@ -682,10 +787,10 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Map Overlay Controls -->
                 <div class="map-overlays">
-                    
+
                     <!-- Navigation Controls -->
                     <fieldset class="control-panel navigation-controls">
                         <legend class="sr-only">Map navigation controls</legend>
@@ -702,7 +807,7 @@
                             <i class="fas fa-home"></i>
                         </button>
                     </fieldset>
-                    
+
                     <!-- Radar Animation Controls -->
                     <fieldset class="control-panel radar-controls">
                         <legend class="sr-only">Radar animation controls</legend>
@@ -712,7 +817,7 @@
                                 Loading...
                             </div>
                         </div>
-                        
+
                         <!-- Animation Control Buttons -->
                         <div class="animation-controls">
                             <button id="play-pause" class="animation-btn primary" aria-label="Play/pause radar animation">
@@ -728,16 +833,16 @@
                                 <i class="fas fa-redo"></i>
                             </button>
                         </div>
-                        
+
                         <!-- Timeline Scrubber -->
                         <div class="timeline-container">
-                            <input type="range" id="timeline-scrubber" class="timeline-scrubber" 
+                            <input type="range" id="timeline-scrubber" class="timeline-scrubber"
                                    min="0" max="100" value="100" aria-label="Radar timeline scrubber">
                             <div class="timeline-markers" id="timeline-markers">
                                 <!-- Timeline markers will be generated by JavaScript -->
                             </div>
                         </div>
-                        
+
                         <!-- Animation Speed Control -->
                         <div class="speed-control">
                             <label for="animation-speed">Speed</label>
@@ -749,7 +854,7 @@
                             </select>
                         </div>
                     </fieldset>
-                    
+
                     <!-- Weather Information Panel -->
                     <fieldset class="control-panel weather-info">
                         <legend class="sr-only">Current weather information</legend>
@@ -759,7 +864,7 @@
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </div>
-                        
+
                         <div id="weather-data" class="weather-data">
                             <div class="weather-item">
                                 <span class="weather-label">Temperature:</span>
@@ -783,19 +888,19 @@
                             </div>
                         </div>
                     </fieldset>
-                    
+
                     <!-- Mobile Touch Controls -->
                     <div class="mobile-controls" id="mobile-controls">
                         <button id="mobile-menu" class="mobile-control-btn" aria-label="Open mobile menu">
                             <i class="fas fa-bars"></i>
                         </button>
                     </div>
-                    
+
                 </div>
             </div>
-            
+
         </main>
-        
+
     </div>
 
     <!-- Settings Modal -->
@@ -807,9 +912,9 @@
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            
+
             <div class="modal-body">
-                
+
                 <!-- Units Settings -->
                 <section class="settings-section">
                     <h3>Units</h3>
@@ -837,7 +942,7 @@
                         </select>
                     </div>
                 </section>
-                
+
                 <!-- Accessibility Settings -->
                 <section class="settings-section">
                     <h3>Accessibility</h3>
@@ -863,7 +968,7 @@
                         </label>
                     </div>
                 </section>
-                
+
                 <!-- Notification Settings -->
                 <section class="settings-section">
                     <h3>Notifications</h3>
@@ -891,7 +996,7 @@
                         </select>
                     </div>
                 </section>
-                
+
                 <!-- Data Settings -->
                 <section class="settings-section">
                     <h3>Data</h3>
@@ -912,9 +1017,9 @@
                         </label>
                     </div>
                 </section>
-                
+
             </div>
-            
+
             <div class="modal-footer">
                 <button id="reset-settings" class="btn btn-secondary">Reset to Defaults</button>
                 <button id="save-settings" class="btn btn-primary">Save Settings</button>
@@ -942,34 +1047,34 @@
 
     <!-- OpenLayers JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
-    
+
     <!-- Layer Switcher Implementation -->
     <script>
         // Custom Layer Switcher Control Implementation
         class LayerSwitcher extends ol.control.Control {
             constructor(opt_options) {
                 const options = opt_options || {};
-                
+
                 const button = document.createElement('button');
                 button.innerHTML = '☰';
                 button.title = 'Layer Switcher';
                 button.className = 'layer-switcher-btn';
-                
+
                 const element = document.createElement('div');
                 element.className = 'layer-switcher ol-unselectable ol-control';
                 element.appendChild(button);
-                
+
                 super({
                     element: element,
                     target: options.target,
                 });
-                
+
                 this.panel = null;
                 this.shown = false;
-                
+
                 button.addEventListener('click', this.toggle.bind(this), false);
             }
-            
+
             toggle() {
                 if (this.shown) {
                     this.hide();
@@ -977,7 +1082,7 @@
                     this.show();
                 }
             }
-            
+
             show() {
                 if (!this.panel) {
                     this.renderPanel();
@@ -986,7 +1091,7 @@
                 this.element.classList.add('shown');
                 this.shown = true;
             }
-            
+
             hide() {
                 if (this.panel) {
                     this.panel.style.display = 'none';
@@ -994,11 +1099,11 @@
                 this.element.classList.remove('shown');
                 this.shown = false;
             }
-            
+
             renderPanel() {
                 const map = this.getMap();
                 const layers = map.getLayers().getArray();
-                
+
                 this.panel = document.createElement('div');
                 this.panel.className = 'layer-switcher-panel';
                 this.panel.style.cssText = `
@@ -1012,18 +1117,18 @@
                     min-width: 180px;
                     z-index: 1000;
                 `;
-                
+
                 // Base Layers
                 const baseTitle = document.createElement('div');
                 baseTitle.innerHTML = '<strong>Base Layers</strong>';
                 baseTitle.style.marginBottom = '8px';
                 this.panel.appendChild(baseTitle);
-                
+
                 layers.forEach((layer, index) => {
                     if (layer.get('type') === 'base') {
                         const label = document.createElement('label');
                         label.style.cssText = 'display: block; margin: 4px 0; cursor: pointer;';
-                        
+
                         const radio = document.createElement('input');
                         radio.type = 'radio';
                         radio.name = 'base-layer';
@@ -1035,39 +1140,39 @@
                                 }
                             });
                         });
-                        
+
                         label.appendChild(radio);
                         label.appendChild(document.createTextNode(' ' + layer.get('title')));
                         this.panel.appendChild(label);
                     }
                 });
-                
+
                 // Overlay Layers
                 const overlayTitle = document.createElement('div');
                 overlayTitle.innerHTML = '<strong>Overlays</strong>';
                 overlayTitle.style.margin = '12px 0 8px 0';
                 this.panel.appendChild(overlayTitle);
-                
+
                 layers.forEach((layer, index) => {
                     if (layer.get('type') !== 'base' && layer.get('name')) {
                         const label = document.createElement('label');
                         label.style.cssText = 'display: block; margin: 4px 0; cursor: pointer;';
-                        
+
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
                         checkbox.checked = layer.getVisible();
                         checkbox.addEventListener('change', () => {
                             layer.setVisible(checkbox.checked);
                         });
-                        
+
                         label.appendChild(checkbox);
                         label.appendChild(document.createTextNode(' ' + layer.get('name')));
                         this.panel.appendChild(label);
                     }
                 });
-                
+
                 this.element.appendChild(this.panel);
-                
+
                 // Close when clicking outside
                 document.addEventListener('click', (e) => {
                     if (!this.element.contains(e.target)) {
@@ -1076,88 +1181,472 @@
                 });
             }
         }
-        
+
         // Register the custom control
         ol.control.LayerSwitcher = LayerSwitcher;
     </script>
-    
+
     <!-- Debug: Log OpenLayers availability -->
     <script>
-        console.log('🔍 OpenLayers loaded:', typeof ol !== 'undefined');
-        if (typeof ol !== 'undefined') {
-            console.log('📦 OpenLayers version:', ol.VERSION);
-            console.log('🗺️ OpenLayers Map available:', typeof ol.Map !== 'undefined');
+        // Global error handler
+        function showError(message, error) {
+            const container = document.getElementById('error-container');
+            if (!container) return;
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i>
+                <div>
+                    <strong>Error:</strong> ${message}
+                    ${error ? `<br><small>${error.message}</small>` : ''}
+                </div>
+            `;
+
+            container.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        // Function to update debug info
+        function updateDebugStatus() {
+            const debugInfo = document.getElementById('debug-info');
+            if (!debugInfo) return;
+
+            debugInfo.style.display = 'block';
+
+            // Check OpenLayers
+            const olStatus = document.getElementById('ol-status');
+            if (typeof ol !== 'undefined') {
+                olStatus.textContent = `✅ v${ol.VERSION}`;
+            }
+
+            // Check LayerSwitcher
+            const lsStatus = document.getElementById('layerswitcher-status');
+            if (typeof LayerSwitcher !== 'undefined') {
+                lsStatus.textContent = '✅';
+            }
+
+            // Check map container
+            const containerStatus = document.getElementById('container-status');
+            const mapContainer = document.getElementById('main-map');
+            if (mapContainer && mapContainer.clientWidth > 0 && mapContainer.clientHeight > 0) {
+                containerStatus.textContent = `✅ ${mapContainer.clientWidth}x${mapContainer.clientHeight}`;
+            }
         }
     </script>
-    
+
+    <!-- Service Worker Registration -->
+    <script>
+        // Register service worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/public/sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registered:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.warn('⚠️ Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+
     <!-- Weather Radar Application -->
     <script>
+        // Configuration Constants
+        const CONFIG = {
+            defaultCenter: [-98.5795, 39.8283], // Center of US
+            defaultZoom: 4,
+            maxZoom: 18,
+            minZoom: 2,
+            projection: 'EPSG:3857',
+            tileSize: 256,
+            tileBuffer: 4,
+            loadTilesWhileAnimating: true,
+            loadTilesWhileInteracting: true,
+            preload: 4
+        };
+
         // Initialize weather radar when DOM is ready
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('🌦️ Starting Weather Radar Application...');
-            
+
+            try {
+                // Initialize the map with error boundaries
+                await initializeMap();
+                console.log('✅ Map initialized successfully');
+            } catch (error) {
+                console.error('❌ Failed to initialize map:', error);
+                showError('Map initialization failed', error);
+            }
+        });
+
+        // Initialize map with comprehensive error handling
+        async function initializeMap() {
+            // Validate environment and dependencies
+            if (typeof ol === 'undefined') {
+                throw new Error('OpenLayers not loaded');
+            }
+
+            // Get and validate map container
+            const mapContainer = document.getElementById('map');
+            if (!mapContainer) {
+                throw new Error('Map container not found');
+            }
+
+            // Initialize view with proper projection and constraints
+            const view = new ol.View({
+                center: ol.proj.fromLonLat(CONFIG.defaultCenter),
+                zoom: CONFIG.defaultZoom,
+                minZoom: CONFIG.minZoom,
+                maxZoom: CONFIG.maxZoom,
+                projection: CONFIG.projection,
+                constrainResolution: true,
+                smoothResolutionConstraint: true,
+                enableRotation: false,
+                extent: ol.proj.transformExtent(
+                    [-180, 15, -50, 70],
+                    'EPSG:4326',
+                    CONFIG.projection
+                )
+            });
+
+            // Create optimized base layers with error handling
+            const layers = await createOptimizedLayers();
+
+            // Create map with enhanced settings
+            const map = new ol.Map({
+                target: 'map',
+                view: view,
+                layers: layers,
+                controls: createMapControls(),
+                interactions: createMapInteractions(),
+                loadTilesWhileAnimating: CONFIG.loadTilesWhileAnimating,
+                loadTilesWhileInteracting: CONFIG.loadTilesWhileInteracting,
+                pixelRatio: Math.min(2, window.devicePixelRatio || 1)
+            });
+
+            // Set up tile load monitoring
+            setupTileLoadMonitoring(map);
+
+            // Initialize weather layers with loading indicators
+            const weatherLayers = await initializeWeatherLayers(map);
+
+            // Set up geolocation with fallback
+            setupGeolocation(map);
+
+            return map;
+        }
+
+        // Create optimized base layers
+        async function createOptimizedLayers() {
+            // Create base layer group
+            const baseLayers = new ol.layer.Group({
+                title: 'Base Maps',
+                layers: [
+                    // OpenStreetMap layer with optimizations
+                    new ol.layer.Tile({
+                        title: 'Street Map',
+                        type: 'base',
+                        source: new ol.source.OSM({
+                            crossOrigin: 'anonymous',
+                            maxZoom: CONFIG.maxZoom,
+                            transition: 250,
+                            cacheSize: 512,
+                            reprojectionErrorThreshold: 0.5,
+                            tileLoadFunction: createRetryingTileLoadFunction()
+                        }),
+                        preload: CONFIG.preload,
+                        useInterimTilesOnError: true,
+                        visible: true
+                    }),
+
+                    // Satellite layer
+                    new ol.layer.Tile({
+                        title: 'Satellite',
+                        type: 'base',
+                        source: new ol.source.XYZ({
+                            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                            maxZoom: CONFIG.maxZoom,
+                            transition: 250,
+                            crossOrigin: 'anonymous',
+                            tileLoadFunction: createRetryingTileLoadFunction()
+                        }),
+                        visible: false
+                    })
+                ]
+            });
+
+            return [baseLayers];
+        }
+
+        // Create a tile load function with retry logic
+        function createRetryingTileLoadFunction(maxRetries = 3, retryDelay = 1000) {
+            return function(tile, src) {
+                let tries = 0;
+
+                function attempt() {
+                    tries++;
+                    const img = tile.getImage();
+
+                    img.addEventListener('error', () => {
+                        if (tries < maxRetries) {
+                            setTimeout(attempt, retryDelay * tries);
+                        }
+                    });
+
+                    img.src = src;
+                }
+
+                attempt();
+            };
+        }
+
+        // Set up tile load monitoring
+        function setupTileLoadMonitoring(map) {
+            let tilesLoading = 0;
+            const loadingIndicator = document.getElementById('loading-screen');
+
+            function updateLoadingState() {
+                if (tilesLoading > 0) {
+                    loadingIndicator.classList.remove('hidden');
+                    document.body.style.cursor = 'progress';
+                } else {
+                    loadingIndicator.classList.add('hidden');
+                    document.body.style.cursor = 'default';
+                }
+            }
+
+            map.on('loadstart', () => {
+                tilesLoading++;
+                updateLoadingState();
+            });
+
+            map.on('loadend', () => {
+                tilesLoading = Math.max(0, tilesLoading - 1);
+                updateLoadingState();
+            });
+
+            // Error handling for tile loads
+            map.on('error', (event) => {
+                console.warn('Map error:', event.error);
+                showError('Failed to load map tiles. Retrying...', event.error);
+            });
+        }
+
+        // Initialize weather layers with proper error handling
+        async function initializeWeatherLayers(map) {
+            const weatherGroup = new ol.layer.Group({
+                title: 'Weather',
+                layers: []
+            });
+
+            try {
+                // NEXRAD Base Reflectivity
+                const nexradLayer = new ol.layer.Tile({
+                    title: 'NEXRAD Radar',
+                    source: new ol.source.XYZ({
+                        url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                        crossOrigin: 'anonymous',
+                        transition: 250,
+                        maxZoom: CONFIG.maxZoom,
+                        tileLoadFunction: createRetryingTileLoadFunction(),
+                    }),
+                    opacity: 0.7,
+                    visible: true,
+                    extent: ol.proj.transformExtent(
+                        [-130, 20, -60, 55],
+                        'EPSG:4326',
+                        CONFIG.projection
+                    )
+                });
+
+                // Precipitation layer
+                const precipLayer = new ol.layer.Tile({
+                    title: 'Precipitation',
+                    source: new ol.source.XYZ({
+                        url: 'https://tilecache.rainviewer.com/v2/radar/{timestamp}/256/{z}/{x}/{y}/2/1_1.png',
+                        crossOrigin: 'anonymous',
+                        tileLoadFunction: createRetryingTileLoadFunction()
+                    }),
+                    visible: false,
+                    opacity: 0.6
+                });
+
+                // Add layers to group
+                weatherGroup.getLayers().extend([nexradLayer, precipLayer]);
+                map.addLayer(weatherGroup);
+
+                // Set up layer switcher control
+                const layerSwitcher = new LayerSwitcher({
+                    tipLabel: 'Layer List',
+                    groupSelectStyle: 'group',
+                    reverse: true
+                });
+                map.addControl(layerSwitcher);
+
+                // Monitor weather layer loading
+                setupWeatherLayerMonitoring(nexradLayer, precipLayer);
+
+                return weatherGroup;
+            } catch (error) {
+                console.error('Failed to initialize weather layers:', error);
+                showError('Failed to load weather data', error);
+                throw error;
+            }
+        }
+
+        // Monitor weather layer loading
+        function setupWeatherLayerMonitoring(nexradLayer, precipLayer) {
+            const sources = [nexradLayer.getSource(), precipLayer.getSource()];
+
+            sources.forEach(source => {
+                source.on('tileloadstart', () => {
+                    showLayerLoading(true);
+                });
+
+                source.on('tileloadend', () => {
+                    showLayerLoading(false);
+                });
+
+                source.on('tileloaderror', (event) => {
+                    console.warn('Tile load error, retrying...', event);
+                    setTimeout(() => {
+                        source.refresh();
+                    }, 5000);
+                });
+            });
+        }
+
+        // Layer loading indicator
+        function showLayerLoading(show) {
+            const indicator = document.querySelector('.layer-loading');
+            if (indicator) {
+                indicator.classList.toggle('visible', show);
+            }
+        }
+
+        // Create map controls with accessibility
+        function createMapControls() {
+            return new ol.Collection([
+                new ol.control.Zoom({
+                    className: 'custom-zoom',
+                    delta: 1,
+                    duration: 250
+                }),
+                new ol.control.ScaleLine({
+                    units: 'imperial'
+                }),
+                new ol.control.Attribution({
+                    collapsible: true,
+                    collapsed: true
+                }),
+                new ol.control.FullScreen({
+                    tipLabel: 'Toggle fullscreen'
+                })
+            ]);
+        }
+
+        // Create map interactions
+        function createMapInteractions() {
+            return ol.interaction.defaults({
+                altShiftDragRotate: false,
+                pinchRotate: false,
+                mouseWheelZoom: true,
+                keyboard: true
+            }).extend([
+                new ol.interaction.DragPan({
+                    kinetic: true
+                })
+            ]);
+        }
+
+        // Set up geolocation with fallback
+        function setupGeolocation(map) {
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const coords = ol.proj.fromLonLat([
+                            position.coords.longitude,
+                            position.coords.latitude
+                        ]);
+                        map.getView().animate({
+                            center: coords,
+                            zoom: 8,
+                            duration: 1000
+                        });
+                    },
+                    error => {
+                        console.warn('Geolocation failed:', error);
+                        // Fallback to default view (already set)
+                    }
+                );
+            }
+        }
+            updateDebugStatus();
+
             try {
                 // Validate environment
                 if (typeof ol === 'undefined') {
                     throw new Error('OpenLayers not loaded. Please check your internet connection.');
                 }
-                
+
                 console.log('📦 OpenLayers version:', ol.VERSION);
-                
+
                 // Check map container
                 const mapContainer = document.getElementById('main-map');
                 if (!mapContainer) {
                     throw new Error('Map container #main-map not found');
                 }
-                
+
                 // Validate container dimensions
                 if (mapContainer.clientWidth === 0 || mapContainer.clientHeight === 0) {
                     throw new Error('Map container has zero dimensions');
                 }
-                
+
                 console.log('✅ Map container ready:', {
                     width: mapContainer.clientWidth,
                     height: mapContainer.clientHeight
                 });
-                
+
                 // Initialize map with comprehensive error handling
                 try {
                     window.weatherRadarMap = await initializeWeatherRadarMap();
                     console.log('✅ Weather radar map initialized successfully');
-                    
+
                     // Add event listener for window resize
                     window.addEventListener('resize', () => {
                         window.weatherRadarMap.updateSize();
                     });
-                    
+
                 } catch (error) {
                     console.error('❌ Failed to initialize weather radar:', error);
                     showError('Failed to load weather radar: ' + error.message);
-                    
+
                     // Hide loading screen on error
                     const loadingScreen = document.getElementById('loading-screen');
                     if (loadingScreen) {
                         loadingScreen.style.display = 'none';
                     }
                 }
-                
+
             } catch (error) {
                 console.error('❌ Environment validation failed:', error);
                 showError('Environment validation failed: ' + error.message);
             }
         });
-        
+
         // Weather radar map initialization function
         async function initializeWeatherRadarMap() {
             console.log('🗺️ Creating OpenLayers map...');
-            
+
             try {
                 // Hide loading screen initially
                 const loadingScreen = document.getElementById('loading-screen');
                 if (loadingScreen) {
                     loadingScreen.style.display = 'flex';
                 }
-                
+
                 // Create LayerSwitcher control
             const layerSwitcher = new LayerSwitcher({
                 tipLabel: 'Layers', // Optional label for button
@@ -1181,7 +1670,7 @@
                 type: 'base',
                 visible: true
             });
-            
+
             const satelliteLayer = new ol.layer.Tile({
                 source: new ol.source.XYZ({
                     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -1194,7 +1683,7 @@
                 type: 'base',
                 visible: false
             });
-            
+
             const terrainLayer = new ol.layer.Tile({
                 source: new ol.source.XYZ({
                     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
@@ -1207,7 +1696,7 @@
                 type: 'base',
                 visible: false
             });
-            
+
             // Create map view centered on US with proper projection
             const view = new ol.View({
                 center: ol.proj.fromLonLat([-98.5795, 39.8283]), // Center of US
@@ -1217,7 +1706,7 @@
                 projection: 'EPSG:3857', // Web Mercator
                 extent: ol.proj.transformExtent([-180, 15, -50, 70], 'EPSG:4326', 'EPSG:3857') // Continental US + Alaska
             });
-            
+
             // Default OpenLayers controls with customizations
             const controls = new ol.Collection([
                 new ol.control.Zoom(),
@@ -1243,7 +1732,7 @@
                     target: document.getElementById('mouse-position')
                 })
             ]);
-            
+
             // Create base layer group
             const baseMaps = new ol.layer.Group({
                 title: 'Base Maps',
@@ -1269,21 +1758,21 @@
                 loadTilesWhileInteracting: true,
                 pixelRatio: Math.min(2, window.devicePixelRatio || 1) // Better rendering on high DPI screens
             });
-            
+
             // Add layer switcher after map creation
             map.addControl(layerSwitcher);
-            
+
             // Store layer references globally
             window.baseLayers = {
                 osm: osmLayer,
                 satellite: satelliteLayer,
                 terrain: terrainLayer
             };
-            
+
             // Map event handlers for better user feedback
             map.once('rendercomplete', () => {
                 console.log('✅ Map rendered successfully');
-                
+
                 // Hide loading screen after map renders
                 setTimeout(() => {
                     if (loadingScreen) {
@@ -1291,16 +1780,16 @@
                     }
                 }, 500);
             });
-            
+
             // Track loading state
             let tilesLoading = 0;
-            
+
             map.on('loadstart', () => {
                 tilesLoading++;
                 console.log('🔄 Loading tiles:', tilesLoading);
                 document.body.style.cursor = 'progress';
             });
-            
+
             map.on('loadend', () => {
                 tilesLoading--;
                 console.log('✅ Tiles loaded, remaining:', tilesLoading);
@@ -1308,50 +1797,49 @@
                     document.body.style.cursor = 'default';
                 }
             });
-            
+
             // Error handling for tile loading
             osmLayer.getSource().on('tileloaderror', (event) => {
                 console.error('❌ Failed to load map tile:', event);
                 showError('Failed to load map tile. Please check your internet connection.');
             });
-            
+
             // Track user interactions
             map.on('moveend', () => {
                 const center = ol.proj.toLonLat(view.getCenter());
                 const zoom = view.getZoom();
                 console.log(`📍 Map moved to: ${center}, zoom: ${zoom}`);
             });
-            
+
             map.on('click', (event) => {
                 const coordinate = ol.proj.toLonLat(event.coordinate);
                 console.log('🗺️ Map clicked at:', coordinate);
             });
-            
+
             // Add additional layers
             await addWeatherLayers(map);
-            
+
             // Initialize controls
             initializeMapControls(map);
-            
+
             return map;
         }
-        
+
         // Add weather layers to map
         async function addWeatherLayers(map) {
-            if (!map) {
-                throw new Error('Map not provided to addWeatherLayers');
-            }
-            
             try {
+                if (!map) {
+                    throw new Error('Map not provided to addWeatherLayers');
+                }
                 console.log('🌦️ Adding weather layers...');
-                
+
                 // Show loading indicator
                 const loadingScreen = document.getElementById('loading-screen');
                 if (loadingScreen) {
                     loadingScreen.classList.remove('hidden');
                     loadingScreen.style.display = 'flex';
                 }
-                
+
                 // Create a layer group for weather layers
                 const weatherLayerGroup = new ol.layer.Group({
                     title: 'Weather Data',
@@ -1360,7 +1848,7 @@
 
                 // Add NEXRAD radar base reflectivity layer
                 console.log('🌧️ Creating NEXRAD radar layer...');
-                
+
                 const radarLayer = new ol.layer.Tile({
                     source: new ol.source.XYZ({
                         url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
@@ -1407,7 +1895,7 @@
                     title: 'Weather Alerts',
                     type: 'overlay'
                 });
-                
+
                 // Add precipitation layer
                 const precipitationLayer = new ol.layer.Tile({
                     source: new ol.source.XYZ({
@@ -1420,14 +1908,14 @@
                     title: 'Live Precipitation',
                     type: 'overlay'
                 });
-                
+
                 // Add all layers to the weather group
                 weatherLayerGroup.getLayers().extend([radarLayer, weatherAlertsLayer, precipitationLayer]);
-                
+
                 // Add weather layer group to map
                 map.addLayer(weatherLayerGroup);
                 console.log('✅ Weather layers added to map');
-                
+
                 // Store layer references globally for controls
                 window.weatherLayers = {
                     radarReflectivity: radarLayer,
@@ -1435,21 +1923,21 @@
                     precipitation: precipitationLayer,
                     group: weatherLayerGroup
                 };
-                
+
                 // Set up automatic refresh every 5 minutes for radar data
                 setInterval(() => {
                     console.log('🔄 Refreshing radar data...');
                     radarLayer.getSource().refresh();
                 }, 300000); // 5 minutes
-                
+
                 console.log('✅ Weather layers initialized successfully');
-                
+
                 return weatherLayerGroup;
-                
+
             } catch (error) {
                 console.error('❌ Failed to add weather layers:', error);
                 showError('Failed to load weather data: ' + error.message);
-                
+
                 // Hide loading screen on error
                 if (loadingScreen) {
                     loadingScreen.style.display = 'none';
@@ -1457,14 +1945,14 @@
                 throw error; // Re-throw to handle in the calling function
             }
         }
-        
+
         // Initialize map when document is ready
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 // Initialize the weather radar map
                 window.weatherRadarMap = await initializeWeatherRadarMap();
                 console.log('✅ Weather radar map initialized successfully');
-                
+
                 // Add event listener for window resize
                 window.addEventListener('resize', () => {
                     window.weatherRadarMap.updateSize();
@@ -1474,20 +1962,20 @@
                 showError(error.message);
             }
         });
-        
+
         // Initialize map controls
         function initializeMapControls(map) {
             console.log('🎛️ Initializing map controls...');
-            
+
             // Initialize overlay panel functionality
             initializeOverlayPanel(map);
-            
+
             // Zoom controls
             const zoomInBtn = document.getElementById('zoom-in');
             const zoomOutBtn = document.getElementById('zoom-out');
             const geoBtn = document.getElementById('geolocation');
             const resetBtn = document.getElementById('reset-view');
-            
+
             if (zoomInBtn) {
                 zoomInBtn.addEventListener('click', () => {
                     const view = map.getView();
@@ -1495,7 +1983,7 @@
                     view.animate({ zoom: zoom + 1, duration: 250 });
                 });
             }
-            
+
             if (zoomOutBtn) {
                 zoomOutBtn.addEventListener('click', () => {
                     const view = map.getView();
@@ -1503,7 +1991,7 @@
                     view.animate({ zoom: zoom - 1, duration: 250 });
                 });
             }
-            
+
             if (resetBtn) {
                 resetBtn.addEventListener('click', () => {
                     map.getView().animate({
@@ -1513,7 +2001,7 @@
                     });
                 });
             }
-            
+
             if (geoBtn) {
                 geoBtn.addEventListener('click', () => {
                     if (navigator.geolocation) {
@@ -1533,17 +2021,17 @@
                     }
                 });
             }
-            
+
             console.log('✅ Map controls initialized');
         }
-        
+
         // Initialize overlay panel functionality
         function initializeOverlayPanel(map) {
             const panel = document.getElementById('overlay-panel');
             const toggle = document.getElementById('panel-toggle');
-            
+
             if (!panel || !toggle) return;
-            
+
             // Panel toggle functionality
             toggle.addEventListener('click', () => {
                 if (panel.classList.contains('collapsed')) {
@@ -1556,25 +2044,25 @@
                     toggle.innerHTML = '<i class="fas fa-sliders-h"></i>';
                 }
             });
-            
+
             // Radar controls
             const radarReflectivityToggle = document.getElementById('radar-reflectivity-toggle');
             const radarVelocityToggle = document.getElementById('radar-velocity-toggle');
             const radarOpacitySlider = document.getElementById('radar-opacity-slider');
             const opacityValue = document.getElementById('opacity-value');
-            
+
             if (radarReflectivityToggle && window.weatherLayers) {
                 radarReflectivityToggle.addEventListener('change', (e) => {
                     window.weatherLayers.radarReflectivity.setVisible(e.target.checked);
                 });
             }
-            
+
             if (radarVelocityToggle && window.weatherLayers) {
                 radarVelocityToggle.addEventListener('change', (e) => {
                     window.weatherLayers.radarVelocity.setVisible(e.target.checked);
                 });
             }
-            
+
             if (radarOpacitySlider && window.weatherLayers) {
                 radarOpacitySlider.addEventListener('input', (e) => {
                     const opacity = e.target.value / 100;
@@ -1585,49 +2073,49 @@
                     }
                 });
             }
-            
+
             // Weather data controls
             const weatherAlertsToggle = document.getElementById('weather-alerts-toggle');
             const precipitationToggle = document.getElementById('precipitation-toggle');
-            
+
             if (weatherAlertsToggle && window.weatherLayers && window.weatherLayers.weatherAlerts) {
                 weatherAlertsToggle.addEventListener('change', (e) => {
                     window.weatherLayers.weatherAlerts.setVisible(e.target.checked);
                 });
             }
-            
+
             if (precipitationToggle && window.weatherLayers) {
                 precipitationToggle.addEventListener('change', (e) => {
                     window.weatherLayers.precipitation.setVisible(e.target.checked);
                 });
             }
-            
+
             // Base layer controls
             const baseLayerSelect = document.getElementById('base-layer-select');
-            
+
             if (baseLayerSelect && window.baseLayers) {
                 baseLayerSelect.addEventListener('change', (e) => {
                     const selectedLayer = e.target.value;
-                    
+
                     // Hide all base layers
                     Object.values(window.baseLayers).forEach(layer => {
                         layer.setVisible(false);
                     });
-                    
+
                     // Show selected layer
                     if (window.baseLayers[selectedLayer]) {
                         window.baseLayers[selectedLayer].setVisible(true);
                     }
                 });
             }
-            
+
             console.log('✅ Overlay panel initialized');
         }
-        
+
         // Error handling
         function showError(message) {
             console.error('💥 Error:', message);
-            
+
             const loadingScreen = document.getElementById('loading-screen');
             if (loadingScreen) {
                 const loadingText = document.getElementById('loading-text');
@@ -1636,22 +2124,22 @@
                     loadingText.style.color = '#ef4444';
                 }
             }
-            
+
             // Also show in toast if available
             showToast('Error: ' + message, 'error');
         }
-        
+
         // Simple toast notification
         function showToast(message, type = 'info') {
             const toastContainer = document.getElementById('toast-container');
             if (!toastContainer) return;
-            
+
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
             toast.textContent = message;
-            
+
             toastContainer.appendChild(toast);
-            
+
             setTimeout(() => {
                 toast.remove();
             }, 5000);

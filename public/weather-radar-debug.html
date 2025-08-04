@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Weather Radar - Fixed Loading</title>
+
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+        /* Loading Screen */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            transition: opacity 0.5s ease-out;
+        }
+
+        #loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 18px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .loading-progress {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .loading-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .loading-steps {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            text-align: center;
+            max-width: 400px;
+        }
+
+        /* Error Display */
+        .error-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            max-width: 400px;
+            z-index: 10001;
+        }
+
+        .error-message {
+            background: #ef4444;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .error-message .close {
+            float: right;
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        /* Map Container */
+        #map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+        }
+
+        /* Debug Panel */
+        #debug-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-width: 300px;
+            display: none;
+        }
+
+        #debug-panel.visible {
+            display: block;
+        }
+
+        .debug-item {
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .debug-status {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+
+        .debug-status.success {
+            background: #10b981;
+        }
+
+        .debug-status.error {
+            background: #ef4444;
+        }
+
+        .debug-status.warning {
+            background: #f59e0b;
+        }
+
+        /* Controls */
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        .control-btn {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .control-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loading-text">Initializing Weather Radar...</div>
+        <div class="loading-progress">
+            <div class="loading-bar" id="loading-bar"></div>
+        </div>
+        <div class="loading-steps" id="loading-steps">Checking dependencies...</div>
+    </div>
+
+    <!-- Error Container -->
+    <div id="error-container" class="error-container"></div>
+
+    <!-- Debug Panel -->
+    <div id="debug-panel">
+        <div style="font-weight: bold; margin-bottom: 10px;">🐛 Debug Information</div>
+        <div class="debug-item">
+            <span>OpenLayers:</span>
+            <span class="debug-status" id="ol-status">Checking...</span>
+        </div>
+        <div class="debug-item">
+            <span>Map Container:</span>
+            <span class="debug-status" id="container-status">Checking...</span>
+        </div>
+        <div class="debug-item">
+            <span>Base Layers:</span>
+            <span class="debug-status" id="layers-status">Waiting...</span>
+        </div>
+        <div class="debug-item">
+            <span>Weather Data:</span>
+            <span class="debug-status" id="weather-status">Waiting...</span>
+        </div>
+        <div class="debug-item">
+            <span>Network:</span>
+            <span class="debug-status" id="network-status">Checking...</span>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button class="control-btn" onclick="toggleDebug()">🐛 Debug</button>
+        <button class="control-btn" onclick="retryInitialization()">🔄 Retry</button>
+        <button class="control-btn" onclick="testNetwork()">🌐 Test Network</button>
+        <button class="control-btn" onclick="testNexradServices()">🌦️ Test NEXRAD</button>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+
+    <!-- OpenLayers JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+
+    <script>
+        // Global error handler
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
+            showError('JavaScript Error', event.error.message);
+            updateDebugStatus('network-status', 'error', 'JS Error');
+        });
+
+        // Unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            showError('Promise Rejection', event.reason);
+            updateDebugStatus('network-status', 'error', 'Promise Error');
+        });
+
+        // Configuration
+        const CONFIG = {
+            timeout: 30000, // 30 seconds timeout
+            retryAttempts: 3,
+            center: [-95.7129, 37.0902], // US center
+            zoom: 5,
+            minZoom: 3,
+            maxZoom: 18
+        };
+
+        // Global state
+        let map = null;
+        let initializationAttempts = 0;
+        let loadingSteps = [
+            'Checking dependencies...',
+            'Validating environment...',
+            'Creating map container...',
+            'Loading base layers...',
+            'Initializing weather data...',
+            'Setting up controls...',
+            'Finalizing setup...'
+        ];
+        let currentStep = 0;
+
+        // Utility functions
+        function showError(title, message, autoHide = null) {
+            const container = document.getElementById('error-container');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `
+                <strong>${title}:</strong> ${message}
+                <span class="close" onclick="this.parentElement.remove()">×</span>
+            `;
+            container.appendChild(errorDiv);
+
+            // Auto-remove after specified time or default 10 seconds
+            const hideTime = autoHide || 10000;
+            setTimeout(() => {
+                if (errorDiv.parentElement) {
+                    errorDiv.remove();
+                }
+            }, hideTime);
+        }
+
+        function updateDebugStatus(elementId, status, text) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.className = `debug-status ${status}`;
+                element.textContent = text;
+            }
+        }
+
+        function updateLoadingProgress(step, progress = null) {
+            const loadingText = document.getElementById('loading-text');
+            const loadingSteps = document.getElementById('loading-steps');
+            const loadingBar = document.getElementById('loading-bar');
+
+            if (step < loadingSteps.length) {
+                currentStep = step;
+                loadingText.textContent = 'Loading Weather Data...';
+                loadingSteps.textContent = loadingSteps[step];
+
+                const progressPercent = progress !== null ? progress : ((step + 1) / loadingSteps.length) * 100;
+                loadingBar.style.width = `${progressPercent}%`;
+            }
+        }
+
+        function hideLoadingScreen() {
+            const loadingScreen = document.getElementById('loading-screen');
+            loadingScreen.classList.add('hidden');
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+            }, 500);
+        }
+
+        function showLoadingScreen() {
+            const loadingScreen = document.getElementById('loading-screen');
+            loadingScreen.style.display = 'flex';
+            loadingScreen.classList.remove('hidden');
+        }
+
+        function toggleDebug() {
+            const debugPanel = document.getElementById('debug-panel');
+            debugPanel.classList.toggle('visible');
+        }
+
+        // Network connectivity test
+        async function testNetwork() {
+            updateDebugStatus('network-status', 'warning', 'Testing...');
+
+            try {
+                // Test multiple endpoints
+                const tests = [
+                    fetch('https://tile.openstreetmap.org/1/0/0.png', { method: 'HEAD' }),
+                    fetch('https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css', { method: 'HEAD' })
+                ];
+
+                const results = await Promise.allSettled(tests);
+                const successCount = results.filter(r => r.status === 'fulfilled').length;
+
+                if (successCount > 0) {
+                    updateDebugStatus('network-status', 'success', `${successCount}/${tests.length} OK`);
+                    return true;
+                } else {
+                    updateDebugStatus('network-status', 'error', 'All Failed');
+                    return false;
+                }
+            } catch (error) {
+                updateDebugStatus('network-status', 'error', 'Test Failed');
+                console.error('Network test failed:', error);
+                return false;
+            }
+        }
+
+        // NEXRAD-specific testing
+        async function testNexradServices() {
+            updateDebugStatus('weather-status', 'warning', 'Testing...');
+            showError('NEXRAD Test', 'Testing NEXRAD radar services...', 3000);
+
+            const nexradEndpoints = [
+                {
+                    name: 'Iowa State Mesonet',
+                    testUrl: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/5/8/12.png',
+                    description: 'Primary NEXRAD source'
+                },
+                {
+                    name: 'NOAA nowCOAST',
+                    testUrl: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/tile/5/12/8',
+                    description: 'Alternative NOAA source'
+                },
+                {
+                    name: 'RainViewer',
+                    testUrl: 'https://tilecache.rainviewer.com/v2/radar/0/256/5/8/12/2/1_1.png',
+                    description: 'Backup weather radar'
+                }
+            ];
+
+            let workingServices = 0;
+            const results = [];
+
+            for (const endpoint of nexradEndpoints) {
+                try {
+                    console.log(`🧪 Testing ${endpoint.name}...`);
+                    await fetch(endpoint.testUrl, { 
+                        method: 'HEAD',
+                        mode: 'no-cors' // Allow cross-origin requests
+                    });
+                    
+                    // For no-cors, we can't check status, but if it doesn't throw, it's likely working
+                    workingServices++;
+                    results.push(`✅ ${endpoint.name}: Available`);
+                    console.log(`✅ ${endpoint.name} is working`);
+                    
+                } catch (error) {
+                    results.push(`❌ ${endpoint.name}: ${error.message}`);
+                    console.error(`❌ ${endpoint.name} failed:`, error);
+                }
+            }
+
+            // Show results
+            const resultMessage = results.join('\\n');
+            if (workingServices > 0) {
+                updateDebugStatus('weather-status', 'success', `${workingServices}/${nexradEndpoints.length} OK`);
+                showError('NEXRAD Test Results', `${workingServices} services available:\\n${resultMessage}`, 8000);
+            } else {
+                updateDebugStatus('weather-status', 'error', 'All Failed');
+                showError('NEXRAD Test Failed', `All NEXRAD services failed:\\n${resultMessage}`, 10000);
+            }
+
+            return workingServices > 0;
+        }
+
+        // Retry initialization function
+        async function retryInitialization() {
+            initializationAttempts++;
+            showLoadingScreen();
+            updateLoadingProgress(0);
+
+            try {
+                await initializeWeatherRadar();
+            } catch (error) {
+                console.error(`Retry attempt ${initializationAttempts} failed:`, error);
+                showError(`Retry ${initializationAttempts} Failed`, error.message);
+
+                if (initializationAttempts < CONFIG.retryAttempts) {
+                    const delay = Math.pow(2, initializationAttempts) * 1000; // Exponential backoff
+                    updateLoadingProgress(0, 0);
+                    document.getElementById('loading-steps').textContent = `Retrying in ${delay/1000} seconds...`;
+                    setTimeout(retryInitialization, delay);
+                } else {
+                    hideLoadingScreen();
+                    showError('Initialization Failed', 'Maximum retry attempts reached. Please check your internet connection and refresh the page.');
+                }
+            }
+        }
+
+        // Main initialization function with comprehensive error handling
+        async function initializeWeatherRadar() {
+            console.log('🌦️ Starting Weather Radar initialization...');
+
+            try {
+                // Step 1: Check dependencies
+                updateLoadingProgress(0);
+                await checkDependencies();
+
+                // Step 2: Validate environment
+                updateLoadingProgress(1);
+                await validateEnvironment();
+
+                // Step 3: Create map container
+                updateLoadingProgress(2);
+                await setupMapContainer();
+
+                // Step 4: Load base layers
+                updateLoadingProgress(3);
+                await createBaseLayers();
+
+                // Step 5: Initialize weather data
+                updateLoadingProgress(4);
+                await initializeWeatherLayers();
+
+                // Step 6: Set up controls
+                updateLoadingProgress(5);
+                await setupControls();
+
+                // Step 7: Finalize
+                updateLoadingProgress(6);
+                await finalizeSetup();
+
+                // Success!
+                updateLoadingProgress(6, 100);
+                setTimeout(hideLoadingScreen, 1000);
+                console.log('✅ Weather Radar initialized successfully');
+
+            } catch (error) {
+                console.error('❌ Initialization failed:', error);
+                throw error;
+            }
+        }
+
+        async function checkDependencies() {
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    updateDebugStatus('ol-status', 'error', 'Timeout');
+                    reject(new Error('OpenLayers loading timeout'));
+                }, 10000);
+
+                function checkOL() {
+                    if (typeof ol !== 'undefined') {
+                        clearTimeout(timeout);
+                        updateDebugStatus('ol-status', 'success', 'Loaded');
+                        resolve();
+                    } else {
+                        setTimeout(checkOL, 100);
+                    }
+                }
+                checkOL();
+            });
+        }
+
+        async function validateEnvironment() {
+            // Test network connectivity
+            const networkOk = await testNetwork();
+            if (!networkOk) {
+                throw new Error('Network connectivity issues detected');
+            }
+
+            updateDebugStatus('network-status', 'success', 'Connected');
+        }
+
+        async function setupMapContainer() {
+            const mapContainer = document.getElementById('map');
+            if (!mapContainer) {
+                updateDebugStatus('container-status', 'error', 'Not Found');
+                throw new Error('Map container element not found');
+            }
+
+            // Clear any existing content
+            mapContainer.innerHTML = '';
+            updateDebugStatus('container-status', 'success', 'Ready');
+        }
+
+        async function createBaseLayers() {
+            try {
+                // Create view
+                const view = new ol.View({
+                    center: ol.proj.fromLonLat(CONFIG.center),
+                    zoom: CONFIG.zoom,
+                    minZoom: CONFIG.minZoom,
+                    maxZoom: CONFIG.maxZoom,
+                    constrainResolution: true,
+                    enableRotation: false
+                });
+
+                // Create base layer with error handling
+                const baseLayer = new ol.layer.Tile({
+                    source: new ol.source.OSM({
+                        transition: 250,
+                        maxZoom: CONFIG.maxZoom
+                    }),
+                    preload: 4
+                });
+
+                // Create map
+                map = new ol.Map({
+                    target: 'map',
+                    layers: [baseLayer],
+                    view: view,
+                    loadTilesWhileAnimating: true,
+                    loadTilesWhileInteracting: true
+                });
+
+                // Add error handling for the map
+                map.on('error', (event) => {
+                    console.error('Map error:', event);
+                    showError('Map Error', 'Failed to load map tiles');
+                });
+
+                updateDebugStatus('layers-status', 'success', 'Loaded');
+
+            } catch (error) {
+                updateDebugStatus('layers-status', 'error', 'Failed');
+                throw new Error('Failed to create base layers: ' + error.message);
+            }
+        }
+
+        async function initializeWeatherLayers() {
+            try {
+                updateDebugStatus('weather-status', 'warning', 'Loading...');
+                
+                // NEXRAD radar sources with different fallbacks
+                const nexradSources = [
+                    {
+                        name: 'Iowa State NEXRAD',
+                        url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                        attribution: 'Iowa Environmental Mesonet'
+                    },
+                    {
+                        name: 'Alternative NEXRAD',
+                        url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/tile/{z}/{y}/{x}',
+                        attribution: 'NOAA nowCOAST'
+                    },
+                    {
+                        name: 'RainViewer Radar',
+                        url: 'https://tilecache.rainviewer.com/v2/radar/0/256/{z}/{x}/{y}/2/1_1.png',
+                        attribution: 'RainViewer'
+                    }
+                ];
+
+                let successfulLayer = null;
+                let lastError = null;
+
+                // Try each NEXRAD source
+                for (const source of nexradSources) {
+                    console.log(`🌦️ Attempting to load ${source.name}...`);
+                    
+                    try {
+                        const layer = new ol.layer.Tile({
+                            title: `NEXRAD - ${source.name}`,
+                            source: new ol.source.XYZ({
+                                url: source.url,
+                                crossOrigin: 'anonymous',
+                                transition: 250,
+                                maxZoom: 16,
+                                attributions: source.attribution
+                            }),
+                            opacity: 0.7,
+                            visible: true,
+                            extent: ol.proj.transformExtent(
+                                [-130, 20, -60, 55], // CONUS bounds
+                                'EPSG:4326',
+                                'EPSG:3857'
+                            )
+                        });
+
+                        // Test this specific layer
+                        const testResult = await testNexradLayer(layer, source.name);
+                        if (testResult.success) {
+                            map.addLayer(layer);
+                            successfulLayer = layer;
+                            updateDebugStatus('weather-status', 'success', `${source.name} OK`);
+                            console.log(`✅ Successfully loaded ${source.name}`);
+                            
+                            // Add layer controls
+                            addWeatherControls(layer);
+                            break;
+                        } else {
+                            console.warn(`❌ Failed to load ${source.name}: ${testResult.error}`);
+                            lastError = testResult.error;
+                        }
+                    } catch (layerError) {
+                        console.error(`❌ Error creating layer for ${source.name}:`, layerError);
+                        lastError = layerError.message;
+                        continue;
+                    }
+                }
+
+                if (!successfulLayer) {
+                    updateDebugStatus('weather-status', 'error', 'All Failed');
+                    showError('NEXRAD Loading Failed', `Unable to load weather radar data. Last error: ${lastError}`);
+                    
+                    // Add a placeholder layer to show the issue
+                    addPlaceholderWeatherLayer();
+                } else {
+                    // Set up weather layer monitoring
+                    setupWeatherLayerMonitoring(successfulLayer);
+                }
+
+            } catch (error) {
+                updateDebugStatus('weather-status', 'error', 'Exception');
+                console.error('❌ Weather layer initialization failed:', error);
+                showError('Weather Layer Error', error.message);
+            }
+        }
+
+        // Enhanced NEXRAD layer testing
+        async function testNexradLayer(layer, sourceName) {
+            return new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    resolve({ success: false, error: 'Timeout after 10 seconds' });
+                }, 10000);
+
+                const source = layer.getSource();
+                let tileLoadAttempts = 0;
+                let tileLoadSuccesses = 0;
+                let tileLoadErrors = 0;
+
+                const cleanup = () => {
+                    clearTimeout(timeout);
+                };
+
+                // Monitor tile loading
+                source.on('tileloadstart', () => {
+                    tileLoadAttempts++;
+                });
+
+                source.on('tileloadend', () => {
+                    tileLoadSuccesses++;
+                    if (tileLoadSuccesses > 0) {
+                        cleanup();
+                        resolve({ success: true, error: null });
+                    }
+                });
+
+                source.on('tileloaderror', (event) => {
+                    tileLoadErrors++;
+                    console.warn(`Tile load error for ${sourceName}:`, event);
+                    
+                    // If we've had too many errors, fail
+                    if (tileLoadErrors > 3) {
+                        cleanup();
+                        resolve({ success: false, error: `Multiple tile load failures (${tileLoadErrors})` });
+                    }
+                });
+
+                // Force load some tiles to test
+                try {
+                    // Trigger tile loading by temporarily adding to map
+                    map.addLayer(layer);
+                    source.refresh();
+                    
+                    // Remove after test (will be re-added if successful)
+                    setTimeout(() => {
+                        if (map.getLayers().getArray().includes(layer)) {
+                            map.removeLayer(layer);
+                        }
+                    }, 100);
+                    
+                } catch (testError) {
+                    cleanup();
+                    resolve({ success: false, error: `Test setup failed: ${testError.message}` });
+                }
+            });
+        }
+
+        // Add weather layer controls
+        function addWeatherControls(weatherLayer) {
+            const controls = document.querySelector('.controls');
+            if (!controls) return;
+
+            // Add opacity control
+            const opacityBtn = document.createElement('button');
+            opacityBtn.className = 'control-btn';
+            opacityBtn.innerHTML = '🌫️ Opacity: 70%';
+            opacityBtn.onclick = () => {
+                const currentOpacity = weatherLayer.getOpacity();
+                const newOpacity = currentOpacity >= 0.9 ? 0.3 : currentOpacity + 0.2;
+                weatherLayer.setOpacity(newOpacity);
+                opacityBtn.innerHTML = `🌫️ Opacity: ${Math.round(newOpacity * 100)}%`;
+            };
+            controls.appendChild(opacityBtn);
+
+            // Add visibility toggle
+            const visibilityBtn = document.createElement('button');
+            visibilityBtn.className = 'control-btn';
+            visibilityBtn.innerHTML = '👁️ Hide Radar';
+            visibilityBtn.onclick = () => {
+                const isVisible = weatherLayer.getVisible();
+                weatherLayer.setVisible(!isVisible);
+                visibilityBtn.innerHTML = isVisible ? '👁️ Show Radar' : '👁️ Hide Radar';
+            };
+            controls.appendChild(visibilityBtn);
+
+            // Add refresh button
+            const refreshBtn = document.createElement('button');
+            refreshBtn.className = 'control-btn';
+            refreshBtn.innerHTML = '🔄 Refresh Radar';
+            refreshBtn.onclick = () => {
+                weatherLayer.getSource().refresh();
+                showError('Radar Refresh', 'Refreshing radar data...', 2000);
+            };
+            controls.appendChild(refreshBtn);
+        }
+
+        // Add placeholder when weather fails
+        function addPlaceholderWeatherLayer() {
+            // Create a simple overlay showing the issue
+            const placeholderLayer = new ol.layer.Vector({
+                source: new ol.source.Vector(),
+                style: new ol.style.Style({
+                    text: new ol.style.Text({
+                        text: 'NEXRAD Data Unavailable',
+                        font: '16px Arial',
+                        fill: new ol.style.Fill({ color: '#ff0000' }),
+                        stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                    })
+                })
+            });
+
+            // Add a feature at the center of the US
+            const feature = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([-95.7129, 37.0902]))
+            });
+            placeholderLayer.getSource().addFeature(feature);
+            
+            map.addLayer(placeholderLayer);
+        }
+
+        // Enhanced weather layer monitoring
+        function setupWeatherLayerMonitoring(weatherLayer) {
+            const source = weatherLayer.getSource();
+            let loadingTiles = 0;
+
+            source.on('tileloadstart', () => {
+                loadingTiles++;
+                if (loadingTiles > 0) {
+                    updateDebugStatus('weather-status', 'warning', 'Loading tiles...');
+                }
+            });
+
+            source.on('tileloadend', () => {
+                loadingTiles = Math.max(0, loadingTiles - 1);
+                if (loadingTiles === 0) {
+                    updateDebugStatus('weather-status', 'success', 'Tiles loaded');
+                }
+            });
+
+            source.on('tileloaderror', (event) => {
+                console.warn('Weather tile load error:', event);
+                updateDebugStatus('weather-status', 'warning', 'Some tile errors');
+            });
+        }
+
+        async function testLayerLoad(layer) {
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Layer load test timeout'));
+                }, 5000);
+
+                const source = layer.getSource();
+                source.once('tileloadend', () => {
+                    clearTimeout(timeout);
+                    resolve();
+                });
+
+                source.once('tileloaderror', () => {
+                    clearTimeout(timeout);
+                    reject(new Error('Tile load error'));
+                });
+
+                // Force load a tile to test
+                source.refresh();
+            });
+        }
+
+        async function setupControls() {
+            try {
+                // Add zoom controls
+                const zoomControl = new ol.control.Zoom();
+                map.addControl(zoomControl);
+
+                // Add scale line
+                const scaleLineControl = new ol.control.ScaleLine();
+                map.addControl(scaleLineControl);
+
+                // Add attribution
+                const attributionControl = new ol.control.Attribution({
+                    collapsible: true
+                });
+                map.addControl(attributionControl);
+
+            } catch (error) {
+                console.warn('Failed to setup some controls:', error);
+                // Controls are non-critical, continue
+            }
+        }
+
+        async function finalizeSetup() {
+            try {
+                // Set up event listeners
+                map.on('singleclick', (evt) => {
+                    const coordinate = evt.coordinate;
+                    const lonLat = ol.proj.toLonLat(coordinate);
+                    console.log('Clicked at:', lonLat);
+                });
+
+                // Performance monitoring
+                let tilesLoading = 0;
+                map.on('loadstart', () => {
+                    tilesLoading++;
+                });
+
+                map.on('loadend', () => {
+                    tilesLoading = Math.max(0, tilesLoading - 1);
+                });
+
+                // Force initial render
+                map.updateSize();
+                map.render();
+
+            } catch (error) {
+                console.warn('Failed to finalize setup:', error);
+                // Non-critical, continue
+            }
+        }
+
+        // Auto-initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🚀 DOM loaded, starting initialization...');
+
+            try {
+                await initializeWeatherRadar();
+            } catch (error) {
+                console.error('❌ Initial setup failed:', error);
+                showError('Initialization Failed', error.message);
+                hideLoadingScreen();
+
+                // Show retry option after a delay
+                setTimeout(() => {
+                    if (initializationAttempts === 0) {
+                        showError('Auto-Retry Available', 'Click the Retry button to attempt initialization again.');
+                    }
+                }, 2000);
+            }
+        });
+
+        // Ensure loading screen is hidden if everything loads too quickly
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (map && map.getView()) {
+                    hideLoadingScreen();
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

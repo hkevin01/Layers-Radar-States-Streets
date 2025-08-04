@@ -28,48 +28,82 @@ let performanceOptimizer = null;
 async function initializeApp(containerId = 'map') {
   try {
     console.log('🚀 Initializing enhanced map application...');
-    
+
     // Show loading state
     if (typeof window.loading === 'function') {
       window.loading(true);
     }
-    
+
     // Initialize performance optimizer first
     console.log('⚡ Initializing performance optimizer...');
-    performanceOptimizer = new PerformanceOptimizer(null);
-    
-    // Initialize PWA features
+    performanceOptimizer = new PerformanceOptimizer({
+      tileCacheSize: 500,
+      maxMemoryUsage: 0.75, // 75% of available memory
+      preloadAdjacentTiles: true,
+      enableWebGLAcceleration: true
+    });
+
+    // Initialize PWA features with offline support
     console.log('📱 Initializing PWA features...');
-    pwaHelper = new PWAHelper();
-    
-    // Initialize map component
-    console.log('🗺️ Initializing map component...');
-    mapComponent = new MapComponent(containerId);
-    await mapComponent.initialize();
-    
+    pwaHelper = new PWAHelper({
+      enableServiceWorker: true,
+      enableOfflineSupport: true,
+      cacheStrategy: 'network-first',
+      precacheAssets: [
+        '/index.html',
+        '/styles/main.css',
+        '/src/main.js'
+      ]
+    });
+
+    // Initialize weather radar app
+    console.log('🗺️ Initializing weather radar component...');
+    const weatherRadarConfig = {
+      target: containerId,
+      enableGeolocation: true,
+      enableControls: true,
+      mapOptions: {
+        minZoom: 4,
+        maxZoom: 16,
+        center: [-95.7129, 37.0902], // US center
+        zoom: 5
+      },
+      radarOptions: {
+        updateInterval: 300000, // 5 minutes
+        maxFrames: 24,
+        autoUpdate: true
+      }
+    };
+
+    const { WeatherRadarApp } = await import('./apps/weather-radar-app.js');
+    const weatherRadarApp = new WeatherRadarApp(weatherRadarConfig);
+    await weatherRadarApp.init();
+
+    mapComponent = weatherRadarApp.getMap();
+
     // Update performance optimizer with map instance
     performanceOptimizer.mapComponent = mapComponent;
-    
+
     // Initialize UI components
     console.log('🎛️ Initializing UI controls...');
     const mapContainer = document.getElementById(containerId);
     uiControls = new UIControls(mapComponent, mapContainer);
-    
+
     // Initialize mobile controls
     console.log('📱 Initializing mobile controls...');
     mobileControls = new MobileTouchControls(mapComponent, mapContainer);
-    
+
     // Initialize data visualization
     console.log('📊 Initializing data visualization...');
     dataVisualization = new DataVisualization(mapComponent);
-    
+
     // Initialize accessibility features
     console.log('♿ Initializing accessibility features...');
     accessibilityHelper = new AccessibilityHelper(mapComponent);
-    
+
     // Load saved accessibility settings
     accessibilityHelper.loadAccessibilitySettings();
-    
+
     // Expose instances globally for backward compatibility
     window.map = mapComponent.getMap();
     window.mapComponent = mapComponent;
@@ -79,44 +113,44 @@ async function initializeApp(containerId = 'map') {
     window.dataVisualization = dataVisualization;
     window.accessibilityHelper = accessibilityHelper;
     window.performanceOptimizer = performanceOptimizer;
-    
+
     // Set up component interactions
     setupComponentInteractions();
-    
+
     // Hide loading state
     if (typeof window.loading === 'function') {
       window.loading(false);
     }
-    
+
     // Announce success
     if (accessibilityHelper) {
       accessibilityHelper.announce('Map application loaded successfully with enhanced features');
     }
-    
+
     // Display performance info
     displayInitializationSummary();
-    
+
     console.log('✅ Enhanced map application initialized successfully');
     return mapComponent;
-    
+
   } catch (error) {
     console.error('❌ Failed to initialize enhanced map application:', error);
-    
+
     // Show error state
     if (typeof window.errorAlert === 'function') {
       window.errorAlert(null, null, 'Failed to initialize map application');
     }
-    
+
     // Hide loading state
     if (typeof window.loading === 'function') {
       window.loading(false);
     }
-    
+
     // Announce error to screen readers
     if (accessibilityHelper) {
       accessibilityHelper.announce('Failed to load map application', 'assertive');
     }
-    
+
     throw error;
   }
 }
@@ -133,7 +167,7 @@ function setupComponentInteractions() {
       uiControls.updateCoordinates(center.lon, center.lat);
       uiControls.updateZoom(zoom);
     });
-    
+
     mapComponent.on('zoomend', () => {
       const zoom = mapComponent.getZoom();
       uiControls.updateZoom(zoom);
@@ -142,7 +176,7 @@ function setupComponentInteractions() {
       }
     });
   }
-  
+
   // Performance monitoring integration
   if (performanceOptimizer && mapComponent) {
     mapComponent.on('layerload', () => {
@@ -150,7 +184,7 @@ function setupComponentInteractions() {
       performanceOptimizer.preloadAdjacentTiles();
     });
   }
-  
+
   // Accessibility integration with UI controls
   if (accessibilityHelper && uiControls) {
     // Add keyboard shortcuts for UI controls
@@ -165,7 +199,7 @@ function setupComponentInteractions() {
       }
     });
   }
-  
+
   // PWA integration with data visualization
   if (pwaHelper && dataVisualization) {
     // Register background sync for radar data updates
@@ -178,9 +212,9 @@ function setupComponentInteractions() {
  */
 function displayInitializationSummary() {
   if (!performanceOptimizer) return;
-  
+
   const report = performanceOptimizer.getPerformanceReport();
-  
+
   console.group('📊 Application Performance Summary');
   console.log(`🖥️ WebGL Support: ${report.webGL.supported ? '✅' : '❌'}`);
   console.log(`⚡ WebGL Enabled: ${report.webGL.enabled ? '✅' : '❌'}`);
@@ -220,8 +254,8 @@ function getAllComponents() {
  * @returns {boolean} - Whether all components are initialized
  */
 function isFullyInitialized() {
-  return mapComponent !== null && 
-         uiControls !== null && 
+  return mapComponent !== null &&
+         uiControls !== null &&
          mobileControls !== null &&
          pwaHelper !== null &&
          dataVisualization !== null &&
@@ -282,37 +316,37 @@ function cleanup() {
     dataVisualization.destroy();
     dataVisualization = null;
   }
-  
+
   if (accessibilityHelper) {
     accessibilityHelper.destroy();
     accessibilityHelper = null;
   }
-  
+
   if (performanceOptimizer) {
     performanceOptimizer.destroy();
     performanceOptimizer = null;
   }
-  
+
   if (uiControls) {
     uiControls.destroy();
     uiControls = null;
   }
-  
+
   if (mobileControls) {
     mobileControls.destroy();
     mobileControls = null;
   }
-  
+
   if (pwaHelper) {
     pwaHelper.destroy();
     pwaHelper = null;
   }
-  
+
   if (mapComponent) {
     mapComponent.destroy();
     mapComponent = null;
   }
-  
+
   // Clear global references
   window.map = undefined;
   window.mapComponent = undefined;

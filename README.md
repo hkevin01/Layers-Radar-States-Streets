@@ -66,12 +66,39 @@ archive/                             # Old/duplicate files (safely archived)
 ├── simple-weather-radar.js
 └── [other archived files]
 ```
+## 🌟 New Features (v3.0.0)
+
+### 📦 Progressive Web App Features
+- **Offline Support** - Cache maps and radar data
+- **Service Worker** - Enhanced performance and caching
+- **Background Sync** - Auto-update when back online
+- **Push Notifications** - Alerts for severe weather
+
+### 🚀 Performance Enhancements
+- **Tile Preloading** - Smoother map navigation
+- **WebGL Acceleration** - Optimized rendering
+- **Memory Management** - Smart tile caching
+- **Network Strategy** - Network-first with offline fallback
+
+### 🔌 Installation Options
+- **Zero Config** - Works out of the box
+- **NPM Package** - For development integration
+- **CDN Support** - For quick prototypes
+- **Custom Build** - For advanced deployments
+
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Modern web browser with ES6 module support
-- Python 3.x (for local server) or any HTTP server
+Choose one of the following options:
+
+#### Option 1: Docker (Recommended)
+- Docker
+- Docker Compose (included in Docker Desktop)
+
+#### Option 2: Local Development
+- Node.js >= 16.0.0 and npm >= 8.0.0
+- Modern web browser with ES6 and Service Worker support
 
 ### Installation
 
@@ -82,20 +109,51 @@ archive/                             # Old/duplicate files (safely archived)
    cd Layers-Radar-States-Streets
    ```
 
-2. **Start a local server:**
+2. **Choose your installation method:**
 
+   #### Using Docker (Recommended):
    ```bash
-   # Using Python
-   python3 -m http.server 8000
+   # Build and start the container
+   docker-compose up -d
    
-   # Using Node.js (if you have npm installed)
+   # View logs (optional)
+   docker-compose logs -f
+   ```
+
+   #### Using Local Development:
+   ```bash
+   # Using npm
+   npm install
    npm start
+   
+   # Or using Python
+   python3 -m http.server 8000
    ```
 
 3. **Open your browser to:**
-   - Main Application: `http://localhost:8000/public/weather-radar.html`
-   - Modern Application: `http://localhost:8000/public/apps/modern-weather-radar.html`
-   - Welcome Page: `http://localhost:8000/` (auto-redirects to main app)
+   - Main Application: `http://localhost:8080/public/weather-radar.html`
+   - Modern Application: `http://localhost:8080/public/apps/modern-weather-radar.html`
+   - Welcome Page: `http://localhost:8080/` (auto-redirects to main app)
+
+### Development with Docker
+
+#### Hot Reloading
+The Docker setup includes volume mounting for hot reloading. Any changes you make to the source files will be immediately reflected in the running container.
+
+#### Useful Commands
+```bash
+# Stop the container
+docker-compose down
+
+# Rebuild and restart (after dependency changes)
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f
+
+# Shell into container
+docker-compose exec weather-radar sh
+```
 
 ### Alternative: Direct File Access
 

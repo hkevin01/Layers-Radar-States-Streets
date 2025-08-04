@@ -34,7 +34,16 @@
     "@types/jest": "^29.0.0"
   },
   "dependencies": {
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "ol": "^8.2.0",
+    "proj4": "^2.9.1",
+    "workbox-window": "^7.0.0",
+    "workbox-routing": "^7.0.0",
+    "workbox-strategies": "^7.0.0",
+    "workbox-precaching": "^7.0.0",
+    "workbox-cacheable-response": "^7.0.0",
+    "workbox-expiration": "^7.0.0",
+    "idb": "^7.1.1"
   },
   "engines": {
     "node": ">=16.0.0",

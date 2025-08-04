@@ -10,28 +10,26 @@ const DYNAMIC_CACHE = 'radar-dynamic-v2.0.0';
 // Files to cache for offline usage
 const STATIC_FILES = [
   '/',
-  '/index.html',
-  '/manifest.json',
-  '/src/main.js',
-  '/src/components/map-component.js',
-  '/src/components/ui-controls.js',
-  '/src/components/mobile-touch-controls.js',
-  '/src/config/map-config.js',
-  '/src/layers/layer-factory.js',
-  '/src/utils/map-utils.js',
-  '/src/components/ui-controls.css',
-  '/src/components/mobile-touch-controls.css',
+  '/public/weather-radar.html',
+  '/public/weather-radar-fixed.html',
+  '/public/simple-radar-test.html',
+  '/public/project-tracker.html',
   // External libraries (served from CDN)
-  'https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js',
-  'https://cdn.jsdelivr.net/npm/openlayers@2.13.1/lib/OpenLayers.js'
+  'https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css',
+  'https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js',
+  'https://unpkg.com/ol-layerswitcher@4.1.1/dist/ol-layerswitcher.css',
+  'https://unpkg.com/ol-layerswitcher@4.1.1',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css'
 ];
 
 // Tile servers and API endpoints that should be cached
 const CACHEABLE_DOMAINS = [
   'tile.openstreetmap.org',
-  'radar.weather.gov',
-  'nowcoast.noaa.gov',
-  'mesonet.agron.iastate.edu'
+  'server.arcgisonline.com',
+  'mesonet.agron.iastate.edu',
+  'mapservices.weather.noaa.gov',
+  'tilecache.rainviewer.com'
 ];
 
 /**
