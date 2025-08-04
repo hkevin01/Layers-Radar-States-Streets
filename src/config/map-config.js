@@ -7,29 +7,31 @@ export const MAP_CONFIG = {
     map: 'EPSG:900913',
     display: 'EPSG:4326'
   },
-  
+
   // Default map center and zoom
   center: {
     longitude: -97,
     latitude: 38,
     zoom: 4
   },
-  
+
   // Minimum zoom level
   minZoom: 4,
-  
+
   // Layer URLs and configurations
   layers: {
     radar: {
       name: 'NEXRAD Radar',
-      url: 'http://mesonet.agron.iastate.edu/cache/tile.py/',
-      layername: 'nexrad-n0q-900913',
+      url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q/{z}/{x}/{y}.png',
+      layername: 'nexrad-n0q',
       service: '1.0.0',
       type: 'png',
-      visibility: false,
-      isBaseLayer: false
+      visibility: true,
+      isBaseLayer: false,
+      opacity: 0.7,
+      attribution: '© Iowa Environmental Mesonet'
     },
-    
+
     states: {
       name: 'State Boundaries',
       url: 'http://korona.geog.uni-heidelberg.de/tiles/adminb/',
@@ -38,7 +40,7 @@ export const MAP_CONFIG = {
       isBaseLayer: false,
       numZoomLevels: 19
     },
-    
+
     streets: {
       name: 'Roads',
       url: 'http://korona.geog.uni-heidelberg.de/tiles/roads/',
@@ -48,14 +50,14 @@ export const MAP_CONFIG = {
       visibility: false,
       isBaseLayer: true
     },
-    
+
     hazard: {
       name: 'MoPED - Hazard',
       transparent: 'true',
       opacity: 0.9
     }
   },
-  
+
   // AJAX configuration
   ajax: {
     dataUrl: 'obsGetter.php',

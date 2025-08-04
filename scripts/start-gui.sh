@@ -24,23 +24,23 @@ chmod +x "$(dirname "$0")/start-gui.sh"
 
 # Function to open in browser based on OS
 open_browser() {
-    local URL="http://localhost:8080/public/weather-radar-debug.html"
+    local URL="http://localhost:8080/public/nexrad-enhanced-test.html"
     if command -v xdg-open > /dev/null; then
         # Linux
-        echo "🐧 Opening enhanced debug version in browser..."
+        echo "🐧 Opening enhanced NEXRAD test page..."
         xdg-open "$URL"
     elif command -v open > /dev/null; then
         # macOS
-        echo "🍎 Opening enhanced debug version in browser..."
+        echo "🍎 Opening enhanced NEXRAD test page..."
         open "$URL"
     elif command -v cmd.exe > /dev/null; then
         # Windows (WSL)
-        echo "🪟 Opening enhanced debug version in browser..."
+        echo "🪟 Opening enhanced NEXRAD test page..."
         cmd.exe /c start "$URL"
     else
         echo "🌐 Please open the following URL in your browser:"
         echo "$URL"
-        echo "🐛 This enhanced version includes comprehensive debugging and error handling"
+        echo "� This enhanced version includes comprehensive NEXRAD debugging and validation"
     fi
 }
 
@@ -53,7 +53,7 @@ if command -v python3 > /dev/null; then
 elif command -v python > /dev/null; then
     echo "🐍 Starting local HTTP server with Python 2..."
     echo "📡 Server will be available at: http://localhost:8080"
-    echo "🚪 Open http://localhost:8080/public/weather-radar-debug.html in your browser"
+    echo "🚪 Open http://localhost:8080/public/nexrad-enhanced-test.html in your browser"
     echo ""
     echo "✋ Press Ctrl+C to stop the server"
     echo ""
@@ -62,7 +62,7 @@ elif command -v python > /dev/null; then
 elif command -v node > /dev/null; then
     echo "🟢 Starting local HTTP server with Node.js..."
     echo "📡 Server will be available at: http://localhost:8080"
-    echo "🚪 Open http://localhost:8080/public/weather-radar-debug.html in your browser"
+    echo "🚪 Open http://localhost:8080/public/nexrad-enhanced-test.html in your browser"
     echo ""
     echo "✋ Press Ctrl+C to stop the server"
     echo ""

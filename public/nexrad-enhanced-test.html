@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 NEXRAD Weather Radar - Enhanced Debug Test</title>
+
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css" type="text/css">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #001122;
+            color: white;
+        }
+
+        .header {
+            background: #002244;
+            padding: 15px;
+            border-bottom: 2px solid #0066cc;
+        }
+
+        .header h1 {
+            margin: 0;
+            color: #00aaff;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: #001a33;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 2px solid #0066cc;
+        }
+
+        .control-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #002244;
+            border-radius: 8px;
+            border: 1px solid #0066cc;
+        }
+
+        .control-section h3 {
+            margin: 0 0 15px 0;
+            color: #00aaff;
+            border-bottom: 1px solid #0066cc;
+            padding-bottom: 8px;
+        }
+
+        button {
+            background: #0066cc;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #0088ff;
+        }
+
+        button.success {
+            background: #00aa00;
+        }
+
+        button.warning {
+            background: #ff8800;
+        }
+
+        button.danger {
+            background: #aa0000;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .status.success {
+            background: #002200;
+            border: 1px solid #00aa00;
+            color: #00ff00;
+        }
+
+        .status.warning {
+            background: #332200;
+            border: 1px solid #ff8800;
+            color: #ffaa00;
+        }
+
+        .status.error {
+            background: #220000;
+            border: 1px solid #aa0000;
+            color: #ff4444;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .spinner {
+            border: 3px solid #333;
+            border-top: 3px solid #00aaff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .log {
+            background: #000011;
+            border: 1px solid #0066cc;
+            border-radius: 5px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+        }
+
+        .layer-toggle {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .layer-toggle input {
+            margin-right: 10px;
+        }
+
+        .layer-toggle label {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .opacity-control {
+            margin: 10px 0;
+        }
+
+        .opacity-control input {
+            width: 100%;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 NEXRAD Weather Radar - Enhanced Debug Test</h1>
+        <p>Comprehensive validation and testing of radar data sources</p>
+    </div>
+
+    <div class="container">
+        <div class="map-container">
+            <div id="map"></div>
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <div id="loading-text">Initializing radar system...</div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="control-section">
+                <h3>🛠️ System Diagnostics</h3>
+                <button onclick="runFullDiagnostics()">Run Full Diagnostics</button>
+                <button onclick="testNEXRADEndpoints()">Test NEXRAD Sources</button>
+                <button onclick="validateLayerConfig()">Validate Layers</button>
+                <div id="diagnostic-status" class="status">Ready for testing</div>
+            </div>
+
+            <div class="control-section">
+                <h3>📡 Radar Controls</h3>
+                <div id="layer-controls">
+                    <!-- Dynamic layer controls will be inserted here -->
+                </div>
+                <div class="opacity-control">
+                    <label for="radar-opacity">Radar Opacity:</label>
+                    <input type="range" id="radar-opacity" min="0" max="100" value="70" onchange="updateRadarOpacity(this.value)">
+                    <span id="opacity-value">70%</span>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>📊 Performance Stats</h3>
+                <div id="performance-stats" class="status">
+                    <div>Tiles Loaded: <span id="tiles-loaded">0</span></div>
+                    <div>Success Rate: <span id="success-rate">N/A</span></div>
+                    <div>Active Source: <span id="active-source">None</span></div>
+                    <div>Last Error: <span id="last-error">None</span></div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>📝 Debug Log</h3>
+                <div id="debug-log" class="log">System ready...\n</div>
+                <button onclick="clearLog()">Clear Log</button>
+                <button onclick="exportLog()">Export Log</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OpenLayers and Application Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    <script type="module">
+        import { WeatherRadarCore } from './src/core/weather-radar-core.js';
+        import { RadarController } from './src/modules/radar-controller.js';
+        import { LayerManager } from './src/modules/layer-manager.js';
+
+        // Global variables for debugging
+        window.weatherRadar = null;
+        window.radarController = null;
+        window.layerManager = null;
+        window.map = null;
+
+        // Debug logging function
+        function debugLog(message, type = 'info') {
+            const timestamp = new Date().toISOString().substr(11, 8);
+            const logElement = document.getElementById('debug-log');
+            const prefix = type === 'error' ? '❌' : type === 'warning' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+            logElement.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        // Override console methods to capture logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        console.log = (...args) => {
+            originalLog(...args);
+            debugLog(args.join(' '), 'info');
+        };
+
+        console.error = (...args) => {
+            originalError(...args);
+            debugLog(args.join(' '), 'error');
+        };
+
+        console.warn = (...args) => {
+            originalWarn(...args);
+            debugLog(args.join(' '), 'warning');
+        };
+
+        // Initialize application
+        async function initializeApplication() {
+            try {
+                debugLog('🚀 Starting Enhanced Radar Test Application');
+                showLoading('Initializing application...');
+
+                // Create map
+                window.map = new ol.Map({
+                    target: 'map',
+                    view: new ol.View({
+                        center: ol.proj.fromLonLat([-98.5795, 39.8283]), // Center of US
+                        zoom: 5,
+                        minZoom: 3,
+                        maxZoom: 15
+                    })
+                });
+
+                // Initialize layer manager
+                showLoading('Initializing layer manager...');
+                window.layerManager = new LayerManager(window.map, { debug: true });
+                await window.layerManager.init();
+
+                // Initialize radar controller with debug mode
+                showLoading('Initializing radar controller...');
+                window.radarController = new RadarController(window.map, window.layerManager, { debug: true });
+                await window.radarController.init();
+
+                // Set up event listeners
+                setupEventListeners();
+
+                // Create layer controls
+                createLayerControls();
+
+                // Update performance stats periodically
+                setInterval(updatePerformanceStats, 3000);
+
+                hideLoading();
+                debugLog('✅ Application initialized successfully', 'success');
+
+                // Run initial diagnostics
+                setTimeout(runFullDiagnostics, 1000);
+
+            } catch (error) {
+                hideLoading();
+                debugLog(`❌ Failed to initialize application: ${error.message}`, 'error');
+                showStatus('Application initialization failed: ' + error.message, 'error');
+            }
+        }
+
+        function setupEventListeners() {
+            if (window.radarController) {
+                window.radarController.addEventListener('radar:validation-complete', (event) => {
+                    debugLog('Radar validation completed', 'success');
+                    updateDiagnosticStatus(event.detail);
+                });
+
+                window.radarController.addEventListener('radar:initialized', () => {
+                    debugLog('Radar controller initialized', 'success');
+                });
+            }
+        }
+
+        function createLayerControls() {
+            const container = document.getElementById('layer-controls');
+            if (!window.layerManager) return;
+
+            const radarLayers = window.layerManager.getLayerGroup('radar') || [];
+
+            radarLayers.forEach((layer, index) => {
+                const toggle = document.createElement('div');
+                toggle.className = 'layer-toggle';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `layer-${index}`;
+                checkbox.checked = layer.getVisible();
+                checkbox.onchange = () => {
+                    layer.setVisible(checkbox.checked);
+                    debugLog(`Layer "${layer.get('name')}" ${checkbox.checked ? 'enabled' : 'disabled'}`);
+                };
+
+                const label = document.createElement('label');
+                label.htmlFor = `layer-${index}`;
+                label.textContent = layer.get('name') || `Layer ${index + 1}`;
+
+                toggle.appendChild(checkbox);
+                toggle.appendChild(label);
+                container.appendChild(toggle);
+            });
+        }
+
+        function showLoading(text) {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = text;
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusElement = document.getElementById('diagnostic-status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function updateDiagnosticStatus(results) {
+            const available = results.results.filter(r => r.available).length;
+            const total = results.results.length;
+            const selected = results.selectedSource?.name || 'None';
+
+            showStatus(`Sources: ${available}/${total} available. Active: ${selected}`,
+                      available > 0 ? 'success' : 'error');
+        }
+
+        function updatePerformanceStats() {
+            if (!window.radarController) return;
+
+            const stats = window.radarController.getTileLoadingStatus();
+            document.getElementById('tiles-loaded').textContent = `${stats.successful}/${stats.attempted}`;
+            document.getElementById('success-rate').textContent = stats.successRate;
+            document.getElementById('active-source').textContent = stats.currentSource;
+            document.getElementById('last-error').textContent = stats.lastError || 'None';
+        }
+
+        // Global functions for UI
+        window.runFullDiagnostics = async function() {
+            if (!window.radarController) {
+                debugLog('Radar controller not initialized', 'error');
+                return;
+            }
+
+            debugLog('🔧 Running comprehensive diagnostics...');
+            showLoading('Running diagnostics...');
+
+            try {
+                const results = await window.radarController.runDiagnostics();
+                hideLoading();
+                debugLog(`✅ Diagnostics completed: ${results.availableSources}/${results.totalSources} sources available`, 'success');
+            } catch (error) {
+                hideLoading();
+                debugLog(`❌ Diagnostics failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testNEXRADEndpoints = async function() {
+            if (!window.radarController) {
+                debugLog('Radar controller not initialized', 'error');
+                return;
+            }
+
+            debugLog('🧪 Testing NEXRAD endpoints...');
+            showLoading('Testing endpoints...');
+
+            try {
+                const results = await window.radarController.validateNEXRADEndpoints();
+                hideLoading();
+                debugLog(`✅ Endpoint test completed: ${results.filter(r => r.available).length} working`, 'success');
+            } catch (error) {
+                hideLoading();
+                debugLog(`❌ Endpoint test failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.validateLayerConfig = async function() {
+            if (!window.radarController) {
+                debugLog('Radar controller not initialized', 'error');
+                return;
+            }
+
+            debugLog('🔍 Validating layer configuration...');
+            showLoading('Validating layers...');
+
+            try {
+                const result = await window.radarController.testLayerConfiguration();
+                hideLoading();
+                debugLog(`${result ? '✅ Layer configuration valid' : '❌ Layer configuration invalid'}`,
+                        result ? 'success' : 'error');
+            } catch (error) {
+                hideLoading();
+                debugLog(`❌ Layer validation failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.updateRadarOpacity = function(value) {
+            document.getElementById('opacity-value').textContent = value + '%';
+            const opacity = value / 100;
+
+            if (window.layerManager) {
+                const radarLayers = window.layerManager.getLayerGroup('radar') || [];
+                radarLayers.forEach(layer => layer.setOpacity(opacity));
+                debugLog(`Updated radar opacity to ${value}%`);
+            }
+        };
+
+        window.clearLog = function() {
+            document.getElementById('debug-log').textContent = 'Log cleared...\n';
+        };
+
+        window.exportLog = function() {
+            const log = document.getElementById('debug-log').textContent;
+            const blob = new Blob([log], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `nexrad-debug-${new Date().toISOString().substr(0, 10)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+
+        // Start the application
+        document.addEventListener('DOMContentLoaded', initializeApplication);
+    </script>
+</body>
+</html>

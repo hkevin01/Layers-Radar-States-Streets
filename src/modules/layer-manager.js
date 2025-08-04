@@ -22,7 +22,7 @@ export class LayerManager extends EventTarget {
         this.layers = new Map();
         this.layerGroups = new Map();
         this.isInitialized = false;
-        
+
         // Layer configuration
         this.layerConfig = {
             baseLayers: {
@@ -57,33 +57,36 @@ export class LayerManager extends EventTarget {
             radarLayers: {
                 base_reflectivity: {
                     name: 'Base Reflectivity',
-                    type: 'wms',
-                    url: 'https://opengeo.ncep.noaa.gov/geoserver/wms',
-                    layers: 'nexrad-n0r-wmst',
+                    type: 'xyz',
+                    url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q/{z}/{x}/{y}.png',
                     visible: true,
                     opacity: 0.7,
-                    format: 'image/png',
-                    transparent: true
+                    attribution: '© Iowa Environmental Mesonet',
+                    crossOrigin: 'anonymous'
                 },
-                velocity: {
-                    name: 'Velocity',
+                base_reflectivity_wms: {
+                    name: 'Base Reflectivity (WMS)',
                     type: 'wms',
-                    url: 'https://opengeo.ncep.noaa.gov/geoserver/wms',
-                    layers: 'nexrad-n0v-wmst',
+                    url: 'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi',
+                    layers: 'nexrad-n0q',
                     visible: false,
                     opacity: 0.7,
                     format: 'image/png',
-                    transparent: true
+                    transparent: true,
+                    attribution: '© Iowa Environmental Mesonet',
+                    crossOrigin: 'anonymous'
                 },
-                precipitation: {
-                    name: 'Precipitation',
+                noaa_nexrad: {
+                    name: 'NOAA NEXRAD',
                     type: 'wms',
-                    url: 'https://opengeo.ncep.noaa.gov/geoserver/wms',
-                    layers: 'nexrad-n0p-wmst',
+                    url: 'https://nowcoast.noaa.gov/arcgis/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/WMSServer',
+                    layers: '1',
                     visible: false,
                     opacity: 0.7,
                     format: 'image/png',
-                    transparent: true
+                    transparent: true,
+                    attribution: '© NOAA/NWS',
+                    crossOrigin: 'anonymous'
                 }
             },
             overlayLayers: {
@@ -149,30 +152,30 @@ export class LayerManager extends EventTarget {
     async init() {
         try {
             console.log('Initializing Layer Manager...');
-            
+
             // Create layer groups
             this.createLayerGroups();
-            
+
             // Initialize base layers
             await this.initializeBaseLayers();
-            
+
             // Initialize radar layers
             await this.initializeRadarLayers();
-            
+
             // Initialize overlay layers
             await this.initializeOverlayLayers();
-            
+
             // Initialize weather layers
             await this.initializeWeatherLayers();
-            
+
             // Set initial layer visibility based on zoom
             this.updateLayersForZoom(this.map.getView().getZoom());
-            
+
             this.isInitialized = true;
             console.log('Layer Manager initialized successfully');
-            
+
             this.dispatchEvent(new CustomEvent('layers:initialized'));
-            
+
         } catch (error) {
             console.error('Failed to initialize Layer Manager:', error);
             throw error;
@@ -200,16 +203,16 @@ export class LayerManager extends EventTarget {
                 opacity: config.opacity,
                 zIndex: 0
             });
-            
+
             layer.set('name', config.name);
             layer.set('type', 'base');
             layer.set('key', key);
-            
+
             this.layers.set(`base_${key}`, layer);
             this.layerGroups.get('base').push(layer);
             this.map.addLayer(layer);
         }
-        
+
         console.log('Base layers initialized');
     }
 
@@ -218,31 +221,57 @@ export class LayerManager extends EventTarget {
      */
     async initializeRadarLayers() {
         for (const [key, config] of Object.entries(this.layerConfig.radarLayers)) {
-            const layer = new ImageLayer({
-                source: new ImageWMS({
-                    url: config.url,
-                    params: {
-                        'LAYERS': config.layers,
-                        'FORMAT': config.format,
-                        'TRANSPARENT': config.transparent,
-                        'TIME': new Date().toISOString()
-                    },
-                    serverType: 'geoserver'
-                }),
-                visible: config.visible,
-                opacity: config.opacity,
-                zIndex: 10
-            });
-            
+            let layer;
+
+            if (config.type === 'wms') {
+                // WMS Image Layer
+                layer = new ImageLayer({
+                    source: new ImageWMS({
+                        url: config.url,
+                        params: {
+                            'LAYERS': config.layers,
+                            'FORMAT': config.format,
+                            'TRANSPARENT': config.transparent,
+                            'TIME': new Date().toISOString()
+                        },
+                        crossOrigin: config.crossOrigin || 'anonymous',
+                        attributions: config.attribution
+                    }),
+                    visible: config.visible,
+                    opacity: config.opacity,
+                    zIndex: 10
+                });
+            } else if (config.type === 'xyz') {
+                // XYZ Tile Layer
+                layer = new TileLayer({
+                    source: new XYZ({
+                        url: config.url,
+                        crossOrigin: config.crossOrigin || 'anonymous',
+                        attributions: config.attribution,
+                        transition: 250,
+                        maxZoom: 16
+                    }),
+                    visible: config.visible,
+                    opacity: config.opacity,
+                    zIndex: 10
+                });
+            } else {
+                console.error(`Unknown radar layer type: ${config.type}`);
+                continue;
+            }
+
             layer.set('name', config.name);
             layer.set('type', 'radar');
             layer.set('key', key);
-            
+            layer.set('config', config);
+
             this.layers.set(`radar_${key}`, layer);
             this.layerGroups.get('radar').push(layer);
             this.map.addLayer(layer);
+
+            console.log(`✅ Added radar layer: ${config.name} (${config.type})`);
         }
-        
+
         console.log('Radar layers initialized');
     }
 
@@ -256,7 +285,7 @@ export class LayerManager extends EventTarget {
                     url: config.url,
                     format: new GeoJSON()
                 });
-                
+
                 const layer = new VectorLayer({
                     source: vectorSource,
                     visible: config.visible,
@@ -265,20 +294,20 @@ export class LayerManager extends EventTarget {
                     zIndex: 5,
                     minZoom: config.minZoom || 0
                 });
-                
+
                 layer.set('name', config.name);
                 layer.set('type', 'overlay');
                 layer.set('key', key);
-                
+
                 this.layers.set(`overlay_${key}`, layer);
                 this.layerGroups.get('overlay').push(layer);
                 this.map.addLayer(layer);
-                
+
             } catch (error) {
                 console.warn(`Failed to load overlay layer ${key}:`, error);
             }
         }
-        
+
         console.log('Overlay layers initialized');
     }
 
@@ -290,7 +319,7 @@ export class LayerManager extends EventTarget {
             const vectorSource = new VectorSource({
                 format: new GeoJSON()
             });
-            
+
             const layer = new VectorLayer({
                 source: vectorSource,
                 visible: config.visible,
@@ -298,16 +327,16 @@ export class LayerManager extends EventTarget {
                 style: config.style,
                 zIndex: 15
             });
-            
+
             layer.set('name', config.name);
             layer.set('type', 'weather');
             layer.set('key', key);
-            
+
             this.layers.set(`weather_${key}`, layer);
             this.layerGroups.get('weather').push(layer);
             this.map.addLayer(layer);
         }
-        
+
         console.log('Weather layers initialized');
     }
 
@@ -359,10 +388,10 @@ export class LayerManager extends EventTarget {
         this.getLayerGroup('base').forEach(layer => {
             layer.setVisible(false);
         });
-        
+
         // Show selected base layer
         this.setLayerVisibility(`base_${key}`, true);
-        
+
         this.dispatchEvent(new CustomEvent('base:layer:changed', {
             detail: { key }
         }));
@@ -380,7 +409,7 @@ export class LayerManager extends EventTarget {
                 source.updateParams(params);
             }
         });
-        
+
         this.dispatchEvent(new CustomEvent('radar:time:updated', {
             detail: { time }
         }));
@@ -393,7 +422,7 @@ export class LayerManager extends EventTarget {
         this.layers.forEach((layer, key) => {
             const minZoom = layer.get('minZoom');
             const maxZoom = layer.get('maxZoom');
-            
+
             if (minZoom && zoom < minZoom) {
                 layer.setVisible(false);
             } else if (maxZoom && zoom > maxZoom) {
@@ -402,7 +431,7 @@ export class LayerManager extends EventTarget {
                 // Restore visibility based on layer config
                 const layerKey = layer.get('key');
                 const layerType = layer.get('type');
-                
+
                 if (layerType && layerKey) {
                     const config = this.layerConfig[`${layerType}Layers`]?.[layerKey];
                     if (config) {
@@ -411,7 +440,7 @@ export class LayerManager extends EventTarget {
                 }
             }
         });
-        
+
         this.dispatchEvent(new CustomEvent('layers:zoom:updated', {
             detail: { zoom }
         }));
