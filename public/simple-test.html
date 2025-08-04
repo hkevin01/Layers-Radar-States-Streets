@@ -11,6 +11,33 @@
         #controls { padding: 20px; background: #f0f0f0; }
         button { padding: 10px; margin: 5px; cursor: pointer; }
         #log { background: #000; color: #0f0; padding: 10px; font-family: monospace; height: 200px; overflow-y: auto; }
+        #stats {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .loading-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .loading-indicator.active { background: #0f0; }
+        .loading-indicator.error { background: #f00; }
+        .loading-indicator.idle { background: #666; }
+        .diagnostic-section {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -29,6 +56,16 @@
     </div>
 
     <div id="map"></div>
+
+    <div id="stats">
+        <div class="diagnostic-section">
+            <div><span class="loading-indicator idle" id="radar-status"></span> Radar Status: <span id="radar-status-text">Idle</span></div>
+            <div>Tiles Loaded: <span id="tiles-loaded">0</span>/<span id="tiles-total">0</span></div>
+            <div>Success Rate: <span id="success-rate">N/A</span></div>
+            <div>Active Source: <span id="active-source">None</span></div>
+            <div>Last Error: <span id="last-error">None</span></div>
+        </div>
+    </div>
 
     <div id="log">Ready...\n</div>
 
@@ -60,6 +97,79 @@
         // Global variables
         window.radarLayer = null;
         window.baseLayer = null;
+        window.radarStats = {
+            tilesLoaded: 0,
+            tilesTotal: 0,
+            tilesError: 0,
+            activeSource: 'None',
+            lastError: 'None',
+            loadingTiles: new Set()
+        };
+
+        const RADAR_SOURCES = [
+            {
+                id: 'iem-nexrad',
+                name: 'IEM NEXRAD',
+                url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q/{z}/{x}/{y}.png'
+            },
+            {
+                id: 'weather-gov',
+                name: 'Weather.gov',
+                url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/tile/{z}/{y}/{x}'
+            }
+        ];
+
+        function updateStats() {
+            const stats = window.radarStats;
+            document.getElementById('tiles-loaded').textContent = stats.tilesLoaded;
+            document.getElementById('tiles-total').textContent = stats.tilesTotal;
+            document.getElementById('success-rate').textContent =
+                stats.tilesTotal > 0 ?
+                Math.round((stats.tilesLoaded / stats.tilesTotal) * 100) + '%' :
+                'N/A';
+            document.getElementById('active-source').textContent = stats.activeSource;
+            document.getElementById('last-error').textContent = stats.lastError;
+
+            const indicator = document.getElementById('radar-status');
+            const statusText = document.getElementById('radar-status-text');
+
+            if (stats.loadingTiles.size > 0) {
+                indicator.className = 'loading-indicator active';
+                statusText.textContent = 'Loading';
+            } else if (stats.tilesError > stats.tilesLoaded && stats.tilesTotal > 0) {
+                indicator.className = 'loading-indicator error';
+                statusText.textContent = 'Error';
+            } else if (stats.tilesLoaded > 0) {
+                indicator.className = 'loading-indicator active';
+                statusText.textContent = 'Active';
+            } else {
+                indicator.className = 'loading-indicator idle';
+                statusText.textContent = 'Idle';
+            }
+        }
+
+        async function validateRadarSource(source) {
+            log(`Validating radar source: ${source.name}...`);
+            try {
+                const testTile = source.url
+                    .replace('{z}', '6')
+                    .replace('{x}', '20')
+                    .replace('{y}', '20');
+
+                const response = await fetch(testTile, { method: 'HEAD' });
+                const valid = response.ok &&
+                    (response.headers.get('content-type') || '').includes('image');
+
+                log(valid ?
+                    `✅ ${source.name} is accessible` :
+                    `❌ ${source.name} validation failed`);
+
+                return valid;
+            } catch (error) {
+                log(`❌ ${source.name} validation failed: ${error.message}`);
+                return false;
+            }
+        }
 
         window.testMap = function() {
             log('Creating OpenLayers map...');
@@ -85,7 +195,7 @@
             }
         };
 
-        window.testRadar = function() {
+        window.testRadar = async function() {
             log('Testing NEXRAD radar layer...');
             try {
                 if (!window.testMapInstance) {
@@ -93,17 +203,65 @@
                     return;
                 }
 
+                // Reset stats
+                window.radarStats = {
+                    tilesLoaded: 0,
+                    tilesTotal: 0,
+                    tilesError: 0,
+                    activeSource: 'None',
+                    lastError: 'None',
+                    loadingTiles: new Set()
+                };
+                updateStats();
+
                 // Remove existing radar layer if any
                 if (window.radarLayer) {
                     window.testMapInstance.removeLayer(window.radarLayer);
                     window.radarLayer = null;
                 }
 
+                // Validate radar sources
+                let validSource = null;
+                for (const source of RADAR_SOURCES) {
+                    if (await validateRadarSource(source)) {
+                        validSource = source;
+                        break;
+                    }
+                }
+
+                if (!validSource) {
+                    throw new Error('No valid radar sources found');
+                }
+
+                log(`Using radar source: ${validSource.name}`);
+                window.radarStats.activeSource = validSource.name;
+
                 // Create new radar layer
                 window.radarLayer = new ol.layer.Tile({
                     source: new ol.source.XYZ({
-                        url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q/{z}/{x}/{y}.png',
-                        crossOrigin: 'anonymous'
+                        url: validSource.url,
+                        crossOrigin: 'anonymous',
+                        tileLoadFunction: function(tile, src) {
+                            const tileId = src;
+                            window.radarStats.loadingTiles.add(tileId);
+                            window.radarStats.tilesTotal++;
+                            updateStats();
+
+                            const image = tile.getImage();
+                            image.addEventListener('load', function() {
+                                window.radarStats.tilesLoaded++;
+                                window.radarStats.loadingTiles.delete(tileId);
+                                updateStats();
+                            });
+
+                            image.addEventListener('error', function() {
+                                window.radarStats.tilesError++;
+                                window.radarStats.loadingTiles.delete(tileId);
+                                updateStats();
+                            });
+
+                            image.src = src;
+                        }
                     }),
                     opacity: 0.7
                 });
@@ -113,17 +271,25 @@
                 log('✅ Radar layer added successfully!');
 
                 // Test tile loading
-                window.radarLayer.getSource().on('tileloadstart', function() {
-                    log('🔄 Loading radar tiles...');
+                window.radarLayer.getSource().on('tileloadstart', function(event) {
+                    const tile = event.tile;
+                    const tileCoord = tile.tileCoord;
+                    log(`🔄 Loading radar tile [${tileCoord[0]}, ${tileCoord[1]}, ${tileCoord[2]}]`);
                 });
 
-                window.radarLayer.getSource().on('tileloadend', function() {
-                    log('✅ Radar tile loaded successfully');
+                window.radarLayer.getSource().on('tileloadend', function(event) {
+                    const tile = event.tile;
+                    const tileCoord = tile.tileCoord;
+                    log(`✅ Radar tile loaded [${tileCoord[0]}, ${tileCoord[1]}, ${tileCoord[2]}]`);
                 });
 
                 window.radarLayer.getSource().on('tileloaderror', function(event) {
-                    log('❌ Radar tile load failed');
-                    console.error('Tile error:', event);
+                    const tile = event.tile;
+                    const tileCoord = tile.tileCoord;
+                    const error = `Failed to load tile [${tileCoord[0]}, ${tileCoord[1]}, ${tileCoord[2]}]`;
+                    log(`❌ ${error}`);
+                    window.radarStats.lastError = error;
+                    updateStats();
                 });
 
             } catch (error) {

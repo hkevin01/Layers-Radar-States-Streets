@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXRAD Radar Diagnostics</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #1a1a1a; color: #fff; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 100vh;
+            gap: 1px;
+            background: #333;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+
+        #controls {
+            background: #2a2a2a;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .debug-panel {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #333;
+            border-radius: 4px;
+        }
+
+        .debug-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #00ff00;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-success { background: #00ff00; }
+        .status-error { background: #ff0000; }
+        .status-warning { background: #ffff00; }
+        .status-loading {
+            background: #00ff00;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .diagnostic-value {
+            font-family: monospace;
+            font-size: 12px;
+            color: #00ff00;
+            margin: 5px 0;
+            word-break: break-all;
+        }
+
+        .error-value {
+            color: #ff0000;
+        }
+
+        .log-panel {
+            background: #000;
+            color: #00ff00;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        button {
+            background: #444;
+            color: #fff;
+            border: 1px solid #666;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 12px;
+        }
+
+        button:hover {
+            background: #555;
+        }
+
+        .radar-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .opacity-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 0;
+        }
+
+        .opacity-control input {
+            flex: 1;
+        }
+
+        .opacity-value {
+            width: 50px;
+            text-align: right;
+            color: #00ff00;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #444;
+            margin: 15px 0;
+        }
+
+        .network-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-box {
+            background: #222;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: #888;
+        }
+
+        .stat-value {
+            font-size: 16px;
+            color: #00ff00;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="controls">
+            <div class="debug-panel">
+                <div class="debug-title">
+                    <span class="status-indicator" id="system-status"></span>
+                    System Status
+                </div>
+                <div class="diagnostic-value" id="system-info">Initializing...</div>
+            </div>
+
+            <div class="debug-panel">
+                <div class="debug-title">
+                    <span class="status-indicator" id="radar-status"></span>
+                    Radar Controls
+                </div>
+                <div class="radar-controls">
+                    <button onclick="testRadarSources()">Test Radar Sources</button>
+                    <button onclick="reloadRadarLayer()">Reload Radar Layer</button>
+                    <button onclick="toggleRadar()">Toggle Radar</button>
+                    <div class="opacity-control">
+                        <label for="opacity">Opacity:</label>
+                        <input type="range" id="opacity" min="0" max="100" value="70">
+                        <span class="opacity-value" id="opacity-value">70%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="debug-panel">
+                <div class="debug-title">Network Statistics</div>
+                <div class="network-stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Tiles Loaded</div>
+                        <div class="stat-value" id="tiles-loaded">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Success Rate</div>
+                        <div class="stat-value" id="success-rate">0%</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Active Source</div>
+                        <div class="stat-value" id="active-source">None</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Errors</div>
+                        <div class="stat-value" id="error-count">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="debug-panel">
+                <div class="debug-title">Debug Log</div>
+                <button onclick="clearLog()">Clear Log</button>
+                <div id="log" class="log-panel"></div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    <script type="module">
+        import { WeatherRadarCore } from '../src/core/weather-radar-core.js';
+        import { LayerManager } from '../src/modules/layer-manager.js';
+        import { RadarController } from '../src/modules/radar-controller.js';
+
+        // Global variables for diagnostic access
+        window.diagnostics = {
+            core: null,
+            layerManager: null,
+            radarController: null
+        };
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toISOString().substr(11, 8);
+            let color = '#00ff00';
+            if (type === 'error') {
+                color = '#ff0000';
+            } else if (type === 'warning') {
+                color = '#ffff00';
+            }
+
+            logEl.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        async function initializeSystem() {
+            try {
+                updateStatus('system', 'loading');
+                log('Initializing weather radar system...');
+
+                // Initialize core
+                const core = new WeatherRadarCore({
+                    target: 'map',
+                    center: [-98.5795, 39.8283],
+                    zoom: 4
+                });
+                await core.initialize();
+                window.diagnostics.core = core;
+
+                // Initialize layer manager
+                const layerManager = new LayerManager(core.map);
+                window.diagnostics.layerManager = layerManager;
+
+                // Initialize radar controller
+                const radarController = new RadarController(layerManager);
+                window.diagnostics.radarController = radarController;
+
+                // Set up diagnostic updates
+                setInterval(updateDiagnostics, 1000);
+
+                // Set up opacity control
+                document.getElementById('opacity').addEventListener('input', function(e) {
+                    const opacity = e.target.value / 100;
+                    if (window.diagnostics.radarController) {
+                        window.diagnostics.radarController.setOpacity(opacity);
+                    }
+                    document.getElementById('opacity-value').textContent = e.target.value + '%';
+                });
+
+                updateStatus('system', 'success');
+                log('✅ System initialized successfully');
+
+                // Initialize radar layer
+                await testRadarSources();
+
+            } catch (error) {
+                updateStatus('system', 'error');
+                log(`❌ Initialization failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        window.testRadarSources = async function() {
+            try {
+                updateStatus('radar', 'loading');
+                log('Testing radar sources...');
+
+                await window.diagnostics.radarController.initializeWithDiagnostics();
+
+                updateStatus('radar', 'success');
+                log('✅ Radar layer initialized successfully');
+
+            } catch (error) {
+                updateStatus('radar', 'error');
+                log(`❌ Radar test failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.reloadRadarLayer = async function() {
+            try {
+                updateStatus('radar', 'loading');
+                log('Reloading radar layer...');
+
+                const controller = window.diagnostics.radarController;
+                await controller.initializeWithDiagnostics();
+
+                updateStatus('radar', 'success');
+                log('✅ Radar layer reloaded successfully');
+
+            } catch (error) {
+                updateStatus('radar', 'error');
+                log(`❌ Radar reload failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.toggleRadar = function() {
+            const controller = window.diagnostics.radarController;
+            const visible = controller.toggleVisibility();
+            log(`Radar visibility set to: ${visible}`);
+        };
+
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '';
+            log('Log cleared');
+        };
+
+        function updateStatus(type, status) {
+            const indicator = document.getElementById(`${type}-status`);
+            indicator.className = 'status-indicator status-' + status;
+        }
+
+        function updateDiagnostics() {
+            try {
+                const { radarController } = window.diagnostics;
+                if (!radarController) return;
+
+                const stats = radarController.getDiagnostics();
+                if (!stats) return;
+
+                // Update system info
+                const sysInfo = document.getElementById('system-info');
+                sysInfo.textContent = `OpenLayers ${ol.util.VERSION}`;
+
+                // Update statistics
+                for (const sourceId in stats.sourceStats) {
+                    const sourceStats = stats.sourceStats[sourceId];
+
+                    document.getElementById('tiles-loaded').textContent =
+                        sourceStats.stats.loaded;
+
+                    const successRate = sourceStats.stats.loaded + sourceStats.stats.errors === 0 ? 0 :
+                        Math.round((sourceStats.stats.loaded /
+                            (sourceStats.stats.loaded + sourceStats.stats.errors)) * 100);
+
+                    document.getElementById('success-rate').textContent =
+                        `${successRate}%`;
+
+                    document.getElementById('active-source').textContent =
+                        sourceStats.name;
+
+                    document.getElementById('error-count').textContent =
+                        sourceStats.stats.errors;
+
+                    // Update status indicators
+                    if (sourceStats.stats.loading > 0) {
+                        updateStatus('radar', 'loading');
+                    } else if (sourceStats.stats.errors > sourceStats.stats.loaded) {
+                        updateStatus('radar', 'error');
+                    } else if (sourceStats.stats.loaded > 0) {
+                        updateStatus('radar', 'success');
+                    }
+                }
+
+            } catch (error) {
+                console.error('Diagnostic update failed:', error);
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', initializeSystem);
+    </script>
+</body>
+</html>
