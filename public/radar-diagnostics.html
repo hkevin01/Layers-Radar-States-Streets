@@ -340,21 +340,39 @@
                 updateStatus('system', 'loading');
                 log('Initializing weather radar system...');
 
-                // Initialize core
+                // Initialize core with diagnostic configuration
                 const core = new WeatherRadarCore({
                     target: 'map',
                     center: [-98.5795, 39.8283],
-                    zoom: 4
+                    zoom: 4,
+                    debug: true,
+                    minZoom: 2,
+                    maxZoom: 16,
+                    radarOpacity: 0.7,
+                    enableGeolocation: true
                 });
+
+                log('Initializing map core...');
                 await core.initialize();
                 window.diagnostics.core = core;
+                log('✅ Map core initialized');
 
-                // Initialize layer manager
-                const layerManager = new LayerManager(core.map);
+                // Initialize layer manager with base layers
+                log('Initializing layer manager...');
+                const layerManager = new LayerManager(core.map, {
+                    debug: true,
+                    defaultBaseLayer: 'street'
+                });
                 window.diagnostics.layerManager = layerManager;
+                log('✅ Layer manager initialized');
 
-                // Initialize radar controller
-                const radarController = new RadarController(layerManager);
+                // Initialize radar controller with settings
+                log('Initializing radar controller...');
+                const radarController = new RadarController(core.map, layerManager, {
+                    debug: true,
+                    updateInterval: 300000, // 5 minutes
+                    maxCacheAge: 3600000 // 1 hour
+                });
                 window.diagnostics.radarController = radarController;
 
                 // Set up diagnostic updates

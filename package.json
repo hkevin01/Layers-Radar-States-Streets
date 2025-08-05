@@ -5,15 +5,14 @@
   "main": "src/main.js",
   "type": "module",
   "scripts": {
-    "start": "npx http-server public -p 8080 -o",
-    "dev": "npx http-server . -p 8080 -o",
+    "start": "npx http-server . -p 8080 -o --cors",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint src/ tests/",
     "lint:fix": "eslint src/ tests/ --fix",
     "format": "prettier --write src/ tests/ public/",
     "build": "echo 'Building application...' && npm run lint && npm run test",
-    "serve": "npm run start"
+    "dev": "npm run start"
   },
   "keywords": [
     "openlayers",
