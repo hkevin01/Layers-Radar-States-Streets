@@ -308,10 +308,272 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
-    <script type="module">
-        import { WeatherRadarCore } from '../src/core/weather-radar-core.js';
-        import { LayerManager } from '../src/modules/layer-manager.js';
-        import { RadarController } from '../src/modules/radar-controller.js';
+    <script>
+        // WeatherRadarCore class - inline implementation
+        class WeatherRadarCore extends EventTarget {
+            constructor(config = {}) {
+                super();
+                this.map = null;
+                this.initialized = false;
+                this.layers = new Map();
+                this.controls = new Map();
+                this.errors = [];
+
+                this.config = {
+                    target: config.target || 'map',
+                    center: config.center || [-98.5795, 39.8283],
+                    zoom: config.zoom || 4,
+                    minZoom: config.minZoom || 2,
+                    maxZoom: config.maxZoom || 16,
+                    projection: config.projection || 'EPSG:3857',
+                    basemap: config.basemap || 'osm',
+                    radarOpacity: config.radarOpacity || 0.8,
+                    enableGeolocation: config.enableGeolocation !== false,
+                    enableControls: config.enableControls !== false,
+                    debug: config.debug || false,
+                    ...config
+                };
+
+                console.log('🌦️ WeatherRadarCore constructor initialized');
+            }
+
+            async initialize() {
+                try {
+                    console.log('🚀 Starting weather radar core initialization...');
+
+                    this.map = new ol.Map({
+                        target: this.config.target,
+                        view: new ol.View({
+                            center: ol.proj.fromLonLat(this.config.center),
+                            zoom: this.config.zoom,
+                            minZoom: this.config.minZoom,
+                            maxZoom: this.config.maxZoom
+                        }),
+                        layers: []
+                    });
+
+                    this.initialized = true;
+                    console.log('✅ Map initialized successfully');
+                    return this.map;
+                } catch (error) {
+                    console.error('❌ Map initialization failed:', error);
+                    throw error;
+                }
+            }
+        }
+
+        // LayerManager class - inline implementation
+        class LayerManager extends EventTarget {
+            constructor(map, config = {}) {
+                super();
+                this.map = map;
+                this.config = config;
+                this.debug = config.debug || false;
+                this.layers = new Map();
+
+                this.initializeBaseLayers();
+                this.initializeRadarLayer();
+            }
+
+            initializeBaseLayers() {
+                const streetLayer = new ol.layer.Tile({
+                    source: new ol.source.OSM(),
+                    visible: true,
+                    zIndex: 0
+                });
+                this.layers.set('street', streetLayer);
+                this.map.addLayer(streetLayer);
+
+                const satelliteLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                        attributions: 'Source: Esri, DigitalGlobe, GeoEye, Earthstar Geographics'
+                    }),
+                    visible: false,
+                    zIndex: 0
+                });
+                this.layers.set('satellite', satelliteLayer);
+                this.map.addLayer(satelliteLayer);
+            }
+
+            async initializeRadarLayer() {
+                try {
+                    if (this.debug) {
+                        console.log('Initializing NEXRAD radar layer...');
+                    }
+
+                    const radarLayer = new ol.layer.Tile({
+                        source: new ol.source.XYZ({
+                            url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                            attributions: '© Iowa Environmental Mesonet',
+                            crossOrigin: 'anonymous'
+                        }),
+                        visible: true,
+                        opacity: 0.7,
+                        zIndex: 1,
+                        className: 'nexrad-radar-layer'
+                    });
+
+                    this.layers.set('radar', radarLayer);
+                    this.map.addLayer(radarLayer);
+
+                    if (this.debug) {
+                        console.log('✅ Successfully initialized NEXRAD radar layer');
+                    }
+
+                    return radarLayer;
+
+                } catch (error) {
+                    console.error('❌ Failed to initialize radar layer:', error);
+                    throw error;
+                }
+            }
+
+            setBaseLayer(type) {
+                this.layers.get('street').setVisible(false);
+                this.layers.get('satellite').setVisible(false);
+
+                const layer = this.layers.get(type);
+                if (layer) {
+                    layer.setVisible(true);
+                    if (this.debug) {
+                        console.log('Switched to ' + type + ' base layer');
+                    }
+                }
+            }
+        }
+
+        // RadarController class - inline implementation
+        class RadarController extends EventTarget {
+            constructor(map, layerManager, config = {}) {
+                super();
+                this.map = map;
+                this.layerManager = layerManager;
+                this.config = config;
+                this.debugMode = config.debug || false;
+                this.currentSourceId = 'iem';
+
+                this.tileLoadStats = {
+                    attempted: 0,
+                    successful: 0,
+                    failed: 0,
+                    lastError: null,
+                    retryCount: 0
+                };
+
+                this.nexradSources = [
+                    {
+                        id: 'iem',
+                        name: 'Iowa State Mesonet',
+                        url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                        attribution: '© Iowa Environmental Mesonet',
+                        type: 'xyz'
+                    },
+                    {
+                        id: 'noaa',
+                        name: 'NOAA nowCOAST',
+                        url: 'https://nowcoast.noaa.gov/arcgis/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/WMSServer',
+                        attribution: '© NOAA NowCOAST',
+                        type: 'wms'
+                    }
+                ];
+
+                this.sourceStats = {};
+                this.updateSourceStats();
+            }
+
+            async initializeWithDiagnostics() {
+                if (this.debugMode) {
+                    console.log('Initializing NEXRAD radar with diagnostics...');
+                }
+
+                try {
+                    const source = this.nexradSources[0];
+                    const tileSource = new ol.source.XYZ({
+                        url: source.url,
+                        attributions: source.attribution,
+                        crossOrigin: 'anonymous'
+                    });
+
+                    const self = this;
+                    tileSource.on('tileloadstart', function() {
+                        self.tileLoadStats.attempted++;
+                        self.updateSourceStats();
+                    });
+
+                    tileSource.on('tileloadend', function() {
+                        self.tileLoadStats.successful++;
+                        self.updateSourceStats();
+                    });
+
+                    tileSource.on('tileloaderror', function(event) {
+                        self.tileLoadStats.failed++;
+                        self.tileLoadStats.lastError = 'Tile load failed at z:' + event.tile.tileCoord[0] + ', x:' + event.tile.tileCoord[1] + ', y:' + event.tile.tileCoord[2];
+                        self.updateSourceStats();
+                    });
+
+                    const radarLayer = this.layerManager.layers.get('radar');
+                    if (radarLayer) {
+                        radarLayer.setSource(tileSource);
+                        if (this.debugMode) {
+                            console.log('Updated existing radar layer with new source');
+                        }
+                    }
+
+                    if (this.debugMode) {
+                        console.log('✅ NEXRAD radar initialization successful');
+                    }
+
+                } catch (error) {
+                    this.tileLoadStats.lastError = error.message;
+                    console.error('❌ NEXRAD radar initialization failed:', error);
+                    throw error;
+                }
+            }
+
+            updateSourceStats() {
+                const stats = this.tileLoadStats;
+                const total = stats.attempted;
+                const success = stats.successful;
+                const failed = stats.failed;
+                const loading = total - (success + failed);
+
+                this.sourceStats = {};
+                this.sourceStats[this.nexradSources[0].id] = {
+                    name: this.nexradSources[0].name,
+                    stats: {
+                        loaded: success,
+                        errors: failed,
+                        loading: loading,
+                        retryCount: this.tileLoadStats.retryCount || 0,
+                        lastError: this.tileLoadStats.lastError
+                    }
+                };
+            }
+
+            getDiagnostics() {
+                return {
+                    sourceStats: this.sourceStats
+                };
+            }
+
+            toggleVisibility() {
+                const radarLayer = this.layerManager.layers.get('radar');
+                if (radarLayer) {
+                    const visible = !radarLayer.getVisible();
+                    radarLayer.setVisible(visible);
+                    return visible;
+                }
+                return false;
+            }
+
+            setOpacity(opacity) {
+                const radarLayer = this.layerManager.layers.get('radar');
+                if (radarLayer) {
+                    radarLayer.setOpacity(opacity);
+                }
+            }
+        }
 
         // Global variables for diagnostic access
         window.diagnostics = {
@@ -330,9 +592,9 @@
                 color = '#ffff00';
             }
 
-            logEl.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logEl.innerHTML += '<div style="color: ' + color + '">[' + timestamp + '] ' + message + '</div>';
             logEl.scrollTop = logEl.scrollHeight;
-            console.log(`[${timestamp}] ${message}`);
+            console.log('[' + timestamp + '] ' + message);
         }
 
         async function initializeSystem() {
@@ -374,6 +636,7 @@
                     maxCacheAge: 3600000 // 1 hour
                 });
                 window.diagnostics.radarController = radarController;
+                log('✅ Radar controller initialized');
 
                 // Set up diagnostic updates
                 setInterval(updateDiagnostics, 1000);
@@ -395,7 +658,7 @@
 
             } catch (error) {
                 updateStatus('system', 'error');
-                log(`❌ Initialization failed: ${error.message}`, 'error');
+                log('❌ Initialization failed: ' + error.message, 'error');
                 console.error(error);
             }
         }
@@ -412,7 +675,7 @@
 
             } catch (error) {
                 updateStatus('radar', 'error');
-                log(`❌ Radar test failed: ${error.message}`, 'error');
+                log('❌ Radar test failed: ' + error.message, 'error');
                 console.error(error);
             }
         };
@@ -430,7 +693,7 @@
 
             } catch (error) {
                 updateStatus('radar', 'error');
-                log(`❌ Radar reload failed: ${error.message}`, 'error');
+                log('❌ Radar reload failed: ' + error.message, 'error');
                 console.error(error);
             }
         };
@@ -438,7 +701,7 @@
         window.toggleRadar = function() {
             const controller = window.diagnostics.radarController;
             const visible = controller.toggleVisibility();
-            log(`Radar visibility set to: ${visible}`);
+            log('Radar visibility set to: ' + visible);
         };
 
         window.clearLog = function() {
@@ -447,7 +710,7 @@
         };
 
         function updateStatus(type, status) {
-            const indicator = document.getElementById(`${type}-status`);
+            const indicator = document.getElementById(type + '-status');
             indicator.className = 'status-indicator status-' + status;
         }
 
@@ -461,7 +724,7 @@
 
                 // Update system info
                 const sysInfo = document.getElementById('system-info');
-                sysInfo.textContent = `OpenLayers ${ol.util.VERSION}`;
+                sysInfo.textContent = 'OpenLayers ' + ol.util.VERSION;
 
                 // Update statistics
                 for (const sourceId in stats.sourceStats) {
@@ -475,7 +738,7 @@
                             (sourceStats.stats.loaded + sourceStats.stats.errors)) * 100);
 
                     document.getElementById('success-rate').textContent =
-                        `${successRate}%`;
+                        successRate + '%';
 
                     document.getElementById('active-source').textContent =
                         sourceStats.name;
@@ -511,7 +774,7 @@
             const sourceList = document.getElementById('source-list');
             sourceList.innerHTML = ''; // Clear existing items
 
-            const sources = window.diagnostics.radarController.radarSources;
+            const sources = window.diagnostics.radarController.nexradSources;
             for (const source of sources) {
                 const sourceItem = createSourceItem(source);
                 sourceList.appendChild(sourceItem);
@@ -524,15 +787,14 @@
         function createSourceItem(source) {
             const div = document.createElement('div');
             div.className = 'source-item';
-            div.innerHTML = `
-                <span class="status-indicator status-idle"></span>
-                <div class="source-details">
-                    <div>${source.name}</div>
-                    <div class="source-meta">${source.url}</div>
-                    <div class="source-error" style="display:none;"></div>
-                </div>
-                <button class="test-button" onclick="testSingleSource('${source.id}', this)">Test</button>
-            `;
+            div.innerHTML =
+                '<span class="status-indicator status-idle"></span>' +
+                '<div class="source-details">' +
+                    '<div>' + source.name + '</div>' +
+                    '<div class="source-meta">' + source.url + '</div>' +
+                    '<div class="source-error" style="display:none;"></div>' +
+                '</div>' +
+                '<button class="test-button" onclick="testSingleSource(\'' + source.id + '\', this)">Test</button>';
             return div;
         }
 
@@ -558,28 +820,28 @@
                     const response = await fetch(url, { method: 'HEAD' });
 
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status} at zoom ${zoom}`);
+                        throw new Error('HTTP ' + response.status + ' at zoom ' + zoom);
                     }
 
                     const contentType = response.headers.get('content-type');
                     if (!contentType || !contentType.includes('image')) {
-                        throw new Error(`Invalid content type: ${contentType}`);
+                        throw new Error('Invalid content type: ' + contentType);
                     }
                 }
 
                 indicator.className = 'status-indicator status-success';
-                log(`✅ Source "${source.name}" validated successfully`);
+                log('✅ Source "' + source.name + '" validated successfully');
 
             } catch (error) {
                 indicator.className = 'status-indicator status-error';
                 errorDiv.style.display = 'block';
                 errorDiv.textContent = error.message;
-                log(`❌ Source "${source.name}" validation failed: ${error.message}`, 'error');
+                log('❌ Source "' + source.name + '" validation failed: ' + error.message, 'error');
             }
         }
 
         window.testSingleSource = async function(sourceId, button) {
-            const sources = window.diagnostics.radarController.radarSources;
+            const sources = window.diagnostics.radarController.nexradSources;
             const source = sources.find(s => s.id === sourceId);
             const sourceItem = button.closest('.source-item');
 

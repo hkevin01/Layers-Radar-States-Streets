@@ -13,7 +13,7 @@
   "categories": ["weather", "maps", "utilities"],
   "icons": [
     {
-      "src": "/assets/icons/icon-72x72.png",
+      "src": "./assets/icons/icon-72x72.png",
       "sizes": "72x72",
       "type": "image/png",
       "purpose": "maskable any"

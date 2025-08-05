@@ -5,23 +5,92 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NEXRAD Radar Visualization - Weather Tracker</title>
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="icon" type="image/png" href="../assets/icons/icon-144x144.png">
-
-    <!-- OpenLayers and Dependencies -->
+    <!-- Core Dependencies -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
-    <link rel="stylesheet" href="https://unpkg.com/ol-layerswitcher@4.1.1/dist/ol-layerswitcher.css" />
-
-    <!-- JavaScript Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
-    <script src="https://unpkg.com/ol-layerswitcher@4.1.1"></script>
 
-    <!-- Font Awesome for Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Reset and base styles */
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { width: 100%; height: 100vh; background: #000; }
 
-    <!-- Weather Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css">
+        /* Loading screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+
+        .progress-container {
+            width: 300px;
+            background: #333;
+            border-radius: 4px;
+            padding: 4px;
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            height: 20px;
+            background: #00ff00;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0;
+        }
+
+        .loading-status {
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        /* Debug Panel */
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 1000;
+        }
+
+        /* Controls */
+        .controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+
+        button {
+            background: #444;
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #555;
+        }
+    </style>
 
     <!-- Error Display -->
     <style>
@@ -534,14 +603,11 @@
 
     <!-- Loading Screen -->
     <div id="loading-screen" class="loading-screen">
-        <div class="loading-content">
-            <i class="wi wi-day-thunderstorm loading-icon"></i>
-            <h2>Loading Weather Data</h2>
-            <div class="loading-bar">
-                <div class="loading-progress" id="loading-progress"></div>
-            </div>
-            <p id="loading-text">Initializing NEXRAD radar...</p>
+        <h2>Loading Weather Radar</h2>
+        <div class="progress-container">
+            <div id="progress-bar" class="progress-bar"></div>
         </div>
+        <div id="loading-status" class="loading-status">Initializing...</div>
     </div>
 
     <!-- Main Application Container -->
@@ -1045,145 +1111,241 @@
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-    <!-- OpenLayers JavaScript -->
+    <!-- OpenLayers Library -->
     <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
 
-    <!-- Layer Switcher Implementation -->
-    <script>
-        // Custom Layer Switcher Control Implementation
-        class LayerSwitcher extends ol.control.Control {
-            constructor(opt_options) {
-                const options = opt_options || {};
+    <!-- Weather Radar Application -->
+    <script type="module">
+        import { initializeWeatherMap, registerServiceWorker } from './js/weather-init.js';
 
-                const button = document.createElement('button');
-                button.innerHTML = '☰';
-                button.title = 'Layer Switcher';
-                button.className = 'layer-switcher-btn';
+        // Initialize the application
+        (async function() {
+            try {
+                await registerServiceWorker();
+                window.weatherRadarMap = await initializeWeatherMap();
+                console.log('✅ Weather radar application initialized successfully');
+            } catch (error) {
+                console.error('❌ Initialization failed:', error);
+            }
+        })();
 
-                const element = document.createElement('div');
-                element.className = 'layer-switcher ol-unselectable ol-control';
-                element.appendChild(button);
+        // WeatherRadarCore class - inline implementation
+        class WeatherRadarCore {
+            constructor(map) {
+                this.map = map;
+                this.radarLayer = null;
+                this.precipitationLayer = null;
+                this.weatherAlertsLayer = null;
+                this.baseLayerGroup = null;
+                this.layerSwitcher = null;
+                this.loadingIndicator = null;
+            }
 
-                super({
-                    element: element,
-                    target: options.target,
+            async init() {
+                this.createBaseLayerGroup();
+                this.createRadarLayer();
+                this.createPrecipitationLayer();
+                this.createWeatherAlertsLayer();
+                this.createLayerSwitcher();
+                this.setupLoadingIndicator();
+
+                // Add layers to map
+                this.map.addLayer(this.baseLayerGroup);
+                this.map.addLayer(this.radarLayer);
+                this.map.addLayer(this.precipitationLayer);
+                this.map.addLayer(this.weatherAlertsLayer);
+
+                // Initialize layer visibility
+                this.updateLayerVisibility();
+
+                // Register event listeners
+                this.registerEventListeners();
+
+                console.log('✅ WeatherRadarCore initialized');
+            }
+
+            createBaseLayerGroup() {
+                const osmLayer = new ol.layer.Tile({
+                    source: new ol.source.OSM({
+                        crossOrigin: 'anonymous',
+                        wrapX: true,
+                        attributions: [
+                            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        ]
+                    }),
+                    name: 'OpenStreetMap',
+                    title: 'OpenStreetMap',
+                    type: 'base',
+                    visible: true
                 });
 
-                this.panel = null;
-                this.shown = false;
-
-                button.addEventListener('click', this.toggle.bind(this), false);
-            }
-
-            toggle() {
-                if (this.shown) {
-                    this.hide();
-                } else {
-                    this.show();
-                }
-            }
-
-            show() {
-                if (!this.panel) {
-                    this.renderPanel();
-                }
-                this.panel.style.display = 'block';
-                this.element.classList.add('shown');
-                this.shown = true;
-            }
-
-            hide() {
-                if (this.panel) {
-                    this.panel.style.display = 'none';
-                }
-                this.element.classList.remove('shown');
-                this.shown = false;
-            }
-
-            renderPanel() {
-                const map = this.getMap();
-                const layers = map.getLayers().getArray();
-
-                this.panel = document.createElement('div');
-                this.panel.className = 'layer-switcher-panel';
-                this.panel.style.cssText = `
-                    position: absolute;
-                    top: 100%;
-                    right: 0;
-                    background: white;
-                    border-radius: 4px;
-                    padding: 8px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                    min-width: 180px;
-                    z-index: 1000;
-                `;
-
-                // Base Layers
-                const baseTitle = document.createElement('div');
-                baseTitle.innerHTML = '<strong>Base Layers</strong>';
-                baseTitle.style.marginBottom = '8px';
-                this.panel.appendChild(baseTitle);
-
-                layers.forEach((layer, index) => {
-                    if (layer.get('type') === 'base') {
-                        const label = document.createElement('label');
-                        label.style.cssText = 'display: block; margin: 4px 0; cursor: pointer;';
-
-                        const radio = document.createElement('input');
-                        radio.type = 'radio';
-                        radio.name = 'base-layer';
-                        radio.checked = layer.getVisible();
-                        radio.addEventListener('change', () => {
-                            layers.forEach(l => {
-                                if (l.get('type') === 'base') {
-                                    l.setVisible(l === layer);
-                                }
-                            });
-                        });
-
-                        label.appendChild(radio);
-                        label.appendChild(document.createTextNode(' ' + layer.get('title')));
-                        this.panel.appendChild(label);
-                    }
+                const satelliteLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                        attributions: [
+                            'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer">ArcGIS</a>'
+                        ]
+                    }),
+                    name: 'Satellite',
+                    title: 'Satellite Imagery',
+                    type: 'base',
+                    visible: false
                 });
 
-                // Overlay Layers
-                const overlayTitle = document.createElement('div');
-                overlayTitle.innerHTML = '<strong>Overlays</strong>';
-                overlayTitle.style.margin = '12px 0 8px 0';
-                this.panel.appendChild(overlayTitle);
-
-                layers.forEach((layer, index) => {
-                    if (layer.get('type') !== 'base' && layer.get('name')) {
-                        const label = document.createElement('label');
-                        label.style.cssText = 'display: block; margin: 4px 0; cursor: pointer;';
-
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.checked = layer.getVisible();
-                        checkbox.addEventListener('change', () => {
-                            layer.setVisible(checkbox.checked);
-                        });
-
-                        label.appendChild(checkbox);
-                        label.appendChild(document.createTextNode(' ' + layer.get('name')));
-                        this.panel.appendChild(label);
-                    }
+                const terrainLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+                        attributions: [
+                            'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer">ArcGIS</a>'
+                        ]
+                    }),
+                    name: 'Terrain',
+                    title: 'Terrain',
+                    type: 'base',
+                    visible: false
                 });
 
-                this.element.appendChild(this.panel);
+                this.baseLayerGroup = new ol.layer.Group({
+                    title: 'Base Maps',
+                    layers: [osmLayer, satelliteLayer, terrainLayer]
+                });
+            }
 
-                // Close when clicking outside
-                document.addEventListener('click', (e) => {
-                    if (!this.element.contains(e.target)) {
-                        this.hide();
-                    }
+            createRadarLayer() {
+                const radarSource = new ol.source.XYZ({
+                    url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                    attributions: '© Iowa Environmental Mesonet',
+                    crossOrigin: 'anonymous'
+                });
+
+                this.radarLayer = new ol.layer.Tile({
+                    source: radarSource,
+                    opacity: 0.7,
+                    visible: true,
+                    name: 'NEXRAD Reflectivity',
+                    title: 'Radar Reflectivity',
+                    type: 'overlay'
+                });
+
+                // Track radar tile loading
+                radarSource.on('tileloadstart', () => {
+                    console.log('Loading radar tile...');
+                });
+
+                radarSource.on('tileloadend', () => {
+                    console.log('Radar tile loaded successfully');
+                });
+
+                radarSource.on('tileloaderror', (error) => {
+                    console.error('Failed to load radar tile:', error);
+                });
+            }
+
+            createPrecipitationLayer() {
+                const precipitationSource = new ol.source.XYZ({
+                    url: 'https://tilecache.rainviewer.com/v2/radar/{timestamp}/256/{z}/{x}/{y}/8/1_1.png',
+                    crossOrigin: 'anonymous'
+                });
+
+                this.precipitationLayer = new ol.layer.Tile({
+                    source: precipitationSource,
+                    opacity: 0.6,
+                    visible: false,
+                    name: 'Precipitation',
+                    title: 'Live Precipitation',
+                    type: 'overlay'
+                });
+            }
+
+            createWeatherAlertsLayer() {
+                const weatherAlertsSource = new ol.source.TileWMS({
+                    url: 'https://mapservices.weather.noaa.gov/eventdriven/services/WWA/watch_warn_adv/MapServer/WMSServer',
+                    params: {
+                        'LAYERS': '1',
+                        'FORMAT': 'image/png',
+                        'TRANSPARENT': true
+                    },
+                    crossOrigin: 'anonymous'
+                });
+
+                this.weatherAlertsLayer = new ol.layer.Tile({
+                    source: weatherAlertsSource,
+                    opacity: 0.8,
+                    visible: true,
+                    name: 'Weather Alerts',
+                    title: 'Weather Alerts',
+                    type: 'overlay'
+                });
+            }
+
+            createLayerSwitcher() {
+                this.layerSwitcher = new LayerSwitcher({
+                    tipLabel: 'Layer List',
+                    groupSelectStyle: 'group',
+                    reverse: true
+                });
+
+                this.map.addControl(this.layerSwitcher);
+            }
+
+            setupLoadingIndicator() {
+                this.loadingIndicator = document.createElement('div');
+                this.loadingIndicator.className = 'layer-loading';
+                this.loadingIndicator.innerHTML = 'Loading layers...';
+                document.body.appendChild(this.loadingIndicator);
+
+                // Monitor layer loading
+                this.map.getLayers().forEach(layer => {
+                    layer.getSource().on('tileloadstart', () => {
+                        this.showLoadingIndicator();
+                    });
+
+                    layer.getSource().on('tileloadend', () => {
+                        this.hideLoadingIndicator();
+                    });
+
+                    layer.getSource().on('tileloaderror', (event) => {
+                        console.warn('Tile load error, retrying...', event);
+                        setTimeout(() => {
+                            layer.getSource().refresh();
+                        }, 5000);
+                    });
+                });
+            }
+
+            showLoadingIndicator() {
+                this.loadingIndicator.classList.add('visible');
+            }
+
+            hideLoadingIndicator() {
+                this.loadingIndicator.classList.remove('visible');
+            }
+
+            updateLayerVisibility() {
+                // Set initial visibility based on user settings or defaults
+                const radarVisible = true; // Get from user settings
+                const precipitationVisible = false; // Get from user settings
+                const alertsVisible = true; // Get from user settings
+
+                this.radarLayer.setVisible(radarVisible);
+                this.precipitationLayer.setVisible(precipitationVisible);
+                this.weatherAlertsLayer.setVisible(alertsVisible);
+            }
+
+            registerEventListeners() {
+                // Register map event listeners for user interactions
+                this.map.on('moveend', () => {
+                    const center = ol.proj.toLonLat(this.map.getView().getCenter());
+                    const zoom = this.map.getView().getZoom();
+                    console.log(`Map moved to: ${center}, zoom: ${zoom}`);
+                });
+
+                this.map.on('click', (event) => {
+                    const coordinate = ol.proj.toLonLat(event.coordinate);
+                    console.log('Map clicked at:', coordinate);
                 });
             }
         }
-
-        // Register the custom control
-        ol.control.LayerSwitcher = LayerSwitcher;
     </script>
 
     <!-- Debug: Log OpenLayers availability -->
@@ -1252,897 +1414,1198 @@
     </script>
 
     <!-- Weather Radar Application -->
-    <script>
-        // Configuration Constants
-        const CONFIG = {
-            defaultCenter: [-98.5795, 39.8283], // Center of US
-            defaultZoom: 4,
-            maxZoom: 18,
-            minZoom: 2,
-            projection: 'EPSG:3857',
-            tileSize: 256,
-            tileBuffer: 4,
-            loadTilesWhileAnimating: true,
-            loadTilesWhileInteracting: true,
-            preload: 4
-        };
+    <script type="module">
+        import { initializeWeatherMap, registerServiceWorker } from './js/weather-init.js';
 
-        // Initialize weather radar when DOM is ready
-        document.addEventListener('DOMContentLoaded', async () => {
-            console.log('🌦️ Starting Weather Radar Application...');
-
+        // Initialize the application
+        (async function() {
             try {
-                // Initialize the map with error boundaries
-                await initializeMap();
-                console.log('✅ Map initialized successfully');
+                await registerServiceWorker();
+                window.weatherRadarMap = await initializeWeatherMap();
+                console.log('✅ Weather radar application initialized successfully');
             } catch (error) {
-                console.error('❌ Failed to initialize map:', error);
-                showError('Map initialization failed', error);
+                console.error('❌ Initialization failed:', error);
             }
-        });
+        })();
 
-        // Initialize map with comprehensive error handling
-        async function initializeMap() {
-            // Validate environment and dependencies
-            if (typeof ol === 'undefined') {
-                throw new Error('OpenLayers not loaded');
-            }
-
-            // Get and validate map container
-            const mapContainer = document.getElementById('map');
-            if (!mapContainer) {
-                throw new Error('Map container not found');
+        // WeatherRadarCore class - inline implementation
+        class WeatherRadarCore {
+            constructor(map) {
+                this.map = map;
+                this.radarLayer = null;
+                this.precipitationLayer = null;
+                this.weatherAlertsLayer = null;
+                this.baseLayerGroup = null;
+                this.layerSwitcher = null;
+                this.loadingIndicator = null;
             }
 
-            // Initialize view with proper projection and constraints
-            const view = new ol.View({
-                center: ol.proj.fromLonLat(CONFIG.defaultCenter),
-                zoom: CONFIG.defaultZoom,
-                minZoom: CONFIG.minZoom,
-                maxZoom: CONFIG.maxZoom,
-                projection: CONFIG.projection,
-                constrainResolution: true,
-                smoothResolutionConstraint: true,
-                enableRotation: false,
-                extent: ol.proj.transformExtent(
-                    [-180, 15, -50, 70],
-                    'EPSG:4326',
-                    CONFIG.projection
-                )
-            });
+            async init() {
+                this.createBaseLayerGroup();
+                this.createRadarLayer();
+                this.createPrecipitationLayer();
+                this.createWeatherAlertsLayer();
+                this.createLayerSwitcher();
+                this.setupLoadingIndicator();
 
-            // Create optimized base layers with error handling
-            const layers = await createOptimizedLayers();
+                // Add layers to map
+                this.map.addLayer(this.baseLayerGroup);
+                this.map.addLayer(this.radarLayer);
+                this.map.addLayer(this.precipitationLayer);
+                this.map.addLayer(this.weatherAlertsLayer);
 
-            // Create map with enhanced settings
-            const map = new ol.Map({
-                target: 'map',
-                view: view,
-                layers: layers,
-                controls: createMapControls(),
-                interactions: createMapInteractions(),
-                loadTilesWhileAnimating: CONFIG.loadTilesWhileAnimating,
-                loadTilesWhileInteracting: CONFIG.loadTilesWhileInteracting,
-                pixelRatio: Math.min(2, window.devicePixelRatio || 1)
-            });
+                // Initialize layer visibility
+                this.updateLayerVisibility();
 
-            // Set up tile load monitoring
-            setupTileLoadMonitoring(map);
+                // Register event listeners
+                this.registerEventListeners();
 
-            // Initialize weather layers with loading indicators
-            const weatherLayers = await initializeWeatherLayers(map);
-
-            // Set up geolocation with fallback
-            setupGeolocation(map);
-
-            return map;
-        }
-
-        // Create optimized base layers
-        async function createOptimizedLayers() {
-            // Create base layer group
-            const baseLayers = new ol.layer.Group({
-                title: 'Base Maps',
-                layers: [
-                    // OpenStreetMap layer with optimizations
-                    new ol.layer.Tile({
-                        title: 'Street Map',
-                        type: 'base',
-                        source: new ol.source.OSM({
-                            crossOrigin: 'anonymous',
-                            maxZoom: CONFIG.maxZoom,
-                            transition: 250,
-                            cacheSize: 512,
-                            reprojectionErrorThreshold: 0.5,
-                            tileLoadFunction: createRetryingTileLoadFunction()
-                        }),
-                        preload: CONFIG.preload,
-                        useInterimTilesOnError: true,
-                        visible: true
-                    }),
-
-                    // Satellite layer
-                    new ol.layer.Tile({
-                        title: 'Satellite',
-                        type: 'base',
-                        source: new ol.source.XYZ({
-                            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                            maxZoom: CONFIG.maxZoom,
-                            transition: 250,
-                            crossOrigin: 'anonymous',
-                            tileLoadFunction: createRetryingTileLoadFunction()
-                        }),
-                        visible: false
-                    })
-                ]
-            });
-
-            return [baseLayers];
-        }
-
-        // Create a tile load function with retry logic
-        function createRetryingTileLoadFunction(maxRetries = 3, retryDelay = 1000) {
-            return function(tile, src) {
-                let tries = 0;
-
-                function attempt() {
-                    tries++;
-                    const img = tile.getImage();
-
-                    img.addEventListener('error', () => {
-                        if (tries < maxRetries) {
-                            setTimeout(attempt, retryDelay * tries);
-                        }
-                    });
-
-                    img.src = src;
-                }
-
-                attempt();
-            };
-        }
-
-        // Set up tile load monitoring
-        function setupTileLoadMonitoring(map) {
-            let tilesLoading = 0;
-            const loadingIndicator = document.getElementById('loading-screen');
-
-            function updateLoadingState() {
-                if (tilesLoading > 0) {
-                    loadingIndicator.classList.remove('hidden');
-                    document.body.style.cursor = 'progress';
-                } else {
-                    loadingIndicator.classList.add('hidden');
-                    document.body.style.cursor = 'default';
-                }
+                console.log('✅ WeatherRadarCore initialized');
             }
 
-            map.on('loadstart', () => {
-                tilesLoading++;
-                updateLoadingState();
-            });
-
-            map.on('loadend', () => {
-                tilesLoading = Math.max(0, tilesLoading - 1);
-                updateLoadingState();
-            });
-
-            // Error handling for tile loads
-            map.on('error', (event) => {
-                console.warn('Map error:', event.error);
-                showError('Failed to load map tiles. Retrying...', event.error);
-            });
-        }
-
-        // Initialize weather layers with proper error handling
-        async function initializeWeatherLayers(map) {
-            const weatherGroup = new ol.layer.Group({
-                title: 'Weather',
-                layers: []
-            });
-
-            try {
-                // NEXRAD Base Reflectivity
-                const nexradLayer = new ol.layer.Tile({
-                    title: 'NEXRAD Radar',
-                    source: new ol.source.XYZ({
-                        url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+            createBaseLayerGroup() {
+                const osmLayer = new ol.layer.Tile({
+                    source: new ol.source.OSM({
                         crossOrigin: 'anonymous',
-                        transition: 250,
-                        maxZoom: CONFIG.maxZoom,
-                        tileLoadFunction: createRetryingTileLoadFunction(),
+                        wrapX: true,
+                        attributions: [
+                            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        ]
                     }),
+                    name: 'OpenStreetMap',
+                    title: 'OpenStreetMap',
+                    type: 'base',
+                    visible: true
+                });
+
+                const satelliteLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                        attributions: [
+                            'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer">ArcGIS</a>'
+                        ]
+                    }),
+                    name: 'Satellite',
+                    title: 'Satellite Imagery',
+                    type: 'base',
+                    visible: false
+                });
+
+                const terrainLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+                        attributions: [
+                            'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer">ArcGIS</a>'
+                        ]
+                    }),
+                    name: 'Terrain',
+                    title: 'Terrain',
+                    type: 'base',
+                    visible: false
+                });
+
+                this.baseLayerGroup = new ol.layer.Group({
+                    title: 'Base Maps',
+                    layers: [osmLayer, satelliteLayer, terrainLayer]
+                });
+            }
+
+            createRadarLayer() {
+                const radarSource = new ol.source.XYZ({
+                    url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                    attributions: '© Iowa Environmental Mesonet',
+                    crossOrigin: 'anonymous'
+                });
+
+                this.radarLayer = new ol.layer.Tile({
+                    source: radarSource,
                     opacity: 0.7,
-                    visible: true,
-                    extent: ol.proj.transformExtent(
-                        [-130, 20, -60, 55],
-                        'EPSG:4326',
-                        CONFIG.projection
-                    )
-                });
-
-                // Precipitation layer
-                const precipLayer = new ol.layer.Tile({
-                    title: 'Precipitation',
-                    source: new ol.source.XYZ({
-                        url: 'https://tilecache.rainviewer.com/v2/radar/{timestamp}/256/{z}/{x}/{y}/2/1_1.png',
-                        crossOrigin: 'anonymous',
-                        tileLoadFunction: createRetryingTileLoadFunction()
-                    }),
-                    visible: false,
-                    opacity: 0.6
-                });
-
-                // Add layers to group
-                weatherGroup.getLayers().extend([nexradLayer, precipLayer]);
-                map.addLayer(weatherGroup);
-
-                // Set up layer switcher control
-                const layerSwitcher = new LayerSwitcher({
-                    tipLabel: 'Layer List',
-                    groupSelectStyle: 'group',
-                    reverse: true
-                });
-                map.addControl(layerSwitcher);
-
-                // Monitor weather layer loading
-                setupWeatherLayerMonitoring(nexradLayer, precipLayer);
-
-                return weatherGroup;
-            } catch (error) {
-                console.error('Failed to initialize weather layers:', error);
-                showError('Failed to load weather data', error);
-                throw error;
-            }
-        }
-
-        // Monitor weather layer loading
-        function setupWeatherLayerMonitoring(nexradLayer, precipLayer) {
-            const sources = [nexradLayer.getSource(), precipLayer.getSource()];
-
-            sources.forEach(source => {
-                source.on('tileloadstart', () => {
-                    showLayerLoading(true);
-                });
-
-                source.on('tileloadend', () => {
-                    showLayerLoading(false);
-                });
-
-                source.on('tileloaderror', (event) => {
-                    console.warn('Tile load error, retrying...', event);
-                    setTimeout(() => {
-                        source.refresh();
-                    }, 5000);
-                });
-            });
-        }
-
-        // Layer loading indicator
-        function showLayerLoading(show) {
-            const indicator = document.querySelector('.layer-loading');
-            if (indicator) {
-                indicator.classList.toggle('visible', show);
-            }
-        }
-
-        // Create map controls with accessibility
-        function createMapControls() {
-            return new ol.Collection([
-                new ol.control.Zoom({
-                    className: 'custom-zoom',
-                    delta: 1,
-                    duration: 250
-                }),
-                new ol.control.ScaleLine({
-                    units: 'imperial'
-                }),
-                new ol.control.Attribution({
-                    collapsible: true,
-                    collapsed: true
-                }),
-                new ol.control.FullScreen({
-                    tipLabel: 'Toggle fullscreen'
-                })
-            ]);
-        }
-
-        // Create map interactions
-        function createMapInteractions() {
-            return ol.interaction.defaults({
-                altShiftDragRotate: false,
-                pinchRotate: false,
-                mouseWheelZoom: true,
-                keyboard: true
-            }).extend([
-                new ol.interaction.DragPan({
-                    kinetic: true
-                })
-            ]);
-        }
-
-        // Set up geolocation with fallback
-        function setupGeolocation(map) {
-            if ('geolocation' in navigator) {
-                navigator.geolocation.getCurrentPosition(
-                    position => {
-                        const coords = ol.proj.fromLonLat([
-                            position.coords.longitude,
-                            position.coords.latitude
-                        ]);
-                        map.getView().animate({
-                            center: coords,
-                            zoom: 8,
-                            duration: 1000
-                        });
-                    },
-                    error => {
-                        console.warn('Geolocation failed:', error);
-                        // Fallback to default view (already set)
-                    }
-                );
-            }
-        }
-            updateDebugStatus();
-
-            try {
-                // Validate environment
-                if (typeof ol === 'undefined') {
-                    throw new Error('OpenLayers not loaded. Please check your internet connection.');
-                }
-
-                console.log('📦 OpenLayers version:', ol.VERSION);
-
-                // Check map container
-                const mapContainer = document.getElementById('main-map');
-                if (!mapContainer) {
-                    throw new Error('Map container #main-map not found');
-                }
-
-                // Validate container dimensions
-                if (mapContainer.clientWidth === 0 || mapContainer.clientHeight === 0) {
-                    throw new Error('Map container has zero dimensions');
-                }
-
-                console.log('✅ Map container ready:', {
-                    width: mapContainer.clientWidth,
-                    height: mapContainer.clientHeight
-                });
-
-                // Initialize map with comprehensive error handling
-                try {
-                    window.weatherRadarMap = await initializeWeatherRadarMap();
-                    console.log('✅ Weather radar map initialized successfully');
-
-                    // Add event listener for window resize
-                    window.addEventListener('resize', () => {
-                        window.weatherRadarMap.updateSize();
-                    });
-
-                } catch (error) {
-                    console.error('❌ Failed to initialize weather radar:', error);
-                    showError('Failed to load weather radar: ' + error.message);
-
-                    // Hide loading screen on error
-                    const loadingScreen = document.getElementById('loading-screen');
-                    if (loadingScreen) {
-                        loadingScreen.style.display = 'none';
-                    }
-                }
-
-            } catch (error) {
-                console.error('❌ Environment validation failed:', error);
-                showError('Environment validation failed: ' + error.message);
-            }
-        });
-
-        // Weather radar map initialization function
-        async function initializeWeatherRadarMap() {
-            console.log('🗺️ Creating OpenLayers map...');
-
-            try {
-                // Hide loading screen initially
-                const loadingScreen = document.getElementById('loading-screen');
-                if (loadingScreen) {
-                    loadingScreen.style.display = 'flex';
-                }
-
-                // Create LayerSwitcher control
-            const layerSwitcher = new LayerSwitcher({
-                tipLabel: 'Layers', // Optional label for button
-                groupSelectStyle: 'group', // Optional, 'group' or 'none'
-                reverse: true, // Optional, show layers in reverse order
-                collapseTipLabel: 'Collapse layers' // Optional
-            });
-
-            // Create base OpenStreetMap layer
-            const osmLayer = new ol.layer.Tile({
-                preload: Infinity,
-                source: new ol.source.OSM({
-                    crossOrigin: 'anonymous',
-                    wrapX: true,
-                    attributions: [
-                        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    ]
-                }),
-                name: 'OpenStreetMap',
-                title: 'OpenStreetMap',
-                type: 'base',
-                visible: true
-            });
-
-            const satelliteLayer = new ol.layer.Tile({
-                source: new ol.source.XYZ({
-                    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                    attributions: [
-                        'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer">ArcGIS</a>'
-                    ]
-                }),
-                name: 'Satellite',
-                title: 'Satellite Imagery',
-                type: 'base',
-                visible: false
-            });
-
-            const terrainLayer = new ol.layer.Tile({
-                source: new ol.source.XYZ({
-                    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
-                    attributions: [
-                        'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer">ArcGIS</a>'
-                    ]
-                }),
-                name: 'Terrain',
-                title: 'Terrain',
-                type: 'base',
-                visible: false
-            });
-
-            // Create map view centered on US with proper projection
-            const view = new ol.View({
-                center: ol.proj.fromLonLat([-98.5795, 39.8283]), // Center of US
-                zoom: 4,
-                minZoom: 2,
-                maxZoom: 19,
-                projection: 'EPSG:3857', // Web Mercator
-                extent: ol.proj.transformExtent([-180, 15, -50, 70], 'EPSG:4326', 'EPSG:3857') // Continental US + Alaska
-            });
-
-            // Default OpenLayers controls with customizations
-            const controls = new ol.Collection([
-                new ol.control.Zoom(),
-                new ol.control.Attribution(),
-                new ol.control.ScaleLine({
-                    units: 'imperial'
-                }),
-                new ol.control.ScaleLine({
-                    units: 'imperial',
-                    bar: true,
-                    steps: 4,
-                    text: true,
-                    minWidth: 140
-                }),
-                new ol.control.FullScreen({
-                    tipLabel: 'Toggle full-screen'
-                }),
-                new ol.control.ZoomSlider(),
-                new ol.control.MousePosition({
-                    coordinateFormat: ol.coordinate.createStringXY(4),
-                    projection: 'EPSG:4326',
-                    className: 'custom-mouse-position',
-                    target: document.getElementById('mouse-position')
-                })
-            ]);
-
-            // Create base layer group
-            const baseMaps = new ol.layer.Group({
-                title: 'Base Maps',
-                layers: [osmLayer, satelliteLayer, terrainLayer]
-            });
-
-            // Create map with enhanced configuration
-            const map = new ol.Map({
-                target: 'main-map',
-                layers: [baseMaps],  // Add the base layer group
-                view: view,
-                controls: controls,
-                interactions: ol.interaction.defaults({
-                    altShiftDragRotate: false,
-                    pinchRotate: false,
-                    keyboard: true,
-                    mouseWheelZoom: true,
-                    dragPan: true
-                }).extend([
-                    new ol.interaction.DragRotateAndZoom()
-                ]),
-                loadTilesWhileAnimating: true,
-                loadTilesWhileInteracting: true,
-                pixelRatio: Math.min(2, window.devicePixelRatio || 1) // Better rendering on high DPI screens
-            });
-
-            // Add layer switcher after map creation
-            map.addControl(layerSwitcher);
-
-            // Store layer references globally
-            window.baseLayers = {
-                osm: osmLayer,
-                satellite: satelliteLayer,
-                terrain: terrainLayer
-            };
-
-            // Map event handlers for better user feedback
-            map.once('rendercomplete', () => {
-                console.log('✅ Map rendered successfully');
-
-                // Hide loading screen after map renders
-                setTimeout(() => {
-                    if (loadingScreen) {
-                        loadingScreen.style.display = 'none';
-                    }
-                }, 500);
-            });
-
-            // Track loading state
-            let tilesLoading = 0;
-
-            map.on('loadstart', () => {
-                tilesLoading++;
-                console.log('🔄 Loading tiles:', tilesLoading);
-                document.body.style.cursor = 'progress';
-            });
-
-            map.on('loadend', () => {
-                tilesLoading--;
-                console.log('✅ Tiles loaded, remaining:', tilesLoading);
-                if (tilesLoading === 0) {
-                    document.body.style.cursor = 'default';
-                }
-            });
-
-            // Error handling for tile loading
-            osmLayer.getSource().on('tileloaderror', (event) => {
-                console.error('❌ Failed to load map tile:', event);
-                showError('Failed to load map tile. Please check your internet connection.');
-            });
-
-            // Track user interactions
-            map.on('moveend', () => {
-                const center = ol.proj.toLonLat(view.getCenter());
-                const zoom = view.getZoom();
-                console.log(`📍 Map moved to: ${center}, zoom: ${zoom}`);
-            });
-
-            map.on('click', (event) => {
-                const coordinate = ol.proj.toLonLat(event.coordinate);
-                console.log('🗺️ Map clicked at:', coordinate);
-            });
-
-            // Add additional layers
-            await addWeatherLayers(map);
-
-            // Initialize controls
-            initializeMapControls(map);
-
-            return map;
-        }
-
-        // Add weather layers to map
-        async function addWeatherLayers(map) {
-            try {
-                if (!map) {
-                    throw new Error('Map not provided to addWeatherLayers');
-                }
-                console.log('🌦️ Adding weather layers...');
-
-                // Show loading indicator
-                const loadingScreen = document.getElementById('loading-screen');
-                if (loadingScreen) {
-                    loadingScreen.classList.remove('hidden');
-                    loadingScreen.style.display = 'flex';
-                }
-
-                // Create a layer group for weather layers
-                const weatherLayerGroup = new ol.layer.Group({
-                    title: 'Weather Data',
-                    layers: []
-                });
-
-                // Add NEXRAD radar base reflectivity layer
-                console.log('🌧️ Creating NEXRAD radar layer...');
-
-                const radarLayer = new ol.layer.Tile({
-                    source: new ol.source.XYZ({
-                        url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
-                        crossOrigin: 'anonymous',
-                        maxZoom: 18
-                    }),
-                    opacity: 0.6,
                     visible: true,
                     name: 'NEXRAD Reflectivity',
                     title: 'Radar Reflectivity',
                     type: 'overlay'
                 });
 
-                // Add error handling for radar layer
-                radarLayer.getSource().on('tileloaderror', (event) => {
-                    console.warn('⚠️ Failed to load radar tile, will retry automatically');
-                    setTimeout(() => radarLayer.getSource().refresh(), 5000);
+                // Track radar tile loading
+                radarSource.on('tileloadstart', () => {
+                    console.log('Loading radar tile...');
                 });
 
-                radarLayer.getSource().on('tileloadend', () => {
-                    console.log('✅ Radar tile loaded successfully');
-                    if (loadingScreen) {
-                        loadingScreen.classList.add('hidden');
-                        setTimeout(() => {
-                            loadingScreen.style.display = 'none';
-                        }, 300); // Wait for fade out animation
-                    }
+                radarSource.on('tileloadend', () => {
+                    console.log('Radar tile loaded successfully');
                 });
 
-                // Add weather alerts layer
-                const weatherAlertsLayer = new ol.layer.Tile({
-                    source: new ol.source.TileWMS({
-                        url: 'https://mapservices.weather.noaa.gov/eventdriven/services/WWA/watch_warn_adv/MapServer/WMSServer',
-                        params: {
-                            'LAYERS': '1',
-                            'FORMAT': 'image/png',
-                            'TRANSPARENT': true
-                        },
-                        crossOrigin: 'anonymous'
-                    }),
-                    opacity: 0.8,
-                    visible: true,
-                    name: 'Weather Alerts',
-                    title: 'Weather Alerts',
-                    type: 'overlay'
+                radarSource.on('tileloaderror', (error) => {
+                    console.error('Failed to load radar tile:', error);
+                });
+            }
+
+            createPrecipitationLayer() {
+                const precipitationSource = new ol.source.XYZ({
+                    url: 'https://tilecache.rainviewer.com/v2/radar/{timestamp}/256/{z}/{x}/{y}/8/1_1.png',
+                    crossOrigin: 'anonymous'
                 });
 
-                // Add precipitation layer
-                const precipitationLayer = new ol.layer.Tile({
-                    source: new ol.source.XYZ({
-                        url: 'https://tilecache.rainviewer.com/v2/radar/{timestamp}/256/{z}/{x}/{y}/8/1_1.png',
-                        crossOrigin: 'anonymous'
-                    }),
+                this.precipitationLayer = new ol.layer.Tile({
+                    source: precipitationSource,
                     opacity: 0.6,
                     visible: false,
                     name: 'Precipitation',
                     title: 'Live Precipitation',
                     type: 'overlay'
                 });
-
-                // Add all layers to the weather group
-                weatherLayerGroup.getLayers().extend([radarLayer, weatherAlertsLayer, precipitationLayer]);
-
-                // Add weather layer group to map
-                map.addLayer(weatherLayerGroup);
-                console.log('✅ Weather layers added to map');
-
-                // Store layer references globally for controls
-                window.weatherLayers = {
-                    radarReflectivity: radarLayer,
-                    weatherAlerts: weatherAlertsLayer,
-                    precipitation: precipitationLayer,
-                    group: weatherLayerGroup
-                };
-
-                // Set up automatic refresh every 5 minutes for radar data
-                setInterval(() => {
-                    console.log('🔄 Refreshing radar data...');
-                    radarLayer.getSource().refresh();
-                }, 300000); // 5 minutes
-
-                console.log('✅ Weather layers initialized successfully');
-
-                return weatherLayerGroup;
-
-            } catch (error) {
-                console.error('❌ Failed to add weather layers:', error);
-                showError('Failed to load weather data: ' + error.message);
-
-                // Hide loading screen on error
-                if (loadingScreen) {
-                    loadingScreen.style.display = 'none';
-                }
-                throw error; // Re-throw to handle in the calling function
             }
-        }
 
-        // Initialize map when document is ready
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                // Initialize the weather radar map
-                window.weatherRadarMap = await initializeWeatherRadarMap();
-                console.log('✅ Weather radar map initialized successfully');
-
-                // Add event listener for window resize
-                window.addEventListener('resize', () => {
-                    window.weatherRadarMap.updateSize();
+            createWeatherAlertsLayer() {
+                const weatherAlertsSource = new ol.source.TileWMS({
+                    url: 'https://mapservices.weather.noaa.gov/eventdriven/services/WWA/watch_warn_adv/MapServer/WMSServer',
+                    params: {
+                        'LAYERS': '1',
+                        'FORMAT': 'image/png',
+                        'TRANSPARENT': true
+                    },
+                    crossOrigin: 'anonymous'
                 });
-            } catch (error) {
-                console.error('❌ Error initializing map:', error);
-                showError(error.message);
-            }
-        });
 
-        // Initialize map controls
-        function initializeMapControls(map) {
-            console.log('🎛️ Initializing map controls...');
-
-            // Initialize overlay panel functionality
-            initializeOverlayPanel(map);
-
-            // Zoom controls
-            const zoomInBtn = document.getElementById('zoom-in');
-            const zoomOutBtn = document.getElementById('zoom-out');
-            const geoBtn = document.getElementById('geolocation');
-            const resetBtn = document.getElementById('reset-view');
-
-            if (zoomInBtn) {
-                zoomInBtn.addEventListener('click', () => {
-                    const view = map.getView();
-                    const zoom = view.getZoom();
-                    view.animate({ zoom: zoom + 1, duration: 250 });
+                this.weatherAlertsLayer = new ol.layer.Tile({
+                    source: weatherAlertsSource,
+                    opacity: 0.8,
+                    visible: true,
+                    name: 'Weather Alerts',
+                    title: 'Weather Alerts',
+                    type: 'overlay'
                 });
             }
 
-            if (zoomOutBtn) {
-                zoomOutBtn.addEventListener('click', () => {
-                    const view = map.getView();
-                    const zoom = view.getZoom();
-                    view.animate({ zoom: zoom - 1, duration: 250 });
+            createLayerSwitcher() {
+                this.layerSwitcher = new LayerSwitcher({
+                    tipLabel: 'Layer List',
+                    groupSelectStyle: 'group',
+                    reverse: true
                 });
+
+                this.map.addControl(this.layerSwitcher);
             }
 
-            if (resetBtn) {
-                resetBtn.addEventListener('click', () => {
-                    map.getView().animate({
-                        center: ol.proj.fromLonLat([-98.5795, 39.8283]),
-                        zoom: 5,
-                        duration: 1000
+            setupLoadingIndicator() {
+                this.loadingIndicator = document.createElement('div');
+                this.loadingIndicator.className = 'layer-loading';
+                this.loadingIndicator.innerHTML = 'Loading layers...';
+                document.body.appendChild(this.loadingIndicator);
+
+                // Monitor layer loading
+                this.map.getLayers().forEach(layer => {
+                    layer.getSource().on('tileloadstart', () => {
+                        this.showLoadingIndicator();
+                    });
+
+                    layer.getSource().on('tileloadend', () => {
+                        this.hideLoadingIndicator();
+                    });
+
+                    layer.getSource().on('tileloaderror', (event) => {
+                        console.warn('Tile load error, retrying...', event);
+                        setTimeout(() => {
+                            layer.getSource().refresh();
+                        }, 5000);
                     });
                 });
             }
 
-            if (geoBtn) {
-                geoBtn.addEventListener('click', () => {
-                    if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition((position) => {
-                            const coords = [position.coords.longitude, position.coords.latitude];
-                            map.getView().animate({
-                                center: ol.proj.fromLonLat(coords),
-                                zoom: 10,
-                                duration: 1000
-                            });
-                        }, (error) => {
-                            console.warn('Geolocation failed:', error);
-                            showToast('Location access denied or unavailable', 'warning');
-                        });
-                    } else {
-                        showToast('Geolocation not supported by browser', 'error');
-                    }
-                });
+            showLoadingIndicator() {
+                this.loadingIndicator.classList.add('visible');
             }
 
-            console.log('✅ Map controls initialized');
+            hideLoadingIndicator() {
+                this.loadingIndicator.classList.remove('visible');
+            }
+
+            updateLayerVisibility() {
+                // Set initial visibility based on user settings or defaults
+                const radarVisible = true; // Get from user settings
+                const precipitationVisible = false; // Get from user settings
+                const alertsVisible = true; // Get from user settings
+
+                this.radarLayer.setVisible(radarVisible);
+                this.precipitationLayer.setVisible(precipitationVisible);
+                this.weatherAlertsLayer.setVisible(alertsVisible);
+            }
+
+            registerEventListeners() {
+                // Register map event listeners for user interactions
+                this.map.on('moveend', () => {
+                    const center = ol.proj.toLonLat(this.map.getView().getCenter());
+                    const zoom = this.map.getView().getZoom();
+                    console.log(`Map moved to: ${center}, zoom: ${zoom}`);
+                });
+
+                this.map.on('click', (event) => {
+                    const coordinate = ol.proj.toLonLat(event.coordinate);
+                    console.log('Map clicked at:', coordinate);
+                });
+            }
+        }
+    </script>
+
+    <!-- Debug: Log OpenLayers availability -->
+    <script>
+        // Global error handler
+        function showError(message, error) {
+            const container = document.getElementById('error-container');
+            if (!container) return;
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i>
+                <div>
+                    <strong>Error:</strong> ${message}
+                    ${error ? `<br><small>${error.message}</small>` : ''}
+                </div>
+            `;
+
+            container.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
         }
 
-        // Initialize overlay panel functionality
-        function initializeOverlayPanel(map) {
-            const panel = document.getElementById('overlay-panel');
-            const toggle = document.getElementById('panel-toggle');
+        // Function to update debug info
+        function updateDebugStatus() {
+            const debugInfo = document.getElementById('debug-info');
+            if (!debugInfo) return;
 
-            if (!panel || !toggle) return;
+            debugInfo.style.display = 'block';
 
-            // Panel toggle functionality
-            toggle.addEventListener('click', () => {
-                if (panel.classList.contains('collapsed')) {
-                    panel.classList.remove('collapsed');
-                    panel.classList.add('expanded');
-                    toggle.innerHTML = '<i class="fas fa-times"></i>';
-                } else {
-                    panel.classList.remove('expanded');
-                    panel.classList.add('collapsed');
-                    toggle.innerHTML = '<i class="fas fa-sliders-h"></i>';
-                }
+            // Check OpenLayers
+            const olStatus = document.getElementById('ol-status');
+            if (typeof ol !== 'undefined') {
+                olStatus.textContent = `✅ v${ol.VERSION}`;
+            }
+
+            // Check LayerSwitcher
+            const lsStatus = document.getElementById('layerswitcher-status');
+            if (typeof LayerSwitcher !== 'undefined') {
+                lsStatus.textContent = '✅';
+            }
+
+            // Check map container
+            const containerStatus = document.getElementById('container-status');
+            const mapContainer = document.getElementById('main-map');
+            if (mapContainer && mapContainer.clientWidth > 0 && mapContainer.clientHeight > 0) {
+                containerStatus.textContent = `✅ ${mapContainer.clientWidth}x${mapContainer.clientHeight}`;
+            }
+        }
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        // Register service worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/public/sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registered:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.warn('⚠️ Service Worker registration failed:', error);
+                    });
             });
+        }
+    </script>
 
-            // Radar controls
-            const radarReflectivityToggle = document.getElementById('radar-reflectivity-toggle');
-            const radarVelocityToggle = document.getElementById('radar-velocity-toggle');
-            const radarOpacitySlider = document.getElementById('radar-opacity-slider');
-            const opacityValue = document.getElementById('opacity-value');
+    <!-- Weather Radar Application -->
+    <script type="module">
+        import { initializeWeatherMap, registerServiceWorker } from './js/weather-init.js';
 
-            if (radarReflectivityToggle && window.weatherLayers) {
-                radarReflectivityToggle.addEventListener('change', (e) => {
-                    window.weatherLayers.radarReflectivity.setVisible(e.target.checked);
+        // Initialize the application
+        (async function() {
+            try {
+                await registerServiceWorker();
+                window.weatherRadarMap = await initializeWeatherMap();
+                console.log('✅ Weather radar application initialized successfully');
+            } catch (error) {
+                console.error('❌ Initialization failed:', error);
+            }
+        })();
+
+        // WeatherRadarCore class - inline implementation
+        class WeatherRadarCore {
+            constructor(map) {
+                this.map = map;
+                this.radarLayer = null;
+                this.precipitationLayer = null;
+                this.weatherAlertsLayer = null;
+                this.baseLayerGroup = null;
+                this.layerSwitcher = null;
+                this.loadingIndicator = null;
+            }
+
+            async init() {
+                this.createBaseLayerGroup();
+                this.createRadarLayer();
+                this.createPrecipitationLayer();
+                this.createWeatherAlertsLayer();
+                this.createLayerSwitcher();
+                this.setupLoadingIndicator();
+
+                // Add layers to map
+                this.map.addLayer(this.baseLayerGroup);
+                this.map.addLayer(this.radarLayer);
+                this.map.addLayer(this.precipitationLayer);
+                this.map.addLayer(this.weatherAlertsLayer);
+
+                // Initialize layer visibility
+                this.updateLayerVisibility();
+
+                // Register event listeners
+                this.registerEventListeners();
+
+                console.log('✅ WeatherRadarCore initialized');
+            }
+
+            createBaseLayerGroup() {
+                const osmLayer = new ol.layer.Tile({
+                    source: new ol.source.OSM({
+                        crossOrigin: 'anonymous',
+                        wrapX: true,
+                        attributions: [
+                            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        ]
+                    }),
+                    name: 'OpenStreetMap',
+                    title: 'OpenStreetMap',
+                    type: 'base',
+                    visible: true
+                });
+
+                const satelliteLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                        attributions: [
+                            'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer">ArcGIS</a>'
+                        ]
+                    }),
+                    name: 'Satellite',
+                    title: 'Satellite Imagery',
+                    type: 'base',
+                    visible: false
+                });
+
+                const terrainLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+                        attributions: [
+                            'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer">ArcGIS</a>'
+                        ]
+                    }),
+                    name: 'Terrain',
+                    title: 'Terrain',
+                    type: 'base',
+                    visible: false
+                });
+
+                this.baseLayerGroup = new ol.layer.Group({
+                    title: 'Base Maps',
+                    layers: [osmLayer, satelliteLayer, terrainLayer]
                 });
             }
 
-            if (radarVelocityToggle && window.weatherLayers) {
-                radarVelocityToggle.addEventListener('change', (e) => {
-                    window.weatherLayers.radarVelocity.setVisible(e.target.checked);
+            createRadarLayer() {
+                const radarSource = new ol.source.XYZ({
+                    url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                    attributions: '© Iowa Environmental Mesonet',
+                    crossOrigin: 'anonymous'
+                });
+
+                this.radarLayer = new ol.layer.Tile({
+                    source: radarSource,
+                    opacity: 0.7,
+                    visible: true,
+                    name: 'NEXRAD Reflectivity',
+                    title: 'Radar Reflectivity',
+                    type: 'overlay'
+                });
+
+                // Track radar tile loading
+                radarSource.on('tileloadstart', () => {
+                    console.log('Loading radar tile...');
+                });
+
+                radarSource.on('tileloadend', () => {
+                    console.log('Radar tile loaded successfully');
+                });
+
+                radarSource.on('tileloaderror', (error) => {
+                    console.error('Failed to load radar tile:', error);
                 });
             }
 
-            if (radarOpacitySlider && window.weatherLayers) {
-                radarOpacitySlider.addEventListener('input', (e) => {
-                    const opacity = e.target.value / 100;
-                    window.weatherLayers.radarReflectivity.setOpacity(opacity);
-                    window.weatherLayers.radarVelocity.setOpacity(opacity);
-                    if (opacityValue) {
-                        opacityValue.textContent = e.target.value + '%';
-                    }
+            createPrecipitationLayer() {
+                const precipitationSource = new ol.source.XYZ({
+                    url: 'https://tilecache.rainviewer.com/v2/radar/{timestamp}/256/{z}/{x}/{y}/8/1_1.png',
+                    crossOrigin: 'anonymous'
+                });
+
+                this.precipitationLayer = new ol.layer.Tile({
+                    source: precipitationSource,
+                    opacity: 0.6,
+                    visible: false,
+                    name: 'Precipitation',
+                    title: 'Live Precipitation',
+                    type: 'overlay'
                 });
             }
 
-            // Weather data controls
-            const weatherAlertsToggle = document.getElementById('weather-alerts-toggle');
-            const precipitationToggle = document.getElementById('precipitation-toggle');
+            createWeatherAlertsLayer() {
+                const weatherAlertsSource = new ol.source.TileWMS({
+                    url: 'https://mapservices.weather.noaa.gov/eventdriven/services/WWA/watch_warn_adv/MapServer/WMSServer',
+                    params: {
+                        'LAYERS': '1',
+                        'FORMAT': 'image/png',
+                        'TRANSPARENT': true
+                    },
+                    crossOrigin: 'anonymous'
+                });
 
-            if (weatherAlertsToggle && window.weatherLayers && window.weatherLayers.weatherAlerts) {
-                weatherAlertsToggle.addEventListener('change', (e) => {
-                    window.weatherLayers.weatherAlerts.setVisible(e.target.checked);
+                this.weatherAlertsLayer = new ol.layer.Tile({
+                    source: weatherAlertsSource,
+                    opacity: 0.8,
+                    visible: true,
+                    name: 'Weather Alerts',
+                    title: 'Weather Alerts',
+                    type: 'overlay'
                 });
             }
 
-            if (precipitationToggle && window.weatherLayers) {
-                precipitationToggle.addEventListener('change', (e) => {
-                    window.weatherLayers.precipitation.setVisible(e.target.checked);
+            createLayerSwitcher() {
+                this.layerSwitcher = new LayerSwitcher({
+                    tipLabel: 'Layer List',
+                    groupSelectStyle: 'group',
+                    reverse: true
                 });
+
+                this.map.addControl(this.layerSwitcher);
             }
 
-            // Base layer controls
-            const baseLayerSelect = document.getElementById('base-layer-select');
+            setupLoadingIndicator() {
+                this.loadingIndicator = document.createElement('div');
+                this.loadingIndicator.className = 'layer-loading';
+                this.loadingIndicator.innerHTML = 'Loading layers...';
+                document.body.appendChild(this.loadingIndicator);
 
-            if (baseLayerSelect && window.baseLayers) {
-                baseLayerSelect.addEventListener('change', (e) => {
-                    const selectedLayer = e.target.value;
-
-                    // Hide all base layers
-                    Object.values(window.baseLayers).forEach(layer => {
-                        layer.setVisible(false);
+                // Monitor layer loading
+                this.map.getLayers().forEach(layer => {
+                    layer.getSource().on('tileloadstart', () => {
+                        this.showLoadingIndicator();
                     });
 
-                    // Show selected layer
-                    if (window.baseLayers[selectedLayer]) {
-                        window.baseLayers[selectedLayer].setVisible(true);
-                    }
+                    layer.getSource().on('tileloadend', () => {
+                        this.hideLoadingIndicator();
+                    });
+
+                    layer.getSource().on('tileloaderror', (event) => {
+                        console.warn('Tile load error, retrying...', event);
+                        setTimeout(() => {
+                            layer.getSource().refresh();
+                        }, 5000);
+                    });
                 });
             }
 
-            console.log('✅ Overlay panel initialized');
-        }
-
-        // Error handling
-        function showError(message) {
-            console.error('💥 Error:', message);
-
-            const loadingScreen = document.getElementById('loading-screen');
-            if (loadingScreen) {
-                const loadingText = document.getElementById('loading-text');
-                if (loadingText) {
-                    loadingText.textContent = 'Error: ' + message;
-                    loadingText.style.color = '#ef4444';
-                }
+            showLoadingIndicator() {
+                this.loadingIndicator.classList.add('visible');
             }
 
-            // Also show in toast if available
-            showToast('Error: ' + message, 'error');
+            hideLoadingIndicator() {
+                this.loadingIndicator.classList.remove('visible');
+            }
+
+            updateLayerVisibility() {
+                // Set initial visibility based on user settings or defaults
+                const radarVisible = true; // Get from user settings
+                const precipitationVisible = false; // Get from user settings
+                const alertsVisible = true; // Get from user settings
+
+                this.radarLayer.setVisible(radarVisible);
+                this.precipitationLayer.setVisible(precipitationVisible);
+                this.weatherAlertsLayer.setVisible(alertsVisible);
+            }
+
+            registerEventListeners() {
+                // Register map event listeners for user interactions
+                this.map.on('moveend', () => {
+                    const center = ol.proj.toLonLat(this.map.getView().getCenter());
+                    const zoom = this.map.getView().getZoom();
+                    console.log(`Map moved to: ${center}, zoom: ${zoom}`);
+                });
+
+                this.map.on('click', (event) => {
+                    const coordinate = ol.proj.toLonLat(event.coordinate);
+                    console.log('Map clicked at:', coordinate);
+                });
+            }
+        }
+    </script>
+
+    <!-- Debug: Log OpenLayers availability -->
+    <script>
+        // Global error handler
+        function showError(message, error) {
+            const container = document.getElementById('error-container');
+            if (!container) return;
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i>
+                <div>
+                    <strong>Error:</strong> ${message}
+                    ${error ? `<br><small>${error.message}</small>` : ''}
+                </div>
+            `;
+
+            container.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
         }
 
-        // Simple toast notification
-        function showToast(message, type = 'info') {
-            const toastContainer = document.getElementById('toast-container');
-            if (!toastContainer) return;
+        // Function to update debug info
+        function updateDebugStatus() {
+            const debugInfo = document.getElementById('debug-info');
+            if (!debugInfo) return;
 
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.textContent = message;
+            debugInfo.style.display = 'block';
 
-            toastContainer.appendChild(toast);
+            // Check OpenLayers
+            const olStatus = document.getElementById('ol-status');
+            if (typeof ol !== 'undefined') {
+                olStatus.textContent = `✅ v${ol.VERSION}`;
+            }
 
-            setTimeout(() => {
-                toast.remove();
-            }, 5000);
+            // Check LayerSwitcher
+            const lsStatus = document.getElementById('layerswitcher-status');
+            if (typeof LayerSwitcher !== 'undefined') {
+                lsStatus.textContent = '✅';
+            }
+
+            // Check map container
+            const containerStatus = document.getElementById('container-status');
+            const mapContainer = document.getElementById('main-map');
+            if (mapContainer && mapContainer.clientWidth > 0 && mapContainer.clientHeight > 0) {
+                containerStatus.textContent = `✅ ${mapContainer.clientWidth}x${mapContainer.clientHeight}`;
+            }
+        }
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        // Register service worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/public/sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registered:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.warn('⚠️ Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+
+    <!-- Weather Radar Application -->
+    <script type="module">
+        import { initializeWeatherMap, registerServiceWorker } from './js/weather-init.js';
+
+        // Initialize the application
+        (async function() {
+            try {
+                await registerServiceWorker();
+                window.weatherRadarMap = await initializeWeatherMap();
+                console.log('✅ Weather radar application initialized successfully');
+            } catch (error) {
+                console.error('❌ Initialization failed:', error);
+            }
+        })();
+
+        // WeatherRadarCore class - inline implementation
+        class WeatherRadarCore {
+            constructor(map) {
+                this.map = map;
+                this.radarLayer = null;
+                this.precipitationLayer = null;
+                this.weatherAlertsLayer = null;
+                this.baseLayerGroup = null;
+                this.layerSwitcher = null;
+                this.loadingIndicator = null;
+            }
+
+            async init() {
+                this.createBaseLayerGroup();
+                this.createRadarLayer();
+                this.createPrecipitationLayer();
+                this.createWeatherAlertsLayer();
+                this.createLayerSwitcher();
+                this.setupLoadingIndicator();
+
+                // Add layers to map
+                this.map.addLayer(this.baseLayerGroup);
+                this.map.addLayer(this.radarLayer);
+                this.map.addLayer(this.precipitationLayer);
+                this.map.addLayer(this.weatherAlertsLayer);
+
+                // Initialize layer visibility
+                this.updateLayerVisibility();
+
+                // Register event listeners
+                this.registerEventListeners();
+
+                console.log('✅ WeatherRadarCore initialized');
+            }
+
+            createBaseLayerGroup() {
+                const osmLayer = new ol.layer.Tile({
+                    source: new ol.source.OSM({
+                        crossOrigin: 'anonymous',
+                        wrapX: true,
+                        attributions: [
+                            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        ]
+                    }),
+                    name: 'OpenStreetMap',
+                    title: 'OpenStreetMap',
+                    type: 'base',
+                    visible: true
+                });
+
+                const satelliteLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                        attributions: [
+                            'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer">ArcGIS</a>'
+                        ]
+                    }),
+                    name: 'Satellite',
+                    title: 'Satellite Imagery',
+                    type: 'base',
+                    visible: false
+                });
+
+                const terrainLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+                        attributions: [
+                            'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer">ArcGIS</a>'
+                        ]
+                    }),
+                    name: 'Terrain',
+                    title: 'Terrain',
+                    type: 'base',
+                    visible: false
+                });
+
+                this.baseLayerGroup = new ol.layer.Group({
+                    title: 'Base Maps',
+                    layers: [osmLayer, satelliteLayer, terrainLayer]
+                });
+            }
+
+            createRadarLayer() {
+                const radarSource = new ol.source.XYZ({
+                    url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                    attributions: '© Iowa Environmental Mesonet',
+                    crossOrigin: 'anonymous'
+                });
+
+                this.radarLayer = new ol.layer.Tile({
+                    source: radarSource,
+                    opacity: 0.7,
+                    visible: true,
+                    name: 'NEXRAD Reflectivity',
+                    title: 'Radar Reflectivity',
+                    type: 'overlay'
+                });
+
+                // Track radar tile loading
+                radarSource.on('tileloadstart', () => {
+                    console.log('Loading radar tile...');
+                });
+
+                radarSource.on('tileloadend', () => {
+                    console.log('Radar tile loaded successfully');
+                });
+
+                radarSource.on('tileloaderror', (error) => {
+                    console.error('Failed to load radar tile:', error);
+                });
+            }
+
+            createPrecipitationLayer() {
+                const precipitationSource = new ol.source.XYZ({
+                    url: 'https://tilecache.rainviewer.com/v2/radar/{timestamp}/256/{z}/{x}/{y}/8/1_1.png',
+                    crossOrigin: 'anonymous'
+                });
+
+                this.precipitationLayer = new ol.layer.Tile({
+                    source: precipitationSource,
+                    opacity: 0.6,
+                    visible: false,
+                    name: 'Precipitation',
+                    title: 'Live Precipitation',
+                    type: 'overlay'
+                });
+            }
+
+            createWeatherAlertsLayer() {
+                const weatherAlertsSource = new ol.source.TileWMS({
+                    url: 'https://mapservices.weather.noaa.gov/eventdriven/services/WWA/watch_warn_adv/MapServer/WMSServer',
+                    params: {
+                        'LAYERS': '1',
+                        'FORMAT': 'image/png',
+                        'TRANSPARENT': true
+                    },
+                    crossOrigin: 'anonymous'
+                });
+
+                this.weatherAlertsLayer = new ol.layer.Tile({
+                    source: weatherAlertsSource,
+                    opacity: 0.8,
+                    visible: true,
+                    name: 'Weather Alerts',
+                    title: 'Weather Alerts',
+                    type: 'overlay'
+                });
+            }
+
+            createLayerSwitcher() {
+                this.layerSwitcher = new LayerSwitcher({
+                    tipLabel: 'Layer List',
+                    groupSelectStyle: 'group',
+                    reverse: true
+                });
+
+                this.map.addControl(this.layerSwitcher);
+            }
+
+            setupLoadingIndicator() {
+                this.loadingIndicator = document.createElement('div');
+                this.loadingIndicator.className = 'layer-loading';
+                this.loadingIndicator.innerHTML = 'Loading layers...';
+                document.body.appendChild(this.loadingIndicator);
+
+                // Monitor layer loading
+                this.map.getLayers().forEach(layer => {
+                    layer.getSource().on('tileloadstart', () => {
+                        this.showLoadingIndicator();
+                    });
+
+                    layer.getSource().on('tileloadend', () => {
+                        this.hideLoadingIndicator();
+                    });
+
+                    layer.getSource().on('tileloaderror', (event) => {
+                        console.warn('Tile load error, retrying...', event);
+                        setTimeout(() => {
+                            layer.getSource().refresh();
+                        }, 5000);
+                    });
+                });
+            }
+
+            showLoadingIndicator() {
+                this.loadingIndicator.classList.add('visible');
+            }
+
+            hideLoadingIndicator() {
+                this.loadingIndicator.classList.remove('visible');
+            }
+
+            updateLayerVisibility() {
+                // Set initial visibility based on user settings or defaults
+                const radarVisible = true; // Get from user settings
+                const precipitationVisible = false; // Get from user settings
+                const alertsVisible = true; // Get from user settings
+
+                this.radarLayer.setVisible(radarVisible);
+                this.precipitationLayer.setVisible(precipitationVisible);
+                this.weatherAlertsLayer.setVisible(alertsVisible);
+            }
+
+            registerEventListeners() {
+                // Register map event listeners for user interactions
+                this.map.on('moveend', () => {
+                    const center = ol.proj.toLonLat(this.map.getView().getCenter());
+                    const zoom = this.map.getView().getZoom();
+                    console.log(`Map moved to: ${center}, zoom: ${zoom}`);
+                });
+
+                this.map.on('click', (event) => {
+                    const coordinate = ol.proj.toLonLat(event.coordinate);
+                    console.log('Map clicked at:', coordinate);
+                });
+            }
+        }
+    </script>
+
+    <!-- Debug: Log OpenLayers availability -->
+    <script>
+        // Global error handler
+        function showError(message, error) {
+            const container = document.getElementById('error-container');
+            if (!container) return;
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i>
+                <div>
+                    <strong>Error:</strong> ${message}
+                    ${error ? `<br><small>${error.message}</small>` : ''}
+                </div>
+            `;
+
+            container.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        // Function to update debug info
+        function updateDebugStatus() {
+            const debugInfo = document.getElementById('debug-info');
+            if (!debugInfo) return;
+
+            debugInfo.style.display = 'block';
+
+            // Check OpenLayers
+            const olStatus = document.getElementById('ol-status');
+            if (typeof ol !== 'undefined') {
+                olStatus.textContent = `✅ v${ol.VERSION}`;
+            }
+
+            // Check LayerSwitcher
+            const lsStatus = document.getElementById('layerswitcher-status');
+            if (typeof LayerSwitcher !== 'undefined') {
+                lsStatus.textContent = '✅';
+            }
+
+            // Check map container
+            const containerStatus = document.getElementById('container-status');
+            const mapContainer = document.getElementById('main-map');
+            if (mapContainer && mapContainer.clientWidth > 0 && mapContainer.clientHeight > 0) {
+                containerStatus.textContent = `✅ ${mapContainer.clientWidth}x${mapContainer.clientHeight}`;
+            }
+        }
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        // Register service worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/public/sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registered:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.warn('⚠️ Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+
+    <!-- Weather Radar Application -->
+    <script type="module">
+        import { initializeWeatherMap, registerServiceWorker } from './js/weather-init.js';
+
+        // Initialize the application
+        (async function() {
+            try {
+                await registerServiceWorker();
+                window.weatherRadarMap = await initializeWeatherMap();
+                console.log('✅ Weather radar application initialized successfully');
+            } catch (error) {
+                console.error('❌ Initialization failed:', error);
+            }
+        })();
+
+        // WeatherRadarCore class - inline implementation
+        class WeatherRadarCore {
+            constructor(map) {
+                this.map = map;
+                this.radarLayer = null;
+                this.precipitationLayer = null;
+                this.weatherAlertsLayer = null;
+                this.baseLayerGroup = null;
+                this.layerSwitcher = null;
+                this.loadingIndicator = null;
+            }
+
+            async init() {
+                this.createBaseLayerGroup();
+                this.createRadarLayer();
+                this.createPrecipitationLayer();
+                this.createWeatherAlertsLayer();
+                this.createLayerSwitcher();
+                this.setupLoadingIndicator();
+
+                // Add layers to map
+                this.map.addLayer(this.baseLayerGroup);
+                this.map.addLayer(this.radarLayer);
+                this.map.addLayer(this.precipitationLayer);
+                this.map.addLayer(this.weatherAlertsLayer);
+
+                // Initialize layer visibility
+                this.updateLayerVisibility();
+
+                // Register event listeners
+                this.registerEventListeners();
+
+                console.log('✅ WeatherRadarCore initialized');
+            }
+
+            createBaseLayerGroup() {
+                const osmLayer = new ol.layer.Tile({
+                    source: new ol.source.OSM({
+                        crossOrigin: 'anonymous',
+                        wrapX: true,
+                        attributions: [
+                            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        ]
+                    }),
+                    name: 'OpenStreetMap',
+                    title: 'OpenStreetMap',
+                    type: 'base',
+                    visible: true
+                });
+
+                const satelliteLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                        attributions: [
+                            'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer">ArcGIS</a>'
+                        ]
+                    }),
+                    name: 'Satellite',
+                    title: 'Satellite Imagery',
+                    type: 'base',
+                    visible: false
+                });
+
+                const terrainLayer = new ol.layer.Tile({
+                    source: new ol.source.XYZ({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+                        attributions: [
+                            'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer">ArcGIS</a>'
+                        ]
+                    }),
+                    name: 'Terrain',
+                    title: 'Terrain',
+                    type: 'base',
+                    visible: false
+                });
+
+                this.baseLayerGroup = new ol.layer.Group({
+                    title: 'Base Maps',
+                    layers: [osmLayer, satelliteLayer, terrainLayer]
+                });
+            }
+
+            createRadarLayer() {
+                const radarSource = new ol.source.XYZ({
+                    url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                    attributions: '© Iowa Environmental Mesonet',
+                    crossOrigin: 'anonymous'
+                });
+
+                this.radarLayer = new ol.layer.Tile({
+                    source: radarSource,
+                    opacity: 0.7,
+                    visible: true,
+                    name: 'NEXRAD Reflectivity',
+                    title: 'Radar Reflectivity',
+                    type: 'overlay'
+                });
+
+                // Track radar tile loading
+                radarSource.on('tileloadstart', () => {
+                    console.log('Loading radar tile...');
+                });
+
+                radarSource.on('tileloadend', () => {
+                    console.log('Radar tile loaded successfully');
+                });
+
+                radarSource.on('tileloaderror', (error) => {
+                    console.error('Failed to load radar tile:', error);
+                });
+            }
+
+            createPrecipitationLayer() {
+                const precipitationSource = new ol.source.XYZ({
+                    url: 'https://tilecache.rainviewer.com/v2/radar/{timestamp}/256/{z}/{x}/{y}/8/1_1.png',
+                    crossOrigin: 'anonymous'
+                });
+
+                this.precipitationLayer = new ol.layer.Tile({
+                    source: precipitationSource,
+                    opacity: 0.6,
+                    visible: false,
+                    name: 'Precipitation',
+                    title: 'Live Precipitation',
+                    type: 'overlay'
+                });
+            }
+
+            createWeatherAlertsLayer() {
+                const weatherAlertsSource = new ol.source.TileWMS({
+                    url: 'https://mapservices.weather.noaa.gov/eventdriven/services/WWA/watch_warn_adv/MapServer/WMSServer',
+                    params: {
+                        'LAYERS': '1',
+                        'FORMAT': 'image/png',
+                        'TRANSPARENT': true
+                    },
+                    crossOrigin: 'anonymous'
+                });
+
+                this.weatherAlertsLayer = new ol.layer.Tile({
+                    source: weatherAlertsSource,
+                    opacity: 0.8,
+                    visible: true,
+                    name: 'Weather Alerts',
+                    title: 'Weather Alerts',
+                    type: 'overlay'
+                });
+            }
+
+            createLayerSwitcher() {
+                this.layerSwitcher = new LayerSwitcher({
+                    tipLabel: 'Layer List',
+                    groupSelectStyle: 'group',
+                    reverse: true
+                });
+
+                this.map.addControl(this.layerSwitcher);
+            }
+
+            setupLoadingIndicator() {
+                this.loadingIndicator = document.createElement('div');
+                this.loadingIndicator.className = 'layer-loading';
+                this.loadingIndicator.innerHTML = 'Loading layers...';
+                document.body.appendChild(this.loadingIndicator);
+
+                // Monitor layer loading
+                this.map.getLayers().forEach(layer => {
+                    layer.getSource().on('tileloadstart', () => {
+                        this.showLoadingIndicator();
+                    });
+
+                    layer.getSource().on('tileloadend', () => {
+                        this.hideLoadingIndicator();
+                    });
+
+                    layer.getSource().on('tileloaderror', (event) => {
+                        console.warn('Tile load error, retrying...', event);
+                        setTimeout(() => {
+                            layer.getSource().refresh();
+                        }, 5000);
+                    });
+                });
+            }
+
+            showLoadingIndicator() {
+                this.loadingIndicator.classList.add('visible');
+            }
+
+            hideLoadingIndicator() {
+                this.loadingIndicator.classList.remove('visible');
+            }
+
+            updateLayerVisibility() {
+                // Set initial visibility based on user settings or defaults
+                const radarVisible = true; // Get from user settings
+                const precipitationVisible = false; // Get from user settings
+                const alertsVisible = true; // Get from user settings
+
+                this.radarLayer.setVisible(radarVisible);
+                this.precipitationLayer.setVisible(precipitationVisible);
+                this.weatherAlertsLayer.setVisible(alertsVisible);
+            }
+
+            registerEventListeners() {
+                // Register map event listeners for user interactions
+                this.map.on('moveend', () => {
+                    const center = ol.proj.toLonLat(this.map.getView().getCenter());
+                    const zoom = this.map.getView().getZoom();
+                    console.log(`Map moved to: ${center}, zoom: ${zoom}`);
+                });
+
+                this.map.on('click', (event) => {
+                    const coordinate = ol.proj.toLonLat(event.coordinate);
+                    console.log('Map clicked at:', coordinate);
+                });
+            }
+        }
+    </script>
+
+    <!-- Debug: Log OpenLayers availability -->
+    <script>
+        // Global error handler
+        function showError(message, error) {
+            const container = document.getElementById('error-container');
+            if (!container) return;
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i>
+                <div>
+                    <strong>Error:</strong> ${message}
+                    ${error ? `<br><small>${error.message}</small>` : ''}
+                </div>
+            `;
+
+            container.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        // Function to update debug info
+        function updateDebugStatus() {
+            const debugInfo = document.getElementById('debug-info');
+            if (!debugInfo) return;
+
+            debugInfo.style.display = 'block';
+
+            // Check OpenLayers
+            const olStatus = document.getElementById('ol-status');
+            if (typeof ol !== 'undefined') {
+                olStatus.textContent = `✅ v${ol.VERSION}`;
+            }
+
+            // Check LayerSwitcher
+            const lsStatus = document.getElementById('layerswitcher-status');
+            if (typeof LayerSwitcher !== 'undefined') {
+                lsStatus.textContent = '✅';
+            }
+
+            // Check map container
+            const containerStatus = document.getElementById('container-status');
+            const mapContainer = document.getElementById('main-map');
+            if (mapContainer && mapContainer.clientWidth > 0 && mapContainer.clientHeight > 0) {
+                containerStatus.textContent = `✅ ${mapContainer.clientWidth}x${mapContainer.clientHeight}`;
+            }
+        }
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        // Register service worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/public/sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registered:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.warn('⚠️ Service Worker registration failed:', error);
+                    });
+            });
         }
     </script>
 </body>
