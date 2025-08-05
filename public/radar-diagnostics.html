@@ -158,6 +158,68 @@
             color: #00ff00;
             font-weight: bold;
         }
+
+        .diagnostic-details {
+            background: #222;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .diagnostic-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        .diagnostic-label {
+            color: #888;
+        }
+
+        .source-list {
+            margin: 10px 0;
+        }
+
+        .source-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: #222;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .source-item .status-indicator {
+            flex-shrink: 0;
+        }
+
+        .source-item .source-details {
+            flex-grow: 1;
+        }
+
+        .source-meta {
+            font-size: 10px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        .source-error {
+            color: #ff0000;
+            font-size: 10px;
+            margin-top: 4px;
+        }
+
+        .status-idle {
+            background: #666;
+        }
+
+        .test-button {
+            padding: 4px 8px;
+            font-size: 11px;
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -208,6 +270,31 @@
                         <div class="stat-value" id="error-count">0</div>
                     </div>
                 </div>
+                <div class="diagnostic-details" style="margin-top: 15px;">
+                    <div class="diagnostic-row">
+                        <span class="diagnostic-label">Last Error:</span>
+                        <span class="diagnostic-value error-value" id="last-error">None</span>
+                    </div>
+                    <div class="diagnostic-row">
+                        <span class="diagnostic-label">Retry Count:</span>
+                        <span class="diagnostic-value" id="retry-count">0</span>
+                    </div>
+                    <div class="diagnostic-row">
+                        <span class="diagnostic-label">Loading Tiles:</span>
+                        <span class="diagnostic-value" id="loading-tiles">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="debug-panel">
+                <div class="debug-title">Source Validation</div>
+                <div class="source-list" id="source-list">
+                    <div class="source-item">
+                        <span class="status-indicator status-idle"></span>
+                        <span>Loading sources...</span>
+                    </div>
+                </div>
+                <button onclick="validateAllSources()" style="margin-top: 10px;">Validate All Sources</button>
             </div>
 
             <div class="debug-panel">
@@ -378,6 +465,14 @@
                     document.getElementById('error-count').textContent =
                         sourceStats.stats.errors;
 
+                    // Update additional diagnostics
+                    document.getElementById('last-error').textContent =
+                        sourceStats.stats.lastError || 'None';
+                    document.getElementById('retry-count').textContent =
+                        sourceStats.stats.retryCount || 0;
+                    document.getElementById('loading-tiles').textContent =
+                        sourceStats.stats.loading || 0;
+
                     // Update status indicators
                     if (sourceStats.stats.loading > 0) {
                         updateStatus('radar', 'loading');
@@ -390,6 +485,88 @@
 
             } catch (error) {
                 console.error('Diagnostic update failed:', error);
+            }
+        }
+
+        // Source validation functions
+        window.validateAllSources = async function() {
+            const sourceList = document.getElementById('source-list');
+            sourceList.innerHTML = ''; // Clear existing items
+
+            const sources = window.diagnostics.radarController.radarSources;
+            for (const source of sources) {
+                const sourceItem = createSourceItem(source);
+                sourceList.appendChild(sourceItem);
+
+                // Test the source
+                await testSource(source, sourceItem);
+            }
+        }
+
+        function createSourceItem(source) {
+            const div = document.createElement('div');
+            div.className = 'source-item';
+            div.innerHTML = `
+                <span class="status-indicator status-idle"></span>
+                <div class="source-details">
+                    <div>${source.name}</div>
+                    <div class="source-meta">${source.url}</div>
+                    <div class="source-error" style="display:none;"></div>
+                </div>
+                <button class="test-button" onclick="testSingleSource('${source.id}', this)">Test</button>
+            `;
+            return div;
+        }
+
+        async function testSource(source, sourceItem) {
+            const indicator = sourceItem.querySelector('.status-indicator');
+            const errorDiv = sourceItem.querySelector('.source-error');
+
+            indicator.className = 'status-indicator status-loading';
+            errorDiv.style.display = 'none';
+
+            try {
+                // Test multiple zoom levels
+                const zoomLevels = [4, 8, 12];
+                for (const zoom of zoomLevels) {
+                    const x = Math.floor(Math.random() * Math.pow(2, zoom));
+                    const y = Math.floor(Math.random() * Math.pow(2, zoom));
+
+                    const url = source.url
+                        .replace('{z}', zoom)
+                        .replace('{x}', x)
+                        .replace('{y}', y);
+
+                    const response = await fetch(url, { method: 'HEAD' });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status} at zoom ${zoom}`);
+                    }
+
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('image')) {
+                        throw new Error(`Invalid content type: ${contentType}`);
+                    }
+                }
+
+                indicator.className = 'status-indicator status-success';
+                log(`✅ Source "${source.name}" validated successfully`);
+
+            } catch (error) {
+                indicator.className = 'status-indicator status-error';
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = error.message;
+                log(`❌ Source "${source.name}" validation failed: ${error.message}`, 'error');
+            }
+        }
+
+        window.testSingleSource = async function(sourceId, button) {
+            const sources = window.diagnostics.radarController.radarSources;
+            const source = sources.find(s => s.id === sourceId);
+            const sourceItem = button.closest('.source-item');
+
+            if (source) {
+                await testSource(source, sourceItem);
             }
         }
 
