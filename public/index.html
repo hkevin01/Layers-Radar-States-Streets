@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>🗺️ Layers Radar States Streets Demo</title>
-  
-  <!-- OpenLayers CSS and JS -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/openlayers/2.13.1/theme/default/style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/openlayers/2.13.1/OpenLayers.js"></script>
-  
+
+  <!-- OpenLayers CSS and JS (v8) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+  <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+
   <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  
+
   <!-- Enhanced UI Components CSS -->
     <!-- Core Styles -->
     <link rel="stylesheet" href="../src/components/ui-controls.css">
@@ -19,14 +19,14 @@
     <link rel="stylesheet" href="../src/components/pwa-helper.css">
     <link rel="stylesheet" href="../src/components/data-visualization.css">
     <link rel="stylesheet" href="../src/components/accessibility-helper.css">
-    
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
-    
+
     <!-- Theme Colors -->
     <meta name="theme-color" content="#1a365d">
     <meta name="msapplication-TileColor" content="#1a365d">
-    
+
     <!-- Apple Touch Icons -->
     <link rel="apple-touch-icon" href="assets/icons/icon-192x192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -37,13 +37,13 @@
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #f5f5f5;
       overflow-x: hidden;
     }
-    
+
     header {
       background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
       color: white;
@@ -52,7 +52,7 @@
       position: relative;
       z-index: 1000;
     }
-    
+
     header h1 {
       font-size: 1.8rem;
       margin-bottom: 0.3rem;
@@ -60,12 +60,12 @@
       align-items: center;
       gap: 0.5rem;
     }
-    
+
     header p {
       opacity: 0.9;
       font-size: 0.95rem;
     }
-    
+
     #map {
       width: 100vw;
       height: calc(100vh - 140px);
@@ -73,7 +73,7 @@
       box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
       position: relative;
     }
-    
+
     footer {
       background: #333;
       color: #ccc;
@@ -83,7 +83,7 @@
       position: relative;
       z-index: 1000;
     }
-    
+
     /* Loading States */
     .loading {
       position: absolute;
@@ -97,7 +97,7 @@
       z-index: 10000;
       display: none;
     }
-    
+
     .error {
       position: fixed;
       top: 20px;
@@ -109,7 +109,7 @@
       z-index: 10001;
       display: none;
     }
-    
+
     /* OpenLayers layer switcher styling */
     .olControlLayerSwitcher {
       background: rgba(255,255,255,0.95) !important;
@@ -117,27 +117,27 @@
       box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     }
-    
+
     /* Mobile optimizations */
     @media (max-width: 768px) {
       header {
         padding: 0.8rem 1rem;
       }
-      
+
       header h1 {
         font-size: 1.4rem;
       }
-      
+
       footer {
         padding: 0.6rem 1rem;
         font-size: 0.8rem;
       }
-      
+
       #map {
         height: calc(100vh - 120px);
       }
     }
-    
+
     /* Fullscreen mode */
     .fullscreen-map {
       position: fixed !important;
@@ -147,20 +147,20 @@
       height: 100vh !important;
       z-index: 9999 !important;
     }
-    
+
     /* High contrast mode support */
     @media (prefers-contrast: high) {
       header {
         background: #000;
         border-bottom: 2px solid #fff;
       }
-      
+
       footer {
         background: #000;
         border-top: 2px solid #fff;
       }
     }
-    
+
     /* Reduced motion support */
     @media (prefers-reduced-motion: reduce) {
       .map-ui-controls,
@@ -169,7 +169,7 @@
       .mobile-toast {
         transition: none !important;
       }
-      
+
       .spinner {
         animation: none !important;
       }
@@ -181,14 +181,14 @@
     <h1>🗺️ Layers Radar States Streets</h1>
     <p>Interactive NEXRAD radar, state boundaries, and street map visualization</p>
   </header>
-  
+
   <div id="map" role="application" aria-label="Interactive weather radar map"></div>
-  
+
   <div class="loading" id="loading" aria-live="polite">Loading map data...</div>
   <div class="error" id="error" role="alert"></div>
-  
+
   <footer>
-    &copy; 2025 Layers Radar States Streets | Built with OpenLayers | 
+    &copy; 2025 Layers Radar States Streets | Built with OpenLayers |
     <span id="status-indicator">Ready</span>
   </footer>
 
@@ -197,30 +197,30 @@
     import { initializeApp } from '../src/main.js';
     import { UIControls } from '../src/components/ui-controls.js';
     import { MobileTouchControls } from '../src/components/mobile-touch-controls.js';
-    
+
     // Global app instance
     let app = null;
     let uiControls = null;
     let mobileControls = null;
-    
+
     // Initialize the application
     async function startApp() {
       try {
         // Initialize main map component
         app = await initializeApp('map');
-        
+
         // Initialize UI controls
         if (window.mapComponent) {
           uiControls = new UIControls(window.mapComponent);
           uiControls.initialize();
-          
+
           // Initialize mobile controls
           mobileControls = new MobileTouchControls(window.mapComponent);
           mobileControls.initialize();
-          
+
           // Update status
           document.getElementById('status-indicator').textContent = 'Map loaded';
-          
+
           console.log('✅ Application initialized successfully');
         }
       } catch (error) {
@@ -228,30 +228,30 @@
         document.getElementById('status-indicator').textContent = 'Error loading';
       }
     }
-    
+
     // Start when DOM is ready
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', startApp);
     } else {
       startApp();
     }
-    
+
     // Export for global access
     window.app = { app, uiControls, mobileControls };
   </script>
-  
+
   <!-- Fallback for browsers that don't support modules -->
   <script nomodule>
     console.warn('ES6 modules not supported. Please use a modern browser.');
     document.getElementById('status-indicator').textContent = 'Browser not supported';
   </script>
-  
+
   <script>
     // Global utility functions for backward compatibility
     window.loading = function(show) {
       const loader = document.getElementById('loading');
       loader.style.display = show ? 'block' : 'none';
-      
+
       // Also update enhanced loading if available
       if (window.app && window.app.uiControls) {
         if (show) {
@@ -261,30 +261,30 @@
         }
       }
     };
-    
+
     window.errorAlert = function(jqXHR, exception, errorThrown) {
       const message = errorThrown || exception || 'Unknown error occurred';
       const errorDiv = document.getElementById('error');
       errorDiv.textContent = `Error: ${message}`;
       errorDiv.style.display = 'block';
-      
+
       // Also update enhanced error display if available
       if (window.app && window.app.uiControls) {
         window.app.uiControls.showError(message, true);
       }
-      
+
       // Auto-hide after 5 seconds
       setTimeout(() => {
         errorDiv.style.display = 'none';
       }, 5000);
-      
+
       // Update status
       document.getElementById('status-indicator').textContent = 'Error occurred';
     };
-    
+
     window.waitForMSG = function(file, flag) {
       console.log('Processing message:', file, flag);
-      
+
       // Update info panel if available
       if (window.app && window.app.uiControls) {
         window.app.uiControls.updateInfo({
@@ -292,17 +292,17 @@
           dataSource: 'NEXRAD'
         });
       }
-      
+
       // Update status
       document.getElementById('status-indicator').textContent = 'Data updated';
     };
-    
+
     // Performance monitoring
     window.addEventListener('load', () => {
       const loadTime = performance.now();
       console.log(`Page loaded in ${Math.round(loadTime)}ms`);
     });
-    
+
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey || e.metaKey) {
@@ -322,7 +322,7 @@
         }
       }
     });
-    
+
     // Service worker registration (for future PWA support)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

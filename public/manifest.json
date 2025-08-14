@@ -3,7 +3,7 @@
   "short_name": "Weather Radar",
   "description": "Real-time NEXRAD weather radar visualization with advanced controls for meteorologists and weather enthusiasts",
   "version": "2.0.0",
-  "start_url": "/weather-radar.html",
+  "start_url": "/public/weather-radar.html",
   "display": "standalone",
   "orientation": "any",
   "theme_color": "#1e293b",
@@ -13,7 +13,7 @@
   "categories": ["weather", "maps", "utilities"],
   "icons": [
     {
-      "src": "./assets/icons/icon-72x72.png",
+      "src": "/assets/icons/icon-72x72.png",
       "sizes": "72x72",
       "type": "image/png",
       "purpose": "maskable any"

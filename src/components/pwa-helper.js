@@ -9,7 +9,7 @@ export class PWAHelper {
     this.deferredPrompt = null;
     this.isOnline = navigator.onLine;
     this.serviceWorkerRegistration = null;
-    
+
     this.init();
   }
 
@@ -20,19 +20,19 @@ export class PWAHelper {
     try {
       // Register service worker
       await this.registerServiceWorker();
-      
+
       // Set up install prompt handling
       this.setupInstallPrompt();
-      
+
       // Set up online/offline handling
       this.setupOnlineOfflineHandling();
-      
+
       // Set up background sync
       this.setupBackgroundSync();
-      
+
       // Set up push notifications
       this.setupPushNotifications();
-      
+
       console.log('✅ PWA Helper initialized successfully');
     } catch (error) {
       console.error('❌ PWA Helper initialization failed:', error);
@@ -45,26 +45,27 @@ export class PWAHelper {
   async registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       try {
-        this.serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js');
-        
+  // Service worker is served from /public in this project
+  this.serviceWorkerRegistration = await navigator.serviceWorker.register('/public/sw.js');
+
         console.log('✅ Service Worker registered successfully');
-        
+
         // Listen for service worker updates
         this.serviceWorkerRegistration.addEventListener('updatefound', () => {
           const newWorker = this.serviceWorkerRegistration.installing;
-          
+
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               this.showUpdateAvailableNotification();
             }
           });
         });
-        
+
         // Listen for messages from service worker
         navigator.serviceWorker.addEventListener('message', (event) => {
           this.handleServiceWorkerMessage(event.data);
         });
-        
+
       } catch (error) {
         console.error('❌ Service Worker registration failed:', error);
       }
@@ -124,7 +125,7 @@ export class PWAHelper {
   async setupPushNotifications() {
     if ('Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window) {
       const permission = await this.requestNotificationPermission();
-      
+
       if (permission === 'granted') {
         await this.subscribeToPushNotifications();
       }
@@ -137,7 +138,7 @@ export class PWAHelper {
   showInstallButton() {
     const installContainer = document.getElementById('pwa-install-container') || this.createInstallContainer();
     const installButton = installContainer.querySelector('.install-button');
-    
+
     if (installButton) {
       installButton.style.display = 'block';
       installButton.addEventListener('click', () => this.installApp());
@@ -160,15 +161,15 @@ export class PWAHelper {
   async installApp() {
     if (this.deferredPrompt) {
       this.deferredPrompt.prompt();
-      
+
       const choiceResult = await this.deferredPrompt.userChoice;
-      
+
       if (choiceResult.outcome === 'accepted') {
         console.log('✅ User accepted the install prompt');
       } else {
         console.log('❌ User dismissed the install prompt');
       }
-      
+
       this.deferredPrompt = null;
     }
   }
@@ -201,7 +202,7 @@ export class PWAHelper {
         </div>
       </div>
     `;
-    
+
     document.body.appendChild(container);
     return container;
   }
@@ -240,9 +241,9 @@ export class PWAHelper {
         <button class="dismiss-update" onclick="this.closest('.update-banner').remove()">Later</button>
       </div>
     `;
-    
+
     document.body.appendChild(updateBanner);
-    
+
     // Auto-remove after 10 seconds
     setTimeout(() => {
       if (updateBanner.parentNode) {
@@ -256,16 +257,16 @@ export class PWAHelper {
    */
   showStatusMessage(message, type = 'info', duration = 4000) {
     const statusContainer = document.getElementById('pwa-status-container') || this.createStatusContainer();
-    
+
     const statusMessage = document.createElement('div');
     statusMessage.className = `status-message ${type}`;
     statusMessage.textContent = message;
-    
+
     statusContainer.appendChild(statusMessage);
-    
+
     // Animate in
     setTimeout(() => statusMessage.classList.add('show'), 100);
-    
+
     // Remove after duration
     setTimeout(() => {
       statusMessage.classList.remove('show');
@@ -329,12 +330,12 @@ export class PWAHelper {
           userVisibleOnly: true,
           applicationServerKey: this.urlBase64ToUint8Array(this.getVapidPublicKey())
         });
-        
+
         console.log('✅ Push notification subscription successful');
-        
+
         // Send subscription to server
         await this.sendSubscriptionToServer(subscription);
-        
+
       } catch (error) {
         console.error('❌ Push notification subscription failed:', error);
       }
@@ -353,11 +354,11 @@ export class PWAHelper {
           window.mapComponent.refresh();
         }
         break;
-        
+
       case 'CACHE_UPDATED':
         console.log('📦 Cache updated by service worker');
         break;
-        
+
       default:
         console.log('📨 Service worker message:', data);
     }
@@ -375,7 +376,7 @@ export class PWAHelper {
         },
         body: JSON.stringify(subscription)
       });
-      
+
       if (response.ok) {
         console.log('✅ Push subscription sent to server');
       }
@@ -444,13 +445,13 @@ export class PWAHelper {
     window.removeEventListener('appinstalled', this.handleAppInstalled);
     window.removeEventListener('online', this.handleOnline);
     window.removeEventListener('offline', this.handleOffline);
-    
+
     // Remove UI elements
     const installContainer = document.getElementById('pwa-install-container');
     if (installContainer) {
       installContainer.remove();
     }
-    
+
     const statusContainer = document.getElementById('pwa-status-container');
     if (statusContainer) {
       statusContainer.remove();

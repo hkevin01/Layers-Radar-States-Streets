@@ -5,7 +5,10 @@
   "main": "src/main.js",
   "type": "module",
   "scripts": {
-    "start": "npx http-server . -p 8080 -o --cors",
+  "start": "npx http-server . -p 8080 -o --cors",
+  "start:8081": "npx http-server . -p 8081 -o --cors",
+  "start:8082": "npx http-server . -p 8082 -o --cors",
+  "start:9090": "npx http-server . -p 9090 -o --cors",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint src/ tests/",

@@ -236,28 +236,56 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 def main():
     """Main entry point for the server."""
-    port = find_free_port()
+    # Prefer environment variable PORT (Docker/Heroku style),
+    # fallback to free port
+    env_port = os.environ.get("PORT")
+    if env_port:
+        try:
+            port = int(env_port)
+        except ValueError:
+            print(
+                "⚠️ Invalid PORT env value '" + str(env_port) +
+                "', falling back to scanner"
+            )
+            port = find_free_port()
+    else:
+        port = find_free_port()
     if port is None:
         print("❌ No available ports found between 8080-8100")
         sys.exit(1)
 
     print("🌐 Starting enhanced HTTP server...")
-    print(f"✨ Serving with CORS and proper MIME types enabled on port {port}")
-    print(f"📡 Server URLs:")
-    print(f"   🐛 Debug Version: http://localhost:{port}/public/weather-radar-debug.html")
-    print(f"   🌦️ Main App: http://localhost:{port}/public/weather-radar.html")
-    print(f"   📊 Fixed View: http://localhost:{port}/public/weather-radar-fixed.html")
-    print(f"   🧪 Simple Test: http://localhost:{port}/public/simple-radar-test.html")
-    print(f"📂 Serving from: {os.getcwd()}")
+    print(
+        "✨ Serving with CORS and proper MIME types enabled on port " +
+        str(port)
+    )
+    print("📡 Server URLs:")
+    print(
+        "   🐛 Debug Version: http://localhost:" + str(port) +
+        "/public/weather-radar-debug.html"
+    )
+    print(
+        "   🌦️ Main App: http://localhost:" + str(port) +
+        "/public/weather-radar.html"
+    )
+    print(
+        "   📊 Fixed View: http://localhost:" + str(port) +
+        "/public/weather-radar-fixed.html"
+    )
+    print(
+        "   🧪 Simple Test: http://localhost:" + str(port) +
+        "/public/simple-radar-test.html"
+    )
+    print("📂 Serving from: " + os.getcwd())
     print("\n✋ Press Ctrl+C to stop the server\n")
 
     try:
-        with socketserver.TCPServer(("", port), CORSRequestHandler) as httpd:
+        with socketserver.TCPServer(("0.0.0.0", port), CORSRequestHandler) as httpd:
             httpd.serve_forever()
     except KeyboardInterrupt:
         print("\n👋 Server stopped by user")
     except Exception as e:
-        print(f"❌ Server error: {e}")
+        print("❌ Server error: " + str(e))
         sys.exit(1)
 
 if __name__ == "__main__":

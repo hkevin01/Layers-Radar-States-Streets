@@ -488,14 +488,29 @@
                 }
 
                 try {
-                    const source = this.nexradSources[0];
-                    const tileSource = new ol.source.XYZ({
-                        url: source.url,
-                        attributions: source.attribution,
-                        crossOrigin: 'anonymous'
-                    });
-
                     const self = this;
+                    const primary = this.nexradSources[0];
+                    const fallback = {
+                        id: 'rainviewer',
+                        name: 'RainViewer Nowcast',
+                        url: 'https://tilecache.rainviewer.com/v2/radar/nowcast_0/512/{z}/{x}/{y}/2/1_1.png',
+                        attribution: '© RainViewer',
+                        type: 'xyz',
+                        tileSize: 512
+                    };
+
+                    function buildSource(src) {
+                        return new ol.source.XYZ({
+                            url: src.url,
+                            attributions: src.attribution,
+                            crossOrigin: 'anonymous',
+                            tileSize: src.tileSize || 256
+                        });
+                    }
+
+                    let activeSourceMeta = primary;
+                    let tileSource = buildSource(activeSourceMeta);
+
                     tileSource.on('tileloadstart', function() {
                         self.tileLoadStats.attempted++;
                         self.updateSourceStats();
@@ -510,6 +525,19 @@
                         self.tileLoadStats.failed++;
                         self.tileLoadStats.lastError = 'Tile load failed at z:' + event.tile.tileCoord[0] + ', x:' + event.tile.tileCoord[1] + ', y:' + event.tile.tileCoord[2];
                         self.updateSourceStats();
+                        // If many errors and no successes, switch to fallback
+                        if (self.tileLoadStats.failed >= 5 && self.tileLoadStats.successful === 0 && activeSourceMeta.id !== fallback.id) {
+                            console.warn('Switching to fallback radar source due to repeated errors');
+                            activeSourceMeta = fallback;
+                            const newSource = buildSource(activeSourceMeta);
+                            const radarLayer = self.layerManager.layers.get('radar');
+                            if (radarLayer) {
+                                radarLayer.setSource(newSource);
+                                tileSource = newSource; // update reference for any further listeners
+                                self.tileLoadStats.lastError = 'Switched to fallback source';
+                                self.updateSourceStats();
+                            }
+                        }
                     });
 
                     const radarLayer = this.layerManager.layers.get('radar');
@@ -724,7 +752,9 @@
 
                 // Update system info
                 const sysInfo = document.getElementById('system-info');
-                sysInfo.textContent = 'OpenLayers ' + ol.util.VERSION;
+                // OpenLayers v7+ exposes version as ol.VERSION
+                const olVersion = (typeof ol !== 'undefined' && (ol.VERSION || (ol.util && ol.util.VERSION))) || 'unknown';
+                sysInfo.textContent = 'OpenLayers ' + olVersion;
 
                 // Update statistics
                 for (const sourceId in stats.sourceStats) {
@@ -798,6 +828,15 @@
             return div;
         }
 
+        // Convert lon/lat to XYZ tile coords for a given zoom (Web Mercator)
+        function lonLatToTile(lon, lat, zoom) {
+            const n = Math.pow(2, zoom);
+            const x = Math.floor(((lon + 180) / 360) * n);
+            const latRad = lat * Math.PI / 180;
+            const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+            return { x, y };
+        }
+
         async function testSource(source, sourceItem) {
             const indicator = sourceItem.querySelector('.status-indicator');
             const errorDiv = sourceItem.querySelector('.source-error');
@@ -806,23 +845,27 @@
             errorDiv.style.display = 'none';
 
             try {
-                // Test multiple zoom levels
+                // Test deterministic tiles around US center to avoid random 404s
+                const usCenter = { lon: -98.5795, lat: 39.8283 };
                 const zoomLevels = [4, 8, 12];
                 for (const zoom of zoomLevels) {
-                    const x = Math.floor(Math.random() * Math.pow(2, zoom));
-                    const y = Math.floor(Math.random() * Math.pow(2, zoom));
-
+                    const { x, y } = lonLatToTile(usCenter.lon, usCenter.lat, zoom);
                     const url = source.url
                         .replace('{z}', zoom)
                         .replace('{x}', x)
                         .replace('{y}', y);
 
-                    const response = await fetch(url, { method: 'HEAD' });
+                    let response = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+                    // Some servers don’t allow HEAD – retry with GET
+                    if (response.status === 405 || response.status === 501) {
+                        response = await fetch(url, { method: 'GET', cache: 'no-store' });
+                    }
 
                     if (!response.ok) {
                         throw new Error('HTTP ' + response.status + ' at zoom ' + zoom);
                     }
 
+                    // When using GET, content-type is reliable; with HEAD it should also be present
                     const contentType = response.headers.get('content-type');
                     if (!contentType || !contentType.includes('image')) {
                         throw new Error('Invalid content type: ' + contentType);
