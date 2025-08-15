@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Radar Diagnostic Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .test-pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .test-fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .test-warn { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        #map { width: 100%; height: 300px; margin: 20px 0; border: 1px solid #ccc; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Weather Radar Diagnostic Test</h1>
+    <p>This page tests the core functionality of the weather radar application.</p>
+
+    <div id="test-results"></div>
+
+    <h2>Test Map</h2>
+    <div id="map"></div>
+
+    <h2>Console Output</h2>
+    <pre id="console-output"></pre>
+
+    <script type="module">
+        const results = [];
+        const consoleOutput = [];
+
+        // Capture console output
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        function captureConsole(type, ...args) {
+            consoleOutput.push(`[${type.toUpperCase()}] ${args.join(' ')}`);
+            updateConsoleDisplay();
+        }
+
+        console.log = (...args) => {
+            originalLog(...args);
+            captureConsole('log', ...args);
+        };
+
+        console.error = (...args) => {
+            originalError(...args);
+            captureConsole('error', ...args);
+        };
+
+        console.warn = (...args) => {
+            originalWarn(...args);
+            captureConsole('warn', ...args);
+        };
+
+        function addTestResult(name, status, message) {
+            results.push({ name, status, message });
+            updateResultsDisplay();
+        }
+
+        function updateResultsDisplay() {
+            const container = document.getElementById('test-results');
+            container.innerHTML = results.map(result => `
+                <div class="test-result test-${result.status}">
+                    <strong>${result.status === 'pass' ? '✅' : result.status === 'fail' ? '❌' : '⚠️'} ${result.name}</strong>
+                    <br>${result.message}
+                </div>
+            `).join('');
+        }
+
+        function updateConsoleDisplay() {
+            document.getElementById('console-output').textContent = consoleOutput.join('\n');
+        }
+
+        // Test 1: OpenLayers availability
+        try {
+            if (typeof ol !== 'undefined') {
+                addTestResult('OpenLayers Global', 'pass', `OpenLayers v${ol.VERSION} is available globally`);
+            } else {
+                addTestResult('OpenLayers Global', 'fail', 'OpenLayers global object not found');
+            }
+        } catch (error) {
+            addTestResult('OpenLayers Global', 'fail', `Error checking OpenLayers: ${error.message}`);
+        }
+
+        // Test 2: Weather init module import
+        try {
+            const { initializeWeatherMap, registerServiceWorker } = await import('./js/weather-init.js');
+            addTestResult('Weather Init Module', 'pass', 'Successfully imported weather-init.js module');
+
+            // Test 3: Initialize map
+            try {
+                const map = await initializeWeatherMap('map');
+                if (map && map.getTarget) {
+                    addTestResult('Map Initialization', 'pass', 'Weather map initialized successfully');
+
+                    // Test 4: Check layers
+                    const layers = map.getLayers().getArray();
+                    if (layers.length > 0) {
+                        addTestResult('Map Layers', 'pass', `Found ${layers.length} layers`);
+
+                        // List layer details
+                        layers.forEach((layer, index) => {
+                            const source = layer.getSource();
+                            const sourceName = source.constructor.name;
+                            const visible = layer.getVisible();
+                            addTestResult(`Layer ${index + 1}`, visible ? 'pass' : 'warn',
+                                `${sourceName} - Visible: ${visible}`);
+                        });
+                    } else {
+                        addTestResult('Map Layers', 'fail', 'No layers found on map');
+                    }
+
+                    // Test 5: Check radar layer specifically
+                    const radarLayer = layers.find(layer => {
+                        const source = layer.getSource();
+                        return source.getUrls?.()?.some?.(url => url.includes('nexrad')) ||
+                               source.getUrl?.()?.includes?.('nexrad');
+                    });
+
+                    if (radarLayer) {
+                        addTestResult('Radar Layer', 'pass', 'NEXRAD radar layer found and configured');
+                    } else {
+                        addTestResult('Radar Layer', 'warn', 'NEXRAD radar layer not clearly identified');
+                    }
+                } else {
+                    addTestResult('Map Initialization', 'fail', 'Map object is invalid');
+                }
+            } catch (mapError) {
+                addTestResult('Map Initialization', 'fail', `Failed to initialize map: ${mapError.message}`);
+            }
+
+            // Test 6: Service Worker registration
+            try {
+                if ('serviceWorker' in navigator) {
+                    await registerServiceWorker();
+                    addTestResult('Service Worker', 'pass', 'Service worker registered successfully');
+                } else {
+                    addTestResult('Service Worker', 'warn', 'Service workers not supported in this browser');
+                }
+            } catch (swError) {
+                addTestResult('Service Worker', 'warn', `Service worker registration failed: ${swError.message}`);
+            }
+
+        } catch (importError) {
+            addTestResult('Weather Init Module', 'fail', `Failed to import module: ${importError.message}`);
+        }
+
+        // Test 7: Network connectivity to tile servers
+        const testUrls = [
+            'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/4/8/6.png',
+            'https://tile.openstreetmap.org/4/8/6.png'
+        ];
+
+        for (const url of testUrls) {
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                const serverName = new URL(url).hostname;
+                if (response.ok) {
+                    addTestResult(`Network: ${serverName}`, 'pass', `Successfully connected to ${serverName}`);
+                } else {
+                    addTestResult(`Network: ${serverName}`, 'warn', `HTTP ${response.status} from ${serverName}`);
+                }
+            } catch (networkError) {
+                const serverName = new URL(url).hostname;
+                addTestResult(`Network: ${serverName}`, 'fail', `Failed to connect to ${serverName}: ${networkError.message}`);
+            }
+        }
+
+        // Test 8: Manifest and PWA resources
+        try {
+            const manifestResponse = await fetch('/manifest.json');
+            if (manifestResponse.ok) {
+                const manifest = await manifestResponse.json();
+                addTestResult('PWA Manifest', 'pass', `Manifest loaded with ${manifest.icons?.length || 0} icons`);
+            } else {
+                addTestResult('PWA Manifest', 'warn', `Manifest returned HTTP ${manifestResponse.status}`);
+            }
+        } catch (manifestError) {
+            addTestResult('PWA Manifest', 'fail', `Failed to load manifest: ${manifestError.message}`);
+        }
+
+        // Summary
+        setTimeout(() => {
+            const passCount = results.filter(r => r.status === 'pass').length;
+            const failCount = results.filter(r => r.status === 'fail').length;
+            const warnCount = results.filter(r => r.status === 'warn').length;
+
+            console.log(`\n🧪 Test Summary: ${passCount} passed, ${failCount} failed, ${warnCount} warnings`);
+
+            if (failCount === 0) {
+                console.log('🎉 All critical tests passed! Weather radar should be working correctly.');
+            } else {
+                console.log('⚠️ Some tests failed. Check the issues above.');
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

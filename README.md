@@ -5,7 +5,64 @@
 [![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
-[![Reorganized](https://img.shields.io/badge/Status-Reorganized-green.svg)](REORGANIZATION-SUMMARY.md)
+[![Status](https://img.shields.io/badge/Status-Fixed%20%26%20Working-brightgreen.svg)](#recent-fixes)
+
+## 🎉 Recent Fixes (January 2025)
+
+**All major issues have been resolved!** ✅
+
+- ✅ **Fixed layer rendering** - Maps and radar tiles now display correctly
+- ✅ **Resolved loading issues** - Both apps load without hanging
+- ✅ **Cleaned duplicate code** - Removed redundant script blocks
+- ✅ **Fixed manifest paths** - PWA installation now works
+- ✅ **Improved error handling** - Better debugging and fallback options
+- ✅ **Updated Docker setup** - Container health checks and auto-port selection
+- ✅ **Comprehensive testing** - Automated test suite validates functionality
+
+## 🚀 Quick Start
+
+### Using Docker (Recommended)
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd Layers-Radar-States-Streets
+
+# Start with auto-port selection (finds available port)
+./run.sh
+
+# Or specify a port
+HOST_PORT=8082 ./run.sh
+```
+
+### Using npm
+
+```bash
+npm install
+npm start
+```
+
+### Testing Your Installation
+
+```bash
+# Run automated tests
+./test-weather-radar.sh
+
+# Or visit the diagnostic page
+# http://localhost:8082/public/diagnostic-complete.html
+```
+
+## 📱 Applications
+
+### Main Application
+- **URL:** `http://localhost:8082/public/weather-radar.html`
+- **Features:** Full weather radar with auto-refresh, multiple base layers, radar controls
+- **Architecture:** ES modules + CDN OpenLayers
+
+### Modern Edition
+- **URL:** `http://localhost:8082/public/apps/modern-weather-radar.html`  
+- **Features:** Sleek dark UI, sidebar controls, modern design
+- **Target:** Touch devices and modern browsers
 
 ## ✨ Key Features
 

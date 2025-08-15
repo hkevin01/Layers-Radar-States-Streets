@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module Import Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+</head>
+<body>
+    <h1>Module Import Test</h1>
+    <div id="test-results"></div>
+
+    <script type="module">
+        const results = document.getElementById('test-results');
+
+        async function testModule() {
+            try {
+                results.innerHTML += '<p>🧪 Testing module import...</p>';
+
+                // Test if OpenLayers is available globally
+                if (typeof ol !== 'undefined') {
+                    results.innerHTML += '<p>✅ OpenLayers global object found: ' + ol.VERSION + '</p>';
+                } else {
+                    results.innerHTML += '<p>❌ OpenLayers global object not found</p>';
+                }
+
+                // Test module import
+                const module = await import('./js/weather-init.js');
+                results.innerHTML += '<p>✅ Module imported successfully</p>';
+                results.innerHTML += '<p>📦 Available exports: ' + Object.keys(module).join(', ') + '</p>';
+
+                // Test function calls
+                if (module.initializeWeatherMap) {
+                    results.innerHTML += '<p>✅ initializeWeatherMap function found</p>';
+                } else {
+                    results.innerHTML += '<p>❌ initializeWeatherMap function not found</p>';
+                }
+
+            } catch (error) {
+                results.innerHTML += '<p>❌ Error: ' + error.message + '</p>';
+                results.innerHTML += '<p>📝 Stack: <pre>' + error.stack + '</pre></p>';
+            }
+        }
+
+        testModule();
+    </script>
+</body>
+</html>

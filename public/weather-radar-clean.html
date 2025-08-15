@@ -58,7 +58,7 @@
         /* Controls */
         .map-controls {
             position: absolute;
-            top: 110px;
+            top: 10px;
             left: 10px;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.9);
@@ -158,11 +158,10 @@
     <!-- Debug Overlay -->
     <div id="debug-overlay" class="debug-overlay"></div>
 
-    <!-- Weather Init Script -->
-    <script src="./js/weather-init-global.js?v=2"></script>
-
     <!-- Main Application Script -->
-    <script>
+    <script type="module">
+        import { initializeWeatherMap, registerServiceWorker } from './js/weather-init.js';
+
         // Global variables
         let weatherMap = null;
         let radarLayer = null;

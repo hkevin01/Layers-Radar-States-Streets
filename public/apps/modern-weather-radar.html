@@ -4,35 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather Radar - Modern Edition</title>
-    
+
     <!-- OpenLayers CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
-    
+
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Weather Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css">
-    
+
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #1a1a1a;
             color: #ffffff;
             overflow: hidden;
         }
-        
+
         .app-container {
             display: flex;
             height: 100vh;
         }
-        
+
         .sidebar {
             width: 300px;
             background: rgba(30, 30, 30, 0.95);
@@ -41,7 +41,7 @@
             padding: 20px;
             overflow-y: auto;
         }
-        
+
         .sidebar h1 {
             font-size: 1.5rem;
             margin-bottom: 20px;
@@ -50,11 +50,11 @@
             align-items: center;
             gap: 10px;
         }
-        
+
         .control-section {
             margin-bottom: 30px;
         }
-        
+
         .control-section h3 {
             font-size: 1rem;
             margin-bottom: 15px;
@@ -63,7 +63,7 @@
             align-items: center;
             gap: 8px;
         }
-        
+
         .control-item {
             display: flex;
             align-items: center;
@@ -71,19 +71,19 @@
             margin-bottom: 12px;
             padding: 8px 0;
         }
-        
+
         .toggle-switch {
             position: relative;
             width: 50px;
             height: 24px;
         }
-        
+
         .toggle-switch input {
             opacity: 0;
             width: 0;
             height: 0;
         }
-        
+
         .toggle-slider {
             position: absolute;
             cursor: pointer;
@@ -95,7 +95,7 @@
             transition: 0.3s;
             border-radius: 12px;
         }
-        
+
         .toggle-slider:before {
             position: absolute;
             content: "";
@@ -107,26 +107,26 @@
             transition: 0.3s;
             border-radius: 50%;
         }
-        
+
         input:checked + .toggle-slider {
             background-color: #4ade80;
         }
-        
+
         input:checked + .toggle-slider:before {
             transform: translateX(26px);
         }
-        
+
         .slider-control {
             margin-bottom: 15px;
         }
-        
+
         .slider-control label {
             display: block;
             margin-bottom: 8px;
             font-size: 0.9rem;
             color: #a1a1aa;
         }
-        
+
         .slider-control input[type="range"] {
             width: 100%;
             height: 6px;
@@ -135,7 +135,7 @@
             outline: none;
             -webkit-appearance: none;
         }
-        
+
         .slider-control input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
@@ -145,13 +145,13 @@
             background: #4ade80;
             cursor: pointer;
         }
-        
+
         .button-group {
             display: flex;
             gap: 8px;
             margin-top: 15px;
         }
-        
+
         .btn {
             flex: 1;
             padding: 8px 12px;
@@ -163,43 +163,43 @@
             font-size: 0.9rem;
             transition: all 0.3s;
         }
-        
+
         .btn:hover {
             background: rgba(74, 222, 128, 0.2);
         }
-        
+
         .btn.active {
             background: #4ade80;
             color: #1a1a1a;
         }
-        
+
         .map-container {
             flex: 1;
             position: relative;
             overflow: hidden;
         }
-        
+
         #main-map {
             width: 100% !important;
             height: 100% !important;
             background: #1a1a1a;
         }
-        
+
         /* Ensure OpenLayers canvas renders properly */
         #main-map canvas {
             width: 100% !important;
             height: 100% !important;
         }
-        
+
         .map-controls {
             position: absolute;
-            top: 20px;
+            top: 120px;
             right: 20px;
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
-        
+
         .map-control-btn {
             width: 40px;
             height: 40px;
@@ -214,12 +214,12 @@
             backdrop-filter: blur(10px);
             transition: all 0.3s;
         }
-        
+
         .map-control-btn:hover {
             background: rgba(74, 222, 128, 0.2);
             border-color: #4ade80;
         }
-        
+
         .status-bar {
             position: absolute;
             bottom: 20px;
@@ -230,7 +230,7 @@
             font-size: 0.9rem;
             backdrop-filter: blur(10px);
         }
-        
+
         .loading-screen {
             position: fixed;
             top: 0;
@@ -244,29 +244,29 @@
             z-index: 9999;
             transition: opacity 0.5s ease;
         }
-        
+
         .loading-content {
             text-align: center;
         }
-        
+
         .loading-icon {
             font-size: 3rem;
             color: #4ade80;
             margin-bottom: 20px;
             animation: pulse 2s infinite;
         }
-        
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        
+
         .loading-content h2 {
             font-size: 1.5rem;
             margin-bottom: 15px;
             color: #ffffff;
         }
-        
+
         .loading-progress {
             width: 200px;
             height: 3px;
@@ -275,7 +275,7 @@
             overflow: hidden;
             margin: 0 auto 15px;
         }
-        
+
         .loading-progress::after {
             content: '';
             display: block;
@@ -284,22 +284,22 @@
             background: #4ade80;
             animation: loading 1.5s infinite;
         }
-        
+
         @keyframes loading {
             0% { transform: translateX(-100%); }
             100% { transform: translateX(300%); }
         }
-        
+
         #loading-text {
             color: #a1a1aa;
             font-size: 0.9rem;
         }
-        
+
         @media (max-width: 768px) {
             .app-container {
                 flex-direction: column;
             }
-            
+
             .sidebar {
                 width: 100%;
                 height: auto;
@@ -327,11 +327,11 @@
                 <i class="wi wi-radar"></i>
                 Weather Radar
             </h1>
-            
+
             <!-- Radar Controls -->
             <div class="control-section">
                 <h3><i class="wi wi-radar"></i> Radar Data</h3>
-                
+
                 <div class="control-item">
                     <label for="radar-toggle">NEXRAD Radar</label>
                     <div class="toggle-switch">
@@ -339,18 +339,18 @@
                         <span class="toggle-slider"></span>
                     </div>
                 </div>
-                
+
                 <div class="slider-control">
                     <label for="radar-opacity">Radar Opacity</label>
                     <input type="range" id="radar-opacity" min="0" max="100" value="80">
                     <span class="slider-value">80%</span>
                 </div>
             </div>
-            
+
             <!-- Base Layers -->
             <div class="control-section">
                 <h3><i class="fas fa-map"></i> Base Maps</h3>
-                
+
                 <div class="control-item">
                     <label for="streets-toggle">Street Maps</label>
                     <div class="toggle-switch">
@@ -358,17 +358,17 @@
                         <span class="toggle-slider"></span>
                     </div>
                 </div>
-                
+
                 <div class="button-group">
-                    <button class="btn active" onclick="switchBaseLayer('osm')">Streets</button>
-                    <button class="btn" onclick="switchBaseLayer('satellite')">Satellite</button>
+                    <button class="btn active" data-layer="streets">Streets</button>
+                    <button class="btn" data-layer="satellite">Satellite</button>
                 </div>
             </div>
-            
+
             <!-- Weather Data -->
             <div class="control-section">
                 <h3><i class="wi wi-lightning"></i> Weather Data</h3>
-                
+
                 <div class="control-item">
                     <label for="alerts-toggle">Weather Alerts</label>
                     <div class="toggle-switch">
@@ -377,26 +377,26 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Actions -->
             <div class="control-section">
                 <h3><i class="fas fa-tools"></i> Actions</h3>
-                
+
                 <div class="button-group">
-                    <button class="btn" onclick="centerOnLocation()">
+                    <button class="btn" id="locate-btn">
                         <i class="fas fa-crosshairs"></i> Locate
                     </button>
-                    <button class="btn" onclick="refreshData()">
+                    <button class="btn" id="refresh-btn">
                         <i class="fas fa-sync"></i> Refresh
                     </button>
                 </div>
             </div>
         </div>
-        
+
         <!-- Map Container -->
         <div class="map-container">
             <div id="main-map"></div>
-            
+
             <!-- Map Controls -->
             <div class="map-controls">
                 <button class="map-control-btn" id="zoom-in" title="Zoom In">
@@ -409,7 +409,7 @@
                     <i class="fas fa-crosshairs"></i>
                 </button>
             </div>
-            
+
             <!-- Status Bar -->
             <div class="status-bar">
                 <span id="status-text">Initializing...</span>
@@ -419,132 +419,86 @@
 
     <!-- OpenLayers JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
-    
+
+    <!-- Weather radar initialization (global script version) -->
+    <script src="../js/weather-init-global.js?v=2"></script>
+
     <script>
+        // Use global weather init module for consistent radar functionality
+
         // Modern Weather Radar Application
         let weatherMap = null;
         let radarLayer = null;
-        
+
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('🌦️ Starting Modern Weather Radar...');
-            
+
             try {
+                // Hide loading screen
+                hideLoadingScreen();
+
                 // Verify OpenLayers
                 if (typeof ol === 'undefined') {
                     throw new Error('OpenLayers not loaded');
                 }
-                
+
                 console.log('✅ OpenLayers loaded:', ol.VERSION);
-                
-                // Initialize the map
-                await initializeModernWeatherMap();
-                
+                updateStatus('OpenLayers loaded');
+
+                // Initialize the map using the shared weather-init module
+                weatherMap = await window.WeatherRadarInit.initializeWeatherMap('main-map');
+
+                // Get the radar layer for controls
+                const layers = weatherMap.getLayers().getArray();
+                radarLayer = layers.find(layer =>
+                    layer.get('name') === 'radar' ||
+                    layer.getSource?.()?.getUrls?.()?.some?.(url => url.includes('nexrad'))
+                );
+
                 // Set up UI controls
                 setupModernControls();
-                
+
                 updateStatus('Weather radar online');
-                
+
             } catch (error) {
                 console.error('❌ Failed to initialize modern weather radar:', error);
                 updateStatus('Error: ' + error.message);
+                showError('Failed to initialize weather radar', error);
             }
         });
-        
-        async function initializeModernWeatherMap() {
-            console.log('🗺️ Creating modern weather map...');
-            
-            // Base layer
-            const osmLayer = new ol.layer.Tile({
-                source: new ol.source.OSM(),
-                name: 'OpenStreetMap'
-            });
-            
-            // Satellite layer
-            const satelliteLayer = new ol.layer.Tile({
-                source: new ol.source.XYZ({
-                    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                    attributions: 'Tiles © Esri'
-                }),
-                visible: false,
-                name: 'Satellite'
-            });
-            
-            // NEXRAD Radar layer
-            radarLayer = new ol.layer.Tile({
-                source: new ol.source.TileWMS({
-                    url: 'https://mapservices.weather.noaa.gov/eventdriven/services/radar/radar_base_reflectivity_time/MapServer/WMSServer',
-                    params: {
-                        'LAYERS': 'radar_base_reflectivity_time',
-                        'FORMAT': 'image/png',
-                        'TRANSPARENT': true
-                    }
-                }),
-                opacity: 0.7,
-                visible: false,
-                name: 'NEXRAD Radar'
-            });
-            
-            // Create map
-            weatherMap = new ol.Map({
-                target: 'main-map',
-                layers: [osmLayer, satelliteLayer, radarLayer],
-                view: new ol.View({
-                    center: ol.proj.fromLonLat([-98.5795, 39.8283]),
-                    zoom: 5,
-                    minZoom: 3,
-                    maxZoom: 15
-                }),
-                controls: new ol.Collection([
-                    new ol.control.Attribution(),
-                    new ol.control.ScaleLine({
-                        units: 'imperial'
-                    })
-                ])
-            });
-            
-            // Map events
-            weatherMap.once('rendercomplete', () => {
-                console.log('✅ Modern weather map rendered');
-                updateStatus('Map loaded successfully');
-            });
-            
-            weatherMap.on('click', (event) => {
-                const coordinate = ol.proj.toLonLat(event.coordinate);
-                console.log('🗺️ Map clicked:', coordinate);
-            });
-            
-            console.log('✅ Modern weather map initialized');
+
+        function hideLoadingScreen() {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 500);
+            }
         }
-        
+
         function setupModernControls() {
             console.log('🎛️ Setting up modern controls...');
-            
-            // Base layer buttons
-            document.querySelector('[data-layer="streets"]')?.addEventListener('click', () => {
-                setBaseLayer('streets');
-            });
-            
-            document.querySelector('[data-layer="satellite"]')?.addEventListener('click', () => {
-                setBaseLayer('satellite');
-            });
-            
-            // Weather layer toggles
-            document.getElementById('radar-toggle')?.addEventListener('change', (e) => {
-                if (radarLayer) {
+
+            // Radar toggle
+            const radarToggle = document.getElementById('radar-toggle');
+            if (radarToggle && radarLayer) {
+                radarToggle.addEventListener('change', (e) => {
                     radarLayer.setVisible(e.target.checked);
                     updateStatus(e.target.checked ? 'Radar enabled' : 'Radar disabled');
-                }
-            });
-            
+                });
+            }
+
             // Opacity slider
-            document.getElementById('radar-opacity')?.addEventListener('input', (e) => {
-                if (radarLayer) {
-                    const opacity = parseFloat(e.target.value);
+            const opacitySlider = document.getElementById('radar-opacity');
+            if (opacitySlider && radarLayer) {
+                opacitySlider.addEventListener('input', (e) => {
+                    const opacity = parseFloat(e.target.value) / 100;
                     radarLayer.setOpacity(opacity);
-                    document.querySelector('.slider-value').textContent = Math.round(opacity * 100) + '%';
-                }
-            });
-            
+                    document.querySelector('.slider-value').textContent = e.target.value + '%';
+                });
+            }
+
             // Map controls
             document.getElementById('zoom-in')?.addEventListener('click', () => {
                 if (weatherMap) {
@@ -552,70 +506,79 @@
                     view.animate({ zoom: view.getZoom() + 1, duration: 250 });
                 }
             });
-            
+
             document.getElementById('zoom-out')?.addEventListener('click', () => {
                 if (weatherMap) {
                     const view = weatherMap.getView();
                     view.animate({ zoom: view.getZoom() - 1, duration: 250 });
                 }
             });
-            
+
             document.getElementById('geolocation')?.addEventListener('click', () => {
-                if (navigator.geolocation && weatherMap) {
-                    updateStatus('Getting your location...');
-                    navigator.geolocation.getCurrentPosition((position) => {
-                        const coords = [position.coords.longitude, position.coords.latitude];
-                        weatherMap.getView().animate({
-                            center: ol.proj.fromLonLat(coords),
-                            zoom: 10,
-                            duration: 1000
-                        });
-                        updateStatus('Location found');
-                    }, () => {
-                        updateStatus('Location access denied');
-                    });
-                }
+                centerOnLocation();
             });
-            
-            // Button group functionality
-            document.querySelectorAll('.button-group .btn').forEach(btn => {
+
+            // Base layer buttons
+            document.querySelectorAll('[data-layer]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    const group = e.target.closest('.button-group');
-                    group.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+                    const layerType = e.target.getAttribute('data-layer');
+                    setBaseLayer(layerType === 'streets' ? 'streets' : 'satellite');
+
+                    // Update button states
+                    document.querySelectorAll('[data-layer]').forEach(b => b.classList.remove('active'));
                     e.target.classList.add('active');
                 });
             });
-            
-            // Opacity slider value display
-            const opacitySlider = document.getElementById('radar-opacity');
-            const sliderValue = document.querySelector('.slider-value');
-            
-            if (opacitySlider && sliderValue) {
-                opacitySlider.addEventListener('input', (e) => {
-                    sliderValue.textContent = Math.round(parseFloat(e.target.value) * 100) + '%';
-                });
-            }
-            
+
+            // Action buttons
+            document.getElementById('locate-btn')?.addEventListener('click', centerOnLocation);
+            document.getElementById('refresh-btn')?.addEventListener('click', refreshData);
+
             console.log('✅ Modern controls setup complete');
         }
-        
+
         function setBaseLayer(layerType) {
             if (!weatherMap) return;
-            
+
             const layers = weatherMap.getLayers().getArray();
-            
+
             layers.forEach(layer => {
-                const name = layer.get('name');
-                if (name === 'OpenStreetMap') {
+                const name = layer.get('name') || '';
+                if (name.includes('OpenStreetMap') || name.includes('osm')) {
                     layer.setVisible(layerType === 'streets');
-                } else if (name === 'Satellite') {
+                } else if (name.includes('Satellite') || name.includes('satellite')) {
                     layer.setVisible(layerType === 'satellite');
                 }
             });
-            
+
             updateStatus(`Switched to ${layerType} view`);
         }
-        
+
+        function centerOnLocation() {
+            if (navigator.geolocation && weatherMap) {
+                updateStatus('Getting your location...');
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const coords = [position.coords.longitude, position.coords.latitude];
+                    weatherMap.getView().animate({
+                        center: ol.proj.fromLonLat(coords),
+                        zoom: 10,
+                        duration: 1000
+                    });
+                    updateStatus('Location found');
+                }, () => {
+                    updateStatus('Location access denied');
+                });
+            }
+        }
+
+        function refreshData() {
+            if (radarLayer) {
+                updateStatus('Refreshing radar data...');
+                radarLayer.getSource().refresh();
+                setTimeout(() => updateStatus('Radar data refreshed'), 1000);
+            }
+        }
+
         function updateStatus(message) {
             const statusElement = document.getElementById('status-text');
             if (statusElement) {
@@ -623,6 +586,16 @@
             }
             console.log('📊 Status:', message);
         }
+
+        function showError(message, error) {
+            console.error('Error:', message, error);
+            updateStatus(`Error: ${message}`);
+        }
+
+        // Make functions globally available for onclick handlers
+        window.setBaseLayer = setBaseLayer;
+        window.centerOnLocation = centerOnLocation;
+        window.refreshData = refreshData;
     </script>
 </body>
 </html>

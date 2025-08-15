@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Test - Weather Radar</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        .pass { background: #d4edda; color: #155724; }
+        .fail { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Weather Radar Debug Test</h1>
+    <div id="test-results"></div>
+
+    <!-- OpenLayers -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+
+    <!-- Weather Init Global Script -->
+    <script src="./js/weather-init-global.js?v=2"></script>
+
+    <script>
+        const results = document.getElementById('test-results');
+
+        function addResult(test, status, message) {
+            const div = document.createElement('div');
+            div.className = `test-result ${status}`;
+            div.innerHTML = `<strong>${test}:</strong> ${message}`;
+            results.appendChild(div);
+        }
+
+        // Test 1: OpenLayers loaded
+        try {
+            if (typeof ol !== 'undefined') {
+                addResult('OpenLayers', 'pass', `Loaded successfully (${ol.VERSION})`);
+            } else {
+                addResult('OpenLayers', 'fail', 'Not loaded');
+            }
+        } catch (e) {
+            addResult('OpenLayers', 'fail', e.message);
+        }
+
+        // Test 2: Weather Init Global Script loaded
+        try {
+            if (typeof window.WeatherRadarInit !== 'undefined') {
+                addResult('WeatherRadarInit', 'pass', 'Global namespace available');
+            } else {
+                addResult('WeatherRadarInit', 'fail', 'Global namespace not found');
+            }
+        } catch (e) {
+            addResult('WeatherRadarInit', 'fail', e.message);
+        }
+
+        // Test 3: Functions available
+        try {
+            if (typeof window.WeatherRadarInit?.initializeWeatherMap === 'function') {
+                addResult('initializeWeatherMap', 'pass', 'Function available');
+            } else {
+                addResult('initializeWeatherMap', 'fail', 'Function not found');
+            }
+        } catch (e) {
+            addResult('initializeWeatherMap', 'fail', e.message);
+        }
+
+        // Test 4: Try to create a simple map
+        setTimeout(() => {
+            try {
+                const mapDiv = document.createElement('div');
+                mapDiv.id = 'test-map';
+                mapDiv.style.width = '300px';
+                mapDiv.style.height = '200px';
+                mapDiv.style.border = '1px solid #ccc';
+                mapDiv.style.margin = '10px 0';
+                document.body.appendChild(mapDiv);
+
+                window.WeatherRadarInit.initializeWeatherMap('test-map')
+                    .then(map => {
+                        addResult('Map Creation', 'pass', 'Map created successfully');
+                        const mapDiv = document.getElementById('test-map');
+                        mapDiv.insertAdjacentHTML('beforebegin', '<p><strong>Test Map:</strong></p>');
+                    })
+                    .catch(error => {
+                        addResult('Map Creation', 'fail', error.message);
+                    });
+            } catch (e) {
+                addResult('Map Creation', 'fail', e.message);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
