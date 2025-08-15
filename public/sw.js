@@ -3,49 +3,49 @@
  * Provides offline functionality, caching, and background sync
  */
 
-const CACHE_NAME = 'radar-map-v2.0.0';
-const STATIC_CACHE = 'radar-static-v2.0.0';
-const DYNAMIC_CACHE = 'radar-dynamic-v2.0.0';
+const CACHE_NAME = "radar-map-v2.0.0";
+const STATIC_CACHE = "radar-static-v2.0.0";
+const DYNAMIC_CACHE = "radar-dynamic-v2.0.0";
 
 // Files to cache for offline usage
 const STATIC_FILES = [
-  '/',
-  '/public/weather-radar.html',
-  '/public/radar-diagnostics.html',
-  '/public/radar-simple.html',
-  '/public/index.html',
-  '/public/manifest.json',
-  '/public/js/script.js',
-  '/assets/icons/icon-144x144.png'
+  "/",
+  "/public/weather-radar.html",
+  "/public/radar-diagnostics.html",
+  "/public/radar-simple.html",
+  "/public/index.html",
+  "/public/manifest.json",
+  "/public/js/script.js",
+  "/assets/icons/icon-144x144.png"
 ];
 
 // Tile servers and API endpoints that should be cached
 const CACHEABLE_DOMAINS = [
-  'tile.openstreetmap.org',
-  'server.arcgisonline.com',
-  'mesonet.agron.iastate.edu',
-  'mapservices.weather.noaa.gov',
-  'tilecache.rainviewer.com'
+  "tile.openstreetmap.org",
+  "server.arcgisonline.com",
+  "mesonet.agron.iastate.edu",
+  "mapservices.weather.noaa.gov",
+  "tilecache.rainviewer.com"
 ];
 
 /**
  * Install event - cache static files
  */
-self.addEventListener('install', (event) => {
-  console.log('🔧 Service Worker: Installing...');
+self.addEventListener("install", (event) => {
+  console.log("🔧 Service Worker: Installing...");
 
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => {
-        console.log('📦 Service Worker: Caching static files');
+        console.log("📦 Service Worker: Caching static files");
         return cache.addAll(STATIC_FILES);
       })
       .then(() => {
-        console.log('✅ Service Worker: Installation complete');
+        console.log("✅ Service Worker: Installation complete");
         return self.skipWaiting();
       })
       .catch((error) => {
-        console.error('❌ Service Worker: Installation failed:', error);
+        console.error("❌ Service Worker: Installation failed:", error);
       })
   );
 });
@@ -53,8 +53,8 @@ self.addEventListener('install', (event) => {
 /**
  * Activate event - clean up old caches
  */
-self.addEventListener('activate', (event) => {
-  console.log('🚀 Service Worker: Activating...');
+self.addEventListener("activate", (event) => {
+  console.log("🚀 Service Worker: Activating...");
 
   event.waitUntil(
     caches.keys()
@@ -62,14 +62,14 @@ self.addEventListener('activate', (event) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
             if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
-              console.log('🗑️ Service Worker: Deleting old cache:', cacheName);
+              console.log("🗑️ Service Worker: Deleting old cache:", cacheName);
               return caches.delete(cacheName);
             }
           })
         );
       })
       .then(() => {
-        console.log('✅ Service Worker: Activation complete');
+        console.log("✅ Service Worker: Activation complete");
         return self.clients.claim();
       })
   );
@@ -78,12 +78,12 @@ self.addEventListener('activate', (event) => {
 /**
  * Fetch event - handle network requests with caching strategy
  */
-self.addEventListener('fetch', (event) => {
+self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
   // Skip non-GET requests
-  if (request.method !== 'GET') {
+  if (request.method !== "GET") {
     return;
   }
 
@@ -106,12 +106,12 @@ self.addEventListener('fetch', (event) => {
 /**
  * Background sync for data updates
  */
-self.addEventListener('sync', (event) => {
-  console.log('🔄 Service Worker: Background sync triggered:', event.tag);
+self.addEventListener("sync", (event) => {
+  console.log("🔄 Service Worker: Background sync triggered:", event.tag);
 
-  if (event.tag === 'radar-data-sync') {
+  if (event.tag === "radar-data-sync") {
     event.waitUntil(syncRadarData());
-  } else if (event.tag === 'location-sync') {
+  } else if (event.tag === "location-sync") {
     event.waitUntil(syncLocationData());
   }
 });
@@ -119,45 +119,42 @@ self.addEventListener('sync', (event) => {
 /**
  * Push notifications for weather alerts
  */
-self.addEventListener('push', (event) => {
-  console.log('📢 Service Worker: Push notification received');
+self.addEventListener("push", (event) => {
+  console.log("📢 Service Worker: Push notification received");
 
   const options = {
-    body: event.data ? event.data.text() : 'Weather update available',
-    icon: '/assets/icons/icon-192x192.png',
-    badge: '/assets/icons/badge-72x72.png',
+    body: event.data ? event.data.text() : "Weather update available",
+    icon: "/assets/icons/icon-144x144.png",
     vibrate: [200, 100, 200],
-    tag: 'weather-alert',
+    tag: "weather-alert",
     actions: [
       {
-        action: 'view',
-        title: 'View Map',
-        icon: '/assets/icons/view-action.png'
+        action: "view",
+        title: "View Map"
       },
       {
-        action: 'dismiss',
-        title: 'Dismiss',
-        icon: '/assets/icons/dismiss-action.png'
+        action: "dismiss",
+        title: "Dismiss"
       }
     ]
   };
 
   event.waitUntil(
-    self.registration.showNotification('Weather Radar Update', options)
+    self.registration.showNotification("Weather Radar Update", options)
   );
 });
 
 /**
  * Handle notification clicks
  */
-self.addEventListener('notificationclick', (event) => {
-  console.log('🔔 Service Worker: Notification clicked:', event.action);
+self.addEventListener("notificationclick", (event) => {
+  console.log("🔔 Service Worker: Notification clicked:", event.action);
 
   event.notification.close();
 
-  if (event.action === 'view') {
+  if (event.action === "view") {
     event.waitUntil(
-      clients.openWindow('/')
+      self.clients.openWindow("/")
     );
   }
 });
@@ -180,8 +177,8 @@ async function cacheFirst(request) {
 
     return networkResponse;
   } catch (error) {
-    console.error('Cache First strategy failed:', error);
-    return new Response('Offline content not available', { status: 503 });
+  console.error("Cache First strategy failed:", error);
+  return new Response("Offline content not available", { status: 503 });
   }
 }
 
@@ -200,7 +197,7 @@ async function staleWhileRevalidate(request) {
     .catch(() => null);
 
   return cachedResponse || await networkResponsePromise ||
-    new Response('Tile not available offline', { status: 503 });
+    new Response("Tile not available offline", { status: 503 });
 }
 
 /**
@@ -215,7 +212,7 @@ async function networkFirst(request) {
   } catch (error) {
     const cachedResponse = await caches.match(request);
     return cachedResponse ||
-      new Response('API data not available offline', { status: 503 });
+      new Response("API data not available offline", { status: 503 });
   }
 }
 
@@ -228,7 +225,7 @@ async function networkWithCacheFallback(request) {
   } catch (error) {
     const cachedResponse = await caches.match(request);
     return cachedResponse ||
-      new Response('Content not available offline', { status: 503 });
+      new Response("Content not available offline", { status: 503 });
   }
 }
 
@@ -236,21 +233,21 @@ async function networkWithCacheFallback(request) {
 
 function isStaticFile(url) {
   return STATIC_FILES.some(file => url.includes(file)) ||
-         url.includes('/src/') ||
-         url.includes('/assets/') ||
-         url.includes('manifest.json');
+         url.includes("/src/") ||
+         url.includes("/assets/") ||
+         url.includes("manifest.json");
 }
 
 function isTileRequest(url) {
   return CACHEABLE_DOMAINS.some(domain => url.includes(domain)) ||
-         url.includes('/tile/') ||
-         url.includes('/tiles/');
+         url.includes("/tile/") ||
+         url.includes("/tiles/");
 }
 
 function isAPIRequest(url) {
-  return url.includes('/api/') ||
-         url.includes('weather.gov') ||
-         url.includes('noaa.gov');
+  return url.includes("/api/") ||
+         url.includes("weather.gov") ||
+         url.includes("noaa.gov");
 }
 
 /**
@@ -258,25 +255,25 @@ function isAPIRequest(url) {
  */
 async function syncRadarData() {
   try {
-    console.log('🔄 Syncing radar data in background...');
+    console.log("🔄 Syncing radar data in background...");
 
     // Fetch latest radar data
-    const response = await fetch('/api/radar/latest');
+    const response = await fetch("/api/radar/latest");
     if (response.ok) {
       const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put('/api/radar/latest', response.clone());
+      cache.put("/api/radar/latest", response.clone());
 
       // Notify clients of update
       const clients = await self.clients.matchAll();
       clients.forEach(client => {
         client.postMessage({
-          type: 'RADAR_DATA_UPDATED',
+          type: "RADAR_DATA_UPDATED",
           timestamp: Date.now()
         });
       });
     }
   } catch (error) {
-    console.error('Background radar sync failed:', error);
+    console.error("Background radar sync failed:", error);
   }
 }
 
@@ -285,13 +282,13 @@ async function syncRadarData() {
  */
 async function syncLocationData() {
   try {
-    console.log('🔄 Syncing location data in background...');
+    console.log("🔄 Syncing location data in background...");
 
     // This would sync any cached location-based data
     // Implementation depends on specific location services used
 
   } catch (error) {
-    console.error('Background location sync failed:', error);
+    console.error("Background location sync failed:", error);
   }
 }
 
@@ -307,7 +304,7 @@ async function cleanupCache() {
 
   requests.forEach(async (request) => {
     const response = await cache.match(request);
-    const dateHeader = response.headers.get('date');
+    const dateHeader = response.headers.get("date");
 
     if (dateHeader && new Date(dateHeader).getTime() < oneDayAgo) {
       cache.delete(request);

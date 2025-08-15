@@ -16,20 +16,20 @@ export class WeatherRadarCore extends EventTarget {
 
         // Configuration with defaults
         this.config = {
-            target: config.target || 'map',
+            target: config.target || "map",
             center: config.center || [-98.5795, 39.8283], // US center
             zoom: config.zoom || 4,
             minZoom: config.minZoom || 2,
             maxZoom: config.maxZoom || 16,
-            projection: config.projection || 'EPSG:3857',
-            basemap: config.basemap || 'osm',
+            projection: config.projection || "EPSG:3857",
+            basemap: config.basemap || "osm",
             radarOpacity: config.radarOpacity || 0.8,
             enableGeolocation: config.enableGeolocation !== false,
             enableControls: config.enableControls !== false,
             ...config
         };
 
-        console.log('🌦️ WeatherRadarCore constructor initialized');
+        console.log("🌦️ WeatherRadarCore constructor initialized");
     }
 
     /**
@@ -37,7 +37,7 @@ export class WeatherRadarCore extends EventTarget {
      */
     async initialize() {
         try {
-            console.log('🚀 Starting weather radar core initialization...');
+            console.log("🚀 Starting weather radar core initialization...");
 
             // Initialize the map
             this.map = new ol.Map({
@@ -54,17 +54,17 @@ export class WeatherRadarCore extends EventTarget {
             // Verify OpenLayers is available
             await this.verifyDependencies();
 
-            this.showLoadingMessage('Creating map view...');
+            this.showLoadingMessage("Creating map view...");
             this.createMap();
 
-            this.showLoadingMessage('Loading base layers...');
+            this.showLoadingMessage("Loading base layers...");
             await this.loadBaseLayers();
 
-            this.showLoadingMessage('Initializing weather services...');
+            this.showLoadingMessage("Initializing weather services...");
             await this.initializeWeatherServices();
 
             if (this.config.enableControls) {
-                this.showLoadingMessage('Setting up user interface...');
+                this.showLoadingMessage("Setting up user interface...");
                 await this.initializeControls();
             }
 
@@ -72,17 +72,17 @@ export class WeatherRadarCore extends EventTarget {
             this.hideLoadingScreen();
 
             this.initialized = true;
-            console.log('✅ Weather radar core initialized successfully!');
+            console.log("✅ Weather radar core initialized successfully!");
 
             // Dispatch initialization event
-            this.dispatchEvent('radar:initialized', { instance: this });
+            this.dispatchEvent("radar:initialized", { instance: this });
 
             // Update status
-            this.updateStatus('Weather radar online');
+            this.updateStatus("Weather radar online");
 
         } catch (error) {
-            console.error('❌ Weather radar initialization failed:', error);
-            this.showError('Failed to initialize weather radar: ' + error.message);
+            console.error("❌ Weather radar initialization failed:", error);
+            this.showError("Failed to initialize weather radar: " + error.message);
             throw error;
         }
     }
@@ -91,29 +91,29 @@ export class WeatherRadarCore extends EventTarget {
      * Verify all required dependencies are loaded
      */
     async verifyDependencies() {
-        if (typeof ol === 'undefined') {
-            throw new Error('OpenLayers not loaded');
+        if (typeof ol === "undefined") {
+            throw new Error("OpenLayers not loaded");
         }
 
-        console.log('✅ OpenLayers global object found');
-        console.log(`📦 OpenLayers version: ${ol.VERSION || 'unknown'}`);
+        console.log("✅ OpenLayers global object found");
+        console.log(`📦 OpenLayers version: ${ol.VERSION || "unknown"}`);
 
         // Check for required OpenLayers components
-        const requiredComponents = ['Map', 'View', 'layer', 'source', 'proj'];
+        const requiredComponents = ["Map", "View", "layer", "source", "proj"];
         for (const component of requiredComponents) {
             if (!ol[component]) {
                 throw new Error(`OpenLayers component missing: ${component}`);
             }
         }
 
-        console.log('✅ All required dependencies verified');
+        console.log("✅ All required dependencies verified");
     }
 
     /**
      * Create the OpenLayers map
      */
     createMap() {
-        console.log('🗺️ Creating OpenLayers map...');
+        console.log("🗺️ Creating OpenLayers map...");
 
         // Create map view
         const view = new ol.View({
@@ -132,7 +132,7 @@ export class WeatherRadarCore extends EventTarget {
                 new ol.control.Zoom(),
                 new ol.control.Attribution(),
                 new ol.control.ScaleLine({
-                    units: 'imperial'
+                    units: "imperial"
                 })
             ])
         });
@@ -140,7 +140,7 @@ export class WeatherRadarCore extends EventTarget {
         // Set up event handlers
         this.setupMapEvents();
 
-        console.log('✅ Map created successfully');
+        console.log("✅ Map created successfully");
     }
 
     /**
@@ -148,25 +148,25 @@ export class WeatherRadarCore extends EventTarget {
      */
     setupMapEvents() {
         // Map click handler
-        this.map.on('click', (event) => {
+        this.map.on("click", (event) => {
             const coordinate = ol.proj.toLonLat(event.coordinate);
-            console.log('🗺️ Map clicked at:', coordinate);
-            this.dispatchEvent('map:clicked', { coordinate, event });
+            console.log("🗺️ Map clicked at:", coordinate);
+            this.dispatchEvent("map:clicked", { coordinate, event });
         });
 
         // Map render complete handler
-        this.map.once('rendercomplete', () => {
-            console.log('✅ Map rendered successfully');
-            this.dispatchEvent('map:rendered', { map: this.map });
+        this.map.once("rendercomplete", () => {
+            console.log("✅ Map rendered successfully");
+            this.dispatchEvent("map:rendered", { map: this.map });
         });
 
         // Map move end handler
-        this.map.on('moveend', (event) => {
+        this.map.on("moveend", (event) => {
             const view = this.map.getView();
             const center = ol.proj.toLonLat(view.getCenter());
             const zoom = view.getZoom();
-            console.log('🗺️ Map moved to:', center, 'zoom:', zoom);
-            this.dispatchEvent('map:moved', { center, zoom, event });
+            console.log("🗺️ Map moved to:", center, "zoom:", zoom);
+            this.dispatchEvent("map:moved", { center, zoom, event });
         });
     }
 
@@ -174,38 +174,38 @@ export class WeatherRadarCore extends EventTarget {
      * Load base map layers
      */
     async loadBaseLayers() {
-        console.log('🌍 Loading base layers...');
+        console.log("🌍 Loading base layers...");
 
         try {
             // OpenStreetMap base layer
             const osmLayer = new ol.layer.Tile({
-                title: 'OpenStreetMap',
-                type: 'base',
+                title: "OpenStreetMap",
+                type: "base",
                 visible: true,
                 source: new ol.source.OSM()
             });
 
             this.map.addLayer(osmLayer);
             this.layers.osm = osmLayer;
-            console.log('✅ OSM base layer added');
+            console.log("✅ OSM base layer added");
 
             // Satellite imagery layer
             const satelliteLayer = new ol.layer.Tile({
-                title: 'Satellite',
-                type: 'base',
+                title: "Satellite",
+                type: "base",
                 visible: false,
                 source: new ol.source.XYZ({
-                    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                    attributions: '© Esri'
+                    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                    attributions: "© Esri"
                 })
             });
 
             this.map.addLayer(satelliteLayer);
             this.layers.satellite = satelliteLayer;
-            console.log('✅ Satellite layer added');
+            console.log("✅ Satellite layer added");
 
         } catch (error) {
-            console.warn('⚠️ Base layer loading issue:', error.message);
+            console.warn("⚠️ Base layer loading issue:", error.message);
         }
     }
 
@@ -213,7 +213,7 @@ export class WeatherRadarCore extends EventTarget {
      * Initialize weather services and radar layers
      */
     async initializeWeatherServices() {
-        console.log('🌤️ Initializing weather services...');
+        console.log("🌤️ Initializing weather services...");
 
         // Add NEXRAD radar layer
         await this.addRadarLayer();
@@ -221,7 +221,7 @@ export class WeatherRadarCore extends EventTarget {
         // Add weather alerts layer
         await this.addWeatherAlertsLayer();
 
-        console.log('✅ Weather services initialized');
+        console.log("✅ Weather services initialized");
     }
 
     /**
@@ -230,27 +230,27 @@ export class WeatherRadarCore extends EventTarget {
     async addRadarLayer() {
         try {
             const radarLayer = new ol.layer.Image({
-                title: 'NEXRAD Radar',
+                title: "NEXRAD Radar",
                 opacity: this.config.radarOpacity,
                 visible: true,
                 source: new ol.source.ImageWMS({
-                    url: 'https://opengeo.ncep.noaa.gov/geoserver/wms',
+                    url: "https://opengeo.ncep.noaa.gov/geoserver/wms",
                     params: {
-                        'LAYERS': 'nexrad-n0r-wmst',
-                        'FORMAT': 'image/png',
-                        'TRANSPARENT': true
+                        "LAYERS": "nexrad-n0r-wmst",
+                        "FORMAT": "image/png",
+                        "TRANSPARENT": true
                     },
-                    serverType: 'geoserver',
-                    crossOrigin: 'anonymous'
+                    serverType: "geoserver",
+                    crossOrigin: "anonymous"
                 })
             });
 
             this.map.addLayer(radarLayer);
             this.layers.radar = radarLayer;
-            console.log('✅ NEXRAD radar layer added');
+            console.log("✅ NEXRAD radar layer added");
 
         } catch (error) {
-            console.warn('⚠️ NEXRAD radar loading issue:', error.message);
+            console.warn("⚠️ NEXRAD radar loading issue:", error.message);
         }
     }
 
@@ -261,26 +261,26 @@ export class WeatherRadarCore extends EventTarget {
         try {
             const alertsSource = new ol.source.Vector();
             const alertsLayer = new ol.layer.Vector({
-                title: 'Weather Alerts',
+                title: "Weather Alerts",
                 source: alertsSource,
                 visible: true,
                 style: new ol.style.Style({
                     stroke: new ol.style.Stroke({
-                        color: '#ff6b35',
+                        color: "#ff6b35",
                         width: 2
                     }),
                     fill: new ol.style.Fill({
-                        color: 'rgba(255, 107, 53, 0.2)'
+                        color: "rgba(255, 107, 53, 0.2)"
                     })
                 })
             });
 
             this.map.addLayer(alertsLayer);
             this.layers.alerts = alertsLayer;
-            console.log('✅ Weather alerts layer created');
+            console.log("✅ Weather alerts layer created");
 
         } catch (error) {
-            console.warn('⚠️ Weather alerts layer issue:', error.message);
+            console.warn("⚠️ Weather alerts layer issue:", error.message);
         }
     }
 
@@ -288,7 +288,7 @@ export class WeatherRadarCore extends EventTarget {
      * Initialize UI controls and event handlers
      */
     async initializeControls() {
-        console.log('🎮 Initializing controls...');
+        console.log("🎮 Initializing controls...");
 
         this.setupLayerControls();
         this.setupNavigationControls();
@@ -297,7 +297,7 @@ export class WeatherRadarCore extends EventTarget {
             this.setupGeolocationControl();
         }
 
-        console.log('✅ Controls initialized');
+        console.log("✅ Controls initialized");
     }
 
     /**
@@ -305,16 +305,16 @@ export class WeatherRadarCore extends EventTarget {
      */
     setupLayerControls() {
         // Radar toggle
-        this.setupToggleControl('radar-toggle', 'radar');
+        this.setupToggleControl("radar-toggle", "radar");
 
         // Streets toggle
-        this.setupToggleControl('streets-toggle', 'osm');
+        this.setupToggleControl("streets-toggle", "osm");
 
         // Alerts toggle
-        this.setupToggleControl('alerts-toggle', 'alerts');
+        this.setupToggleControl("alerts-toggle", "alerts");
 
         // Radar opacity slider
-        this.setupOpacityControl('radar-opacity', 'radar');
+        this.setupOpacityControl("radar-opacity", "radar");
     }
 
     /**
@@ -323,11 +323,11 @@ export class WeatherRadarCore extends EventTarget {
     setupToggleControl(elementId, layerKey) {
         const element = document.getElementById(elementId);
         if (element && this.layers[layerKey]) {
-            element.addEventListener('change', (e) => {
+            element.addEventListener("change", (e) => {
                 const layer = this.layers[layerKey];
                 layer.setVisible(e.target.checked);
                 console.log(`🔄 ${layerKey} visibility:`, e.target.checked);
-                this.dispatchEvent('layer:toggled', { layer: layerKey, visible: e.target.checked });
+                this.dispatchEvent("layer:toggled", { layer: layerKey, visible: e.target.checked });
             });
         }
     }
@@ -338,17 +338,17 @@ export class WeatherRadarCore extends EventTarget {
     setupOpacityControl(elementId, layerKey) {
         const element = document.getElementById(elementId);
         if (element && this.layers[layerKey]) {
-            element.addEventListener('input', (e) => {
+            element.addEventListener("input", (e) => {
                 const opacity = e.target.value / 100;
                 const layer = this.layers[layerKey];
                 layer.setOpacity(opacity);
                 console.log(`🔄 ${layerKey} opacity:`, opacity);
-                this.dispatchEvent('layer:opacity', { layer: layerKey, opacity });
+                this.dispatchEvent("layer:opacity", { layer: layerKey, opacity });
 
                 // Update display value
-                const valueDisplay = document.querySelector('.slider-value');
+                const valueDisplay = document.querySelector(".slider-value");
                 if (valueDisplay) {
-                    valueDisplay.textContent = e.target.value + '%';
+                    valueDisplay.textContent = e.target.value + "%";
                 }
             });
         }
@@ -359,19 +359,19 @@ export class WeatherRadarCore extends EventTarget {
      */
     setupNavigationControls() {
         // Zoom in
-        this.setupButtonControl('zoom-in', () => {
+        this.setupButtonControl("zoom-in", () => {
             const view = this.map.getView();
             view.setZoom(view.getZoom() + 1);
         });
 
         // Zoom out
-        this.setupButtonControl('zoom-out', () => {
+        this.setupButtonControl("zoom-out", () => {
             const view = this.map.getView();
             view.setZoom(view.getZoom() - 1);
         });
 
         // Reset view
-        this.setupButtonControl('reset-view', () => {
+        this.setupButtonControl("reset-view", () => {
             const view = this.map.getView();
             view.setCenter(ol.proj.fromLonLat(this.config.center));
             view.setZoom(this.config.zoom);
@@ -382,7 +382,7 @@ export class WeatherRadarCore extends EventTarget {
      * Set up geolocation control
      */
     setupGeolocationControl() {
-        this.setupButtonControl('geolocation', () => {
+        this.setupButtonControl("geolocation", () => {
             this.centerOnLocation();
         });
     }
@@ -393,7 +393,7 @@ export class WeatherRadarCore extends EventTarget {
     setupButtonControl(elementId, handler) {
         const element = document.getElementById(elementId);
         if (element) {
-            element.addEventListener('click', handler);
+            element.addEventListener("click", handler);
         }
     }
 
@@ -401,29 +401,29 @@ export class WeatherRadarCore extends EventTarget {
      * Center map on user's location
      */
     centerOnLocation() {
-        console.log('📍 Attempting to center on user location...');
+        console.log("📍 Attempting to center on user location...");
 
         if (!navigator.geolocation) {
-            console.warn('⚠️ Geolocation not supported');
-            this.updateStatus('Geolocation not supported', 'error');
+            console.warn("⚠️ Geolocation not supported");
+            this.updateStatus("Geolocation not supported", "error");
             return;
         }
 
-        this.updateStatus('Locating...');
+        this.updateStatus("Locating...");
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const coords = [position.coords.longitude, position.coords.latitude];
                 this.map.getView().setCenter(ol.proj.fromLonLat(coords));
                 this.map.getView().setZoom(10);
-                console.log('✅ Centered on user location:', coords);
-                this.updateStatus('Centered on your location');
-                this.dispatchEvent('location:found', { coords });
+                console.log("✅ Centered on user location:", coords);
+                this.updateStatus("Centered on your location");
+                this.dispatchEvent("location:found", { coords });
             },
             (error) => {
-                console.error('❌ Geolocation error:', error);
-                this.updateStatus('Location unavailable', 'error');
-                this.dispatchEvent('location:error', { error });
+                console.error("❌ Geolocation error:", error);
+                this.updateStatus("Location unavailable", "error");
+                this.dispatchEvent("location:error", { error });
             }
         );
     }
@@ -432,11 +432,11 @@ export class WeatherRadarCore extends EventTarget {
      * Switch base layer
      */
     switchBaseLayer(layerType) {
-        console.log('🔄 Switching to base layer:', layerType);
+        console.log("🔄 Switching to base layer:", layerType);
 
         // Hide all base layers
         Object.values(this.layers).forEach(layer => {
-            if (layer.get('type') === 'base') {
+            if (layer.get("type") === "base") {
                 layer.setVisible(false);
             }
         });
@@ -445,7 +445,7 @@ export class WeatherRadarCore extends EventTarget {
         if (this.layers[layerType]) {
             this.layers[layerType].setVisible(true);
             this.updateStatus(`Switched to ${layerType} view`);
-            this.dispatchEvent('baselayer:changed', { layer: layerType });
+            this.dispatchEvent("baselayer:changed", { layer: layerType });
         }
     }
 
@@ -456,16 +456,16 @@ export class WeatherRadarCore extends EventTarget {
         if (!this.layers.radar) return;
 
         const radarLayers = {
-            reflectivity: 'nexrad-n0r-wmst',
-            velocity: 'nexrad-n0v-wmst',
-            precipitation: 'nexrad-n0p-wmst'
+            reflectivity: "nexrad-n0r-wmst",
+            velocity: "nexrad-n0v-wmst",
+            precipitation: "nexrad-n0p-wmst"
         };
 
         if (radarLayers[radarType]) {
             const source = this.layers.radar.getSource();
-            source.updateParams({ 'LAYERS': radarLayers[radarType] });
-            console.log('🔄 Radar type changed to:', radarType);
-            this.dispatchEvent('radar:typeChanged', { type: radarType });
+            source.updateParams({ "LAYERS": radarLayers[radarType] });
+            console.log("🔄 Radar type changed to:", radarType);
+            this.dispatchEvent("radar:typeChanged", { type: radarType });
         }
     }
 
@@ -473,7 +473,7 @@ export class WeatherRadarCore extends EventTarget {
      * Show loading message
      */
     showLoadingMessage(message) {
-        const loadingText = document.getElementById('loading-text');
+        const loadingText = document.getElementById("loading-text");
         if (loadingText) {
             loadingText.textContent = message;
         }
@@ -484,13 +484,13 @@ export class WeatherRadarCore extends EventTarget {
      * Hide loading screen
      */
     hideLoadingScreen() {
-        const loadingScreen = document.getElementById('loading-screen');
+        const loadingScreen = document.getElementById("loading-screen");
         if (loadingScreen) {
-            loadingScreen.style.opacity = '0';
+            loadingScreen.style.opacity = "0";
             setTimeout(() => {
-                loadingScreen.style.display = 'none';
+                loadingScreen.style.display = "none";
             }, 500);
-            console.log('✅ Loading screen hidden');
+            console.log("✅ Loading screen hidden");
         }
     }
 
@@ -498,35 +498,35 @@ export class WeatherRadarCore extends EventTarget {
      * Show error message
      */
     showError(message) {
-        const loadingText = document.getElementById('loading-text');
+        const loadingText = document.getElementById("loading-text");
         if (loadingText) {
             loadingText.textContent = message;
-            loadingText.style.color = '#ef4444';
+            loadingText.style.color = "#ef4444";
         }
-        console.error('🚨 ' + message);
-        this.dispatchEvent('error', { message });
+        console.error("🚨 " + message);
+        this.dispatchEvent("error", { message });
     }
 
     /**
      * Update status display
      */
-    updateStatus(message, type = 'normal') {
+    updateStatus(message, type = "normal") {
         console.log(`📊 Status: ${message}`);
 
         // Update status text element
-        const statusElement = document.getElementById('status-text');
+        const statusElement = document.getElementById("status-text");
         if (statusElement) {
             statusElement.textContent = message;
-            statusElement.className = type === 'error' ? 'status-error' : 'status-online';
+            statusElement.className = type === "error" ? "status-error" : "status-online";
         }
 
         // Update current conditions if element exists
-        const conditions = document.getElementById('conditions');
-        if (conditions && message.includes('online')) {
-            conditions.textContent = 'Radar Online';
+        const conditions = document.getElementById("conditions");
+        if (conditions && message.includes("online")) {
+            conditions.textContent = "Radar Online";
         }
 
-        this.dispatchEvent('status:updated', { message, type });
+        this.dispatchEvent("status:updated", { message, type });
     }
 
     /**
@@ -570,8 +570,8 @@ export class WeatherRadarCore extends EventTarget {
         this.controls = {};
         this.initialized = false;
 
-        console.log('🧹 Weather radar core cleaned up');
-        this.dispatchEvent('cleanup:completed');
+        console.log("🧹 Weather radar core cleaned up");
+        this.dispatchEvent("cleanup:completed");
     }
 }
 
