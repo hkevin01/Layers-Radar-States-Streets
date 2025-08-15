@@ -82,6 +82,14 @@
             padding: 5px;
             border: 1px solid #ccc;
             border-radius: 3px;
+            box-sizing: border-box;
+        }
+
+        /* Fix slider width to prevent overflow */
+        .control-group input[type="range"] {
+            width: 100%;
+            padding: 2px;
+            box-sizing: border-box;
         }
 
         /* Error messages */
@@ -145,9 +153,11 @@
         <div class="control-group">
             <label for="base-layer">Base Layer:</label>
             <select id="base-layer">
+                <option value="google-satellite" selected>Google Satellite</option>
+                <option value="google-roads">Google Roads</option>
+                <option value="google-hybrid">Google Hybrid</option>
                 <option value="osm">OpenStreetMap</option>
-                <option value="satellite">Satellite</option>
-                <option value="terrain">Terrain</option>
+                <option value="maptiler">MapTiler Streets</option>
             </select>
         </div>
     </div>
@@ -226,17 +236,86 @@
             if (!weatherMap) return;
 
             const layers = weatherMap.getLayers().getArray();
+            console.log('Available layers:', layers.map(l => ({
+                title: l.get('title'),
+                name: l.get('name'),
+                type: l.get('type'),
+                visible: l.getVisible()
+            })));
+
             layers.forEach(layer => {
+                const title = layer.get('title') || '';
                 const name = layer.get('name') || '';
-                if (name.includes('osm') || name.includes('OpenStreetMap')) {
-                    layer.setVisible(layerType === 'osm');
-                } else if (name.includes('satellite') || name.includes('Satellite')) {
-                    layer.setVisible(layerType === 'satellite');
-                } else if (name.includes('terrain') || name.includes('Terrain')) {
-                    layer.setVisible(layerType === 'terrain');
+
+                // Hide all base layers first
+                if (layer.get('type') === 'base') {
+                    layer.setVisible(false);
+                }
+
+                // Show the selected layer
+                switch(layerType) {
+                    case 'google-satellite':
+                        if (title === 'Google Satellite') {
+                            layer.setVisible(true);
+                            console.log('Enabled Google Satellite layer');
+                        }
+                        break;
+                    case 'google-roads':
+                        if (title === 'Google Roads') {
+                            layer.setVisible(true);
+                            console.log('Enabled Google Roads layer');
+                        }
+                        break;
+                    case 'google-hybrid':
+                        if (title === 'Google Hybrid') {
+                            layer.setVisible(true);
+                            console.log('Enabled Google Hybrid layer');
+                        }
+                        break;
+                    case 'osm':
+                        if (title === 'OpenStreetMap' || name.includes('osm') || name.includes('OpenStreetMap')) {
+                            layer.setVisible(true);
+                            console.log('Enabled OSM layer');
+                        }
+                        break;
+                    case 'maptiler':
+                        if (title.includes('MapTiler') || title.includes('Google-like Streets')) {
+                            layer.setVisible(true);
+                            console.log('Enabled MapTiler layer');
+                        }
+                        break;
                 }
             });
+
+            console.log('Switched to base layer:', layerType);
+
+            // Log final layer states
+            setTimeout(() => {
+                console.log('Final layer states:', layers.map(l => ({
+                    title: l.get('title'),
+                    visible: l.getVisible()
+                })));
+            }, 100);
         }
+
+        // Test function to verify Google tile URLs work
+        function testGoogleTiles() {
+            const testUrls = [
+                'https://mt1.google.com/vt/lyrs=m&x=0&y=0&z=1', // Roads
+                'https://mt1.google.com/vt/lyrs=s&x=0&y=0&z=1', // Satellite
+                'https://mt1.google.com/vt/lyrs=y&x=0&y=0&z=1'  // Hybrid
+            ];
+
+            testUrls.forEach((url, index) => {
+                const img = new Image();
+                img.onload = () => console.log(`✅ Google tile ${index + 1} loaded successfully:`, url);
+                img.onerror = () => console.log(`❌ Google tile ${index + 1} failed:`, url);
+                img.src = url;
+            });
+        }
+
+        // Call test function on load
+        window.addEventListener('load', testGoogleTiles);
 
         function updateLoadingStatus(message) {
             const statusElement = document.getElementById('loading-status');

@@ -121,6 +121,32 @@ window.WeatherRadarInit = (function() {
                 })
             });
 
+            // Google Maps road view
+            const googleRoadLayer = new ol.layer.Tile({
+                title: "Google Roads",
+                type: "base",
+                visible: false,
+                source: new ol.source.XYZ({
+                    url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+                    attributions: "© Google",
+                    crossOrigin: "anonymous",
+                    maxZoom: 20
+                })
+            });
+
+            // Google Maps hybrid view (satellite + labels)
+            const googleHybridLayer = new ol.layer.Tile({
+                title: "Google Hybrid",
+                type: "base",
+                visible: false,
+                source: new ol.source.XYZ({
+                    url: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+                    attributions: "© Google",
+                    crossOrigin: "anonymous",
+                    maxZoom: 20
+                })
+            });
+
             const mapTilerLayer = mapTilerKey ? new ol.layer.Tile({
                 title: "Google-like Streets (MapTiler)",
                 type: "base",
@@ -143,6 +169,8 @@ window.WeatherRadarInit = (function() {
                 }),
                 layers: [
                     googleSatelliteLayer, // Default Google satellite base layer
+                    googleRoadLayer, // Google Maps road view
+                    googleHybridLayer, // Google Maps hybrid view
                     ...(mapTilerLayer ? [mapTilerLayer] : []),
                     osmLayer,
                     new ol.layer.Tile({

@@ -134,6 +134,7 @@
             background: #374151;
             outline: none;
             -webkit-appearance: none;
+            box-sizing: border-box;
         }
 
         .slider-control input[type="range"]::-webkit-slider-thumb {
@@ -360,8 +361,9 @@
                 </div>
 
                 <div class="button-group">
-                    <button class="btn active" data-layer="streets">Streets</button>
-                    <button class="btn" data-layer="satellite">Satellite</button>
+                    <button class="btn" data-layer="google-roads">Roads</button>
+                    <button class="btn active" data-layer="google-satellite">Satellite</button>
+                    <button class="btn" data-layer="google-hybrid">Hybrid</button>
                 </div>
             </div>
 
@@ -522,7 +524,7 @@
             document.querySelectorAll('[data-layer]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const layerType = e.target.getAttribute('data-layer');
-                    setBaseLayer(layerType === 'streets' ? 'streets' : 'satellite');
+                    setBaseLayer(layerType);
 
                     // Update button states
                     document.querySelectorAll('[data-layer]').forEach(b => b.classList.remove('active'));
@@ -543,11 +545,41 @@
             const layers = weatherMap.getLayers().getArray();
 
             layers.forEach(layer => {
+                const title = layer.get('title') || '';
                 const name = layer.get('name') || '';
-                if (name.includes('OpenStreetMap') || name.includes('osm')) {
-                    layer.setVisible(layerType === 'streets');
-                } else if (name.includes('Satellite') || name.includes('satellite')) {
-                    layer.setVisible(layerType === 'satellite');
+
+                // Hide all base layers first
+                if (layer.get('type') === 'base') {
+                    layer.setVisible(false);
+                }
+
+                // Show the selected layer
+                switch(layerType) {
+                    case 'google-satellite':
+                        if (title === 'Google Satellite') {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'google-roads':
+                        if (title === 'Google Roads') {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'google-hybrid':
+                        if (title === 'Google Hybrid') {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'osm':
+                        if (title === 'OpenStreetMap' || name.includes('osm') || name.includes('OpenStreetMap')) {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'maptiler':
+                        if (title.includes('MapTiler') || title.includes('Google-like Streets')) {
+                            layer.setVisible(true);
+                        }
+                        break;
                 }
             });
 
