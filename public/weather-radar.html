@@ -156,6 +156,9 @@
                 <option value="google-satellite" selected>Google Satellite</option>
                 <option value="google-roads">Google Roads</option>
                 <option value="google-hybrid">Google Hybrid</option>
+                <option value="bing-roads">Bing Roads</option>
+                <option value="bing-satellite">Bing Satellite</option>
+                <option value="bing-hybrid">Bing Hybrid</option>
                 <option value="osm">OpenStreetMap</option>
                 <option value="maptiler">MapTiler Streets</option>
             </select>
@@ -272,6 +275,24 @@
                             console.log('Enabled Google Hybrid layer');
                         }
                         break;
+                    case 'bing-roads':
+                        if (title === 'Bing Roads') {
+                            layer.setVisible(true);
+                            console.log('Enabled Bing Roads layer');
+                        }
+                        break;
+                    case 'bing-satellite':
+                        if (title === 'Bing Satellite') {
+                            layer.setVisible(true);
+                            console.log('Enabled Bing Satellite layer');
+                        }
+                        break;
+                    case 'bing-hybrid':
+                        if (title === 'Bing Hybrid') {
+                            layer.setVisible(true);
+                            console.log('Enabled Bing Hybrid layer');
+                        }
+                        break;
                     case 'osm':
                         if (title === 'OpenStreetMap' || name.includes('osm') || name.includes('OpenStreetMap')) {
                             layer.setVisible(true);
@@ -332,56 +353,3 @@
                 setTimeout(() => {
                     loadingScreen.style.display = 'none';
                 }, 500);
-            }
-        }
-
-        function showError(message, error) {
-            const container = document.getElementById('error-container');
-            if (!container) return;
-
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'error-message';
-            errorDiv.innerHTML = `
-                <strong>Error:</strong> ${message}
-                ${error ? `<br><small>${error.message}</small>` : ''}
-            `;
-
-            container.appendChild(errorDiv);
-            setTimeout(() => errorDiv.remove(), 10000);
-        }
-
-        // Start the application
-        document.addEventListener('DOMContentLoaded', initializeApp);
-
-        // Global error handlers
-        window.addEventListener('unhandledrejection', (e) => {
-            showError('Unhandled promise rejection', e.reason);
-        });
-
-        window.addEventListener('error', (e) => {
-            showError('Runtime error', e.error);
-        });
-
-        // Debug mode
-        if (new URLSearchParams(window.location.search).get('debug') === '1') {
-            document.getElementById('debug-overlay').style.display = 'block';
-            document.getElementById('debug-overlay').innerHTML = `
-                <div>Debug Mode Active</div>
-                <div>OpenLayers: ${typeof ol !== 'undefined' ? '✅ v' + ol.VERSION : '❌'}</div>
-                <div>Map: <span id="map-status">⏳</span></div>
-            `;
-
-            // Update map status when available
-            const checkMapStatus = () => {
-                const mapStatus = document.getElementById('map-status');
-                if (mapStatus && weatherMap) {
-                    mapStatus.textContent = '✅ Ready';
-                } else {
-                    setTimeout(checkMapStatus, 100);
-                }
-            };
-            checkMapStatus();
-        }
-    </script>
-</body>
-</html>
