@@ -6,9 +6,29 @@
 window.WeatherRadarInit = (function() {
     "use strict";
 
-    // Get MapTiler API key from window, query param, or localStorage
-    function getMapTilerKey() {
+    // Load optional local config for API keys
+    let __localConfig = null;
+    async function loadLocalConfigOnce() {
+        if (__localConfig !== null) return __localConfig;
         try {
+            const res = await fetch('/public/config.local.json', { cache: 'no-store' });
+            if (res.ok) {
+                __localConfig = await res.json();
+            } else {
+                __localConfig = {};
+            }
+        } catch (_) {
+            __localConfig = {};
+        }
+        return __localConfig;
+    }
+
+    // Get MapTiler API key from config, window, query param, or localStorage
+    async function getMapTilerKey() {
+        try {
+            const cfg = await loadLocalConfigOnce();
+            if (cfg?.MAPTILER_KEY) return String(cfg.MAPTILER_KEY);
+            if (window.API_KEYS?.MAPTILER_KEY) return String(window.API_KEYS.MAPTILER_KEY);
             if (window.MAPTILER_KEY) return String(window.MAPTILER_KEY);
             const url = new URL(window.location.href);
             const qp = url.searchParams.get("mtk");
@@ -27,6 +47,28 @@ window.WeatherRadarInit = (function() {
             console.warn("MapTiler key lookup issue:", e);
         }
         return "";
+    }
+    async function getBingKey() {
+        try {
+            const cfg = await loadLocalConfigOnce();
+            if (cfg?.BING_MAPS_KEY) return String(cfg.BING_MAPS_KEY);
+        if (window.API_KEYS?.BING_MAPS_KEY) return String(window.API_KEYS.BING_MAPS_KEY);
+            if (window.BING_MAPS_KEY) return String(window.BING_MAPS_KEY);
+            const ls = localStorage.getItem('BING_MAPS_KEY');
+            if (ls) return ls;
+        } catch (_) {}
+        return '';
+    }
+    async function getGoogleKey() {
+        try {
+            const cfg = await loadLocalConfigOnce();
+        if (cfg?.GOOGLE_MAPS_API_KEY) return String(cfg.GOOGLE_MAPS_API_KEY);
+        if (window.API_KEYS?.GOOGLE_MAPS_KEY) return String(window.API_KEYS.GOOGLE_MAPS_KEY);
+        if (window.GOOGLE_MAPS_API_KEY) return String(window.GOOGLE_MAPS_API_KEY);
+            const ls = localStorage.getItem('GOOGLE_MAPS_API_KEY');
+            if (ls) return ls;
+        } catch (_) {}
+        return '';
     }
 
     // Icon handling
@@ -91,7 +133,11 @@ window.WeatherRadarInit = (function() {
     // Initialize Weather Map
     async function initializeWeatherMap(targetId = "map") {
         try {
-            const mapTilerKey = getMapTilerKey();
+            // Load keys
+            const [mapTilerKey, bingKey] = await Promise.all([
+                getMapTilerKey(),
+                getBingKey()
+            ]);
 
             // Check if OpenLayers is available
             if (typeof ol === "undefined") {
@@ -147,18 +193,17 @@ window.WeatherRadarInit = (function() {
                 })
             });
 
-            // Bing Maps road view
-            // Bing Maps road view
+            // Bing Maps road view (requires key; fallback to ESRI if absent)
             const bingRoadLayer = new ol.layer.Tile({
                 title: "Bing Roads",
                 type: "base",
                 visible: false,
                 source: new ol.source.XYZ({
-                    url: "https://ecn.t{0-3}.tiles.virtualearth.net/tiles/r{quad}?g=1",
+                    url: bingKey ? "https://ecn.t{0-3}.tiles.virtualearth.net/tiles/r{quad}?g=1" : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
                     attributions: "© Microsoft",
                     crossOrigin: "anonymous",
                     maxZoom: 19,
-                    tileUrlFunction: function(tileCoord) {
+                    tileUrlFunction: bingKey ? function(tileCoord) {
                         try {
                             const z = tileCoord[0];
                             const x = tileCoord[1];
@@ -172,27 +217,26 @@ window.WeatherRadarInit = (function() {
                                 quad += digit;
                             }
                             const server = Math.floor(Math.random() * 4);
-                            return `https://ecn.t${server}.tiles.virtualearth.net/tiles/r${quad}?g=1`;
+                            return `https://ecn.t${server}.tiles.virtualearth.net/tiles/r${quad}?g=1&key=${encodeURIComponent(bingKey)}`;
                         } catch (error) {
-                            console.warn('Bing Maps URL generation error:', error);
-                            // Fallback to static tile server
+                            console.warn('Bing Roads URL generation error:', error);
                             return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${tileCoord[0]}/${tileCoord[2]}/${tileCoord[1]}`;
                         }
-                    }
+                    } : undefined
                 })
             });
 
-            // Bing Maps satellite view
+            // Bing Maps satellite view (Aerial)
             const bingSatelliteLayer = new ol.layer.Tile({
                 title: "Bing Satellite",
                 type: "base",
                 visible: false,
                 source: new ol.source.XYZ({
-                    url: "https://ecn.t{0-3}.tiles.virtualearth.net/tiles/a{quad}?g=1",
+                    url: bingKey ? "https://ecn.t{0-3}.tiles.virtualearth.net/tiles/a{quad}?g=1" : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
                     attributions: "© Microsoft",
                     crossOrigin: "anonymous",
                     maxZoom: 19,
-                    tileUrlFunction: function(tileCoord) {
+                    tileUrlFunction: bingKey ? function(tileCoord) {
                         try {
                             const z = tileCoord[0];
                             const x = tileCoord[1];
@@ -206,27 +250,26 @@ window.WeatherRadarInit = (function() {
                                 quad += digit;
                             }
                             const server = Math.floor(Math.random() * 4);
-                            return `https://ecn.t${server}.tiles.virtualearth.net/tiles/a${quad}?g=1`;
+                            return `https://ecn.t${server}.tiles.virtualearth.net/tiles/a${quad}?g=1&key=${encodeURIComponent(bingKey)}`;
                         } catch (error) {
                             console.warn('Bing Satellite URL generation error:', error);
-                            // Fallback to ESRI satellite
                             return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${tileCoord[0]}/${tileCoord[2]}/${tileCoord[1]}`;
                         }
-                    }
+                    } : undefined
                 })
             });
 
-            // Bing Maps hybrid view (satellite + labels)
+            // Bing Maps hybrid view (Aerial with labels)
             const bingHybridLayer = new ol.layer.Tile({
                 title: "Bing Hybrid",
                 type: "base",
                 visible: false,
                 source: new ol.source.XYZ({
-                    url: "https://ecn.t{0-3}.tiles.virtualearth.net/tiles/h{quad}?g=1",
+                    url: bingKey ? "https://ecn.t{0-3}.tiles.virtualearth.net/tiles/h{quad}?g=1" : "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
                     attributions: "© Microsoft",
                     crossOrigin: "anonymous",
                     maxZoom: 19,
-                    tileUrlFunction: function(tileCoord) {
+                    tileUrlFunction: bingKey ? function(tileCoord) {
                         try {
                             const z = tileCoord[0];
                             const x = tileCoord[1];
@@ -240,22 +283,21 @@ window.WeatherRadarInit = (function() {
                                 quad += digit;
                             }
                             const server = Math.floor(Math.random() * 4);
-                            return `https://ecn.t${server}.tiles.virtualearth.net/tiles/h${quad}?g=1`;
+                            return `https://ecn.t${server}.tiles.virtualearth.net/tiles/h${quad}?g=1&key=${encodeURIComponent(bingKey)}`;
                         } catch (error) {
                             console.warn('Bing Hybrid URL generation error:', error);
-                            // Fallback to Google hybrid
                             return `https://mt1.google.com/vt/lyrs=y&x=${tileCoord[1]}&y=${tileCoord[2]}&z=${tileCoord[0]}`;
                         }
-                    }
+                    } : undefined
                 })
             });
 
-            const mapTilerLayer = mapTilerKey ? new ol.layer.Tile({
+        const mapTilerLayer = mapTilerKey ? new ol.layer.Tile({
                 title: "MapTiler Streets",
                 type: "base",
                 visible: false,
                 source: new ol.source.XYZ({
-                    url: `https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${mapTilerKey}`,
+            url: `https://api.maptiler.com/maps/streets-v2/tiles/256/{z}/{x}/{y}.png?key=${mapTilerKey}`,
                     attributions: [
                         "© MapTiler",
                         "© OpenStreetMap contributors"
@@ -290,38 +332,40 @@ window.WeatherRadarInit = (function() {
                     osmLayer,
                     new ol.layer.Tile({
                         source: new ol.source.XYZ({
-                            url: "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png",
-                            attributions: "© Iowa Environmental Mesonet",
-                            crossOrigin: "anonymous",
-                            tileLoadFunction: function(tile, src) {
-                                // Add retry logic and fallback
-                                const img = tile.getImage();
-                                img.onload = function() {
-                                    tile.setState(1); // LOADED
-                                };
-                                img.onerror = function() {
-                                    // Try alternative NEXRAD source on error
-                                    const fallbackSrc = src.replace(
-                                        'mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913',
-                                        'tilecache.rainviewer.com/v2/radar/1640000000/256'
-                                    ).replace('.png', '/0/1_1.png');
-
-                                    if (img.src !== fallbackSrc) {
-                                        console.warn('NEXRAD tile failed, trying RainViewer fallback:', src);
-                                        img.src = fallbackSrc;
-                                    } else {
-                                        console.error('Both NEXRAD and RainViewer fallback failed:', src);
-                                        tile.setState(3); // ERROR
-                                    }
-                                };
-                                img.src = src;
-                            }
+                            url: "https://tilecache.rainviewer.com/v2/radar/nowcast_0/256/{z}/{x}/{y}/2/1_1.png",
+                            attributions: "© RainViewer",
+                            crossOrigin: "anonymous"
                         }),
                         opacity: 0.7,
                         name: "radar"
                     })
                 ]
             });
+
+            // If using MapTiler, attach error fallback to ESRI when repeated failures occur
+            try {
+                if (mapTilerKey && mapTilerLayer && typeof mapTilerLayer.getSource === 'function') {
+                    const mtSrc = mapTilerLayer.getSource();
+                    // Counters for basic health
+                    const mtCounters = { ok: 0, err: 0 };
+                    mtSrc.on('tileloadend', () => { mtCounters.ok++; });
+                    mtSrc.on('tileloaderror', () => {
+                        mtCounters.err++;
+                        if (mtCounters.err >= 3 && mtCounters.ok === 0) {
+                            console.warn('MapTiler tiles failing; switching to ESRI World Street Map');
+                            showErrorBanner('MapTiler unavailable — using ESRI Streets fallback');
+                            mapTilerLayer.set('title', 'ESRI World Street Map (fallback)');
+                            mapTilerLayer.setSource(new ol.source.XYZ({
+                                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+                                attributions: '© ESRI',
+                                crossOrigin: 'anonymous'
+                            }));
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to attach MapTiler fallback logic:', e);
+            }
 
             // Debugging helpers
             const state = {
@@ -522,6 +566,8 @@ window.WeatherRadarInit = (function() {
                 stateRef.rv.index = i;
                 stateRef.radarSource = `RainViewer@${frame.time || "path"}`;
                 try { localStorage.setItem("rv_frame_index", String(i)); } catch(_){}
+                // Notify listeners that the frame index changed
+                try { window.dispatchEvent(new CustomEvent("rv:frame", { detail: { index: i } })); } catch(_) { }
             }
 
             startRadarAutoRefresh(radarLayer);
@@ -575,6 +621,12 @@ window.WeatherRadarInit = (function() {
                     stateRef.rv.index = Math.min(Math.max(savedIdx, 0), frames.length - 1);
                 }
             } catch(_){}
+
+            // If we have frames, set an initial frame (default to latest)
+            if (frames && frames.length) {
+                const idx = Number.isInteger(stateRef.rv.index) ? stateRef.rv.index : frames.length - 1;
+                setRainviewerFrameByIndex(map, idx, stateRef);
+            }
 
             return frames;
         } catch (e) {

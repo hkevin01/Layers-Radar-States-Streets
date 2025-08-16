@@ -192,6 +192,8 @@
     <!-- Debug Overlay -->
     <div id="debug-overlay" class="debug-overlay"></div>
 
+    <!-- Optional local keys (private); ignored by git -->
+    <script src="./config/keys.js" defer></script>
     <!-- Weather Init Script -->
     <script src="./js/weather-init-global.js?v=2"></script>
 
@@ -283,6 +285,11 @@
                     // default to saved or latest
                     const saved = localStorage.getItem('rv_frame_index');
                     rvSelect.value = saved !== null ? saved : String(frames.length - 1);
+
+                    // Auto-start playback so the radar animates continuously
+                    const state = weatherMap.__radarState;
+                    const ms = Number(localStorage.getItem('rv_speed_ms')) || 700;
+                    window.WeatherRadarInit.playRainviewer(weatherMap, state, ms);
                 });
 
                 rvSelect.addEventListener('change', (e) => {
@@ -290,6 +297,14 @@
                     const state = weatherMap.__radarState;
                     window.WeatherRadarInit.pauseRainviewer(weatherMap, state);
                     window.WeatherRadarInit.setRainviewerFrameByIndex(weatherMap, idx, state);
+                });
+
+                // Keep select in sync while autoplay advances frames
+                window.addEventListener('rv:frame', (e) => {
+                    try {
+                        const i = e?.detail?.index;
+                        if (rvSelect && Number.isInteger(i)) rvSelect.value = String(i);
+                    } catch (_) { /* no-op */ }
                 });
             }
             rvPlay?.addEventListener('click', () => {

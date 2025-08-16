@@ -15,6 +15,8 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+public/config/keys.js
+public/config.local.json
 
 # IDE and editor files
 .vscode/
@@ -43,6 +45,7 @@ pids/
 *.seed
 *.pid.lock
 
+public/config.local.json
 # Test coverage
 coverage/
 .coverage
