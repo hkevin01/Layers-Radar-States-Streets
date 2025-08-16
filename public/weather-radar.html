@@ -163,6 +163,16 @@
                 <option value="maptiler">MapTiler Streets</option>
             </select>
         </div>
+        <div class="control-group">
+            <label for="rainviewer-time">RainViewer Time</label>
+            <select id="rainviewer-time">
+                <option value="">Loading…</option>
+            </select>
+            <div style="margin-top:6px; display:flex; gap:6px;">
+                <button id="rv-play" type="button">Play</button>
+                <button id="rv-pause" type="button">Pause</button>
+            </div>
+        </div>
     </div>
 
     <!-- Error Container -->
@@ -233,6 +243,43 @@
                     switchBaseLayer(e.target.value);
                 });
             }
+
+            // RainViewer timeline
+            const rvSelect = document.getElementById('rainviewer-time');
+            const rvPlay = document.getElementById('rv-play');
+            const rvPause = document.getElementById('rv-pause');
+            if (rvSelect) {
+                window.WeatherRadarInit.enableRainviewerTimeline(weatherMap).then((frames) => {
+                    rvSelect.innerHTML = '';
+                    if (!frames.length) {
+                        rvSelect.innerHTML = '<option value="">Unavailable</option>';
+                        return;
+                    }
+                    frames.forEach((f, idx) => {
+                        const opt = document.createElement('option');
+                        const ts = f.time ? new Date(f.time * 1000).toISOString().replace('T',' ').slice(0,16) : (f.path || idx);
+                        opt.value = String(idx);
+                        opt.textContent = ts;
+                        rvSelect.appendChild(opt);
+                    });
+                    rvSelect.value = String(frames.length - 1); // default to latest
+                });
+
+                rvSelect.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.value, 10);
+                    const state = weatherMap.__radarState;
+                    window.WeatherRadarInit.pauseRainviewer(weatherMap, state);
+                    window.WeatherRadarInit.setRainviewerFrameByIndex(weatherMap, idx, state);
+                });
+            }
+            rvPlay?.addEventListener('click', () => {
+                const state = weatherMap.__radarState;
+                window.WeatherRadarInit.playRainviewer(weatherMap, state, 700);
+            });
+            rvPause?.addEventListener('click', () => {
+                const state = weatherMap.__radarState;
+                window.WeatherRadarInit.pauseRainviewer(weatherMap, state);
+            });
         }
 
         function switchBaseLayer(layerType) {
@@ -353,3 +400,56 @@
                 setTimeout(() => {
                     loadingScreen.style.display = 'none';
                 }, 500);
+            }
+        }
+
+        function showError(message, error) {
+            const container = document.getElementById('error-container');
+            if (!container) return;
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `
+                <strong>Error:</strong> ${message}
+                ${error ? `<br><small>${error.message}</small>` : ''}
+            `;
+
+            container.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 10000);
+        }
+
+        // Start the application
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        // Global error handlers
+        window.addEventListener('unhandledrejection', (e) => {
+            showError('Unhandled promise rejection', e.reason);
+        });
+
+        window.addEventListener('error', (e) => {
+            showError('Runtime error', e.error);
+        });
+
+        // Debug mode
+        if (new URLSearchParams(window.location.search).get('debug') === '1') {
+            document.getElementById('debug-overlay').style.display = 'block';
+            document.getElementById('debug-overlay').innerHTML = `
+                <div>Debug Mode Active</div>
+                <div>OpenLayers: ${typeof ol !== 'undefined' ? '✅ v' + ol.VERSION : '❌'}</div>
+                <div>Map: <span id="map-status">⏳</span></div>
+            `;
+
+            // Update map status when available
+            const checkMapStatus = () => {
+                const mapStatus = document.getElementById('map-status');
+                if (mapStatus && weatherMap) {
+                    mapStatus.textContent = '✅ Ready';
+                } else {
+                    setTimeout(checkMapStatus, 100);
+                }
+            };
+            checkMapStatus();
+        }
+    </script>
+</body>
+</html>

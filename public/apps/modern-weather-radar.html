@@ -138,6 +138,7 @@
         }
 
         .slider-control input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
             -webkit-appearance: none;
             appearance: none;
             width: 18px;
@@ -381,6 +382,17 @@
                         <span class="toggle-slider"></span>
                     </div>
                 </div>
+
+                <div class="control-item" style="align-items: flex-start; flex-direction: column; gap: 8px;">
+                    <label for="rv-time">RainViewer Time</label>
+                    <select id="rv-time" style="width:100%; padding:6px; background:#111827; color:#e5e7eb; border:1px solid #374151; border-radius:6px;">
+                        <option value="">Loading…</option>
+                    </select>
+                    <div class="button-group">
+                        <button class="btn" id="rv-play">Play</button>
+                        <button class="btn" id="rv-pause">Pause</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Actions -->
@@ -426,3 +438,263 @@
     <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
 
     <!-- Weather radar initialization (global script version) -->
+    <script src="../js/weather-init-global.js?v=2"></script>
+
+    <script>
+        // Use global weather init module for consistent radar functionality
+
+        // Modern Weather Radar Application
+        let weatherMap = null;
+        let radarLayer = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🌦️ Starting Modern Weather Radar...');
+
+            try {
+                // Hide loading screen
+                hideLoadingScreen();
+
+                // Verify OpenLayers
+                if (typeof ol === 'undefined') {
+                    throw new Error('OpenLayers not loaded');
+                }
+
+                console.log('✅ OpenLayers loaded:', ol.VERSION);
+                updateStatus('OpenLayers loaded');
+
+                // Initialize the map using the shared weather-init module
+                weatherMap = await window.WeatherRadarInit.initializeWeatherMap('main-map');
+
+                // Get the radar layer for controls
+                const layers = weatherMap.getLayers().getArray();
+                radarLayer = layers.find(layer =>
+                    layer.get('name') === 'radar' ||
+                    layer.getSource?.()?.getUrls?.()?.some?.(url => url.includes('nexrad'))
+                );
+
+                // Set up UI controls
+                setupModernControls();
+
+                updateStatus('Weather radar online');
+
+            } catch (error) {
+                console.error('❌ Failed to initialize modern weather radar:', error);
+                updateStatus('Error: ' + error.message);
+                showError('Failed to initialize weather radar', error);
+            }
+        });
+
+        function hideLoadingScreen() {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 500);
+            }
+        }
+
+        function setupModernControls() {
+            console.log('🎛️ Setting up modern controls...');
+
+            // Radar toggle
+            const radarToggle = document.getElementById('radar-toggle');
+            if (radarToggle && radarLayer) {
+                radarToggle.addEventListener('change', (e) => {
+                    radarLayer.setVisible(e.target.checked);
+                    updateStatus(e.target.checked ? 'Radar enabled' : 'Radar disabled');
+                });
+            }
+
+            // Opacity slider
+            const opacitySlider = document.getElementById('radar-opacity');
+            if (opacitySlider && radarLayer) {
+                opacitySlider.addEventListener('input', (e) => {
+                    const opacity = parseFloat(e.target.value) / 100;
+                    radarLayer.setOpacity(opacity);
+                    document.querySelector('.slider-value').textContent = e.target.value + '%';
+                });
+            }
+
+            // Map controls
+            document.getElementById('zoom-in')?.addEventListener('click', () => {
+                if (weatherMap) {
+                    const view = weatherMap.getView();
+                    view.animate({ zoom: view.getZoom() + 1, duration: 250 });
+                }
+            });
+
+            document.getElementById('zoom-out')?.addEventListener('click', () => {
+                if (weatherMap) {
+                    const view = weatherMap.getView();
+                    view.animate({ zoom: view.getZoom() - 1, duration: 250 });
+                }
+            });
+
+            document.getElementById('geolocation')?.addEventListener('click', () => {
+                centerOnLocation();
+            });
+
+            // Base layer buttons
+            document.querySelectorAll('[data-layer]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const layerType = e.target.getAttribute('data-layer');
+                    setBaseLayer(layerType);
+
+                    // Update button states
+                    document.querySelectorAll('[data-layer]').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                });
+            });
+
+            // Action buttons
+            document.getElementById('locate-btn')?.addEventListener('click', centerOnLocation);
+            document.getElementById('refresh-btn')?.addEventListener('click', refreshData);
+
+            // RainViewer timeline wiring
+            const rvSelect = document.getElementById('rv-time');
+            const rvPlay = document.getElementById('rv-play');
+            const rvPause = document.getElementById('rv-pause');
+            if (rvSelect) {
+                window.WeatherRadarInit.enableRainviewerTimeline(weatherMap).then((frames) => {
+                    rvSelect.innerHTML = '';
+                    if (!frames.length) {
+                        rvSelect.innerHTML = '<option value="">Unavailable</option>';
+                        return;
+                    }
+                    frames.forEach((f, idx) => {
+                        const opt = document.createElement('option');
+                        const ts = f.time ? new Date(f.time * 1000).toISOString().replace('T',' ').slice(0,16) : (f.path || idx);
+                        opt.value = String(idx);
+                        opt.textContent = ts;
+                        rvSelect.appendChild(opt);
+                    });
+                    rvSelect.value = String(frames.length - 1);
+                });
+
+                rvSelect.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.value, 10);
+                    const state = weatherMap.__radarState;
+                    window.WeatherRadarInit.pauseRainviewer(weatherMap, state);
+                    window.WeatherRadarInit.setRainviewerFrameByIndex(weatherMap, idx, state);
+                });
+            }
+            rvPlay?.addEventListener('click', () => {
+                const state = weatherMap.__radarState;
+                window.WeatherRadarInit.playRainviewer(weatherMap, state, 700);
+            });
+            rvPause?.addEventListener('click', () => {
+                const state = weatherMap.__radarState;
+                window.WeatherRadarInit.pauseRainviewer(weatherMap, state);
+            });
+
+            console.log('✅ Modern controls setup complete');
+        }
+
+        function setBaseLayer(layerType) {
+            if (!weatherMap) return;
+
+            const layers = weatherMap.getLayers().getArray();
+
+            layers.forEach(layer => {
+                const title = layer.get('title') || '';
+                const name = layer.get('name') || '';
+
+                // Hide all base layers first
+                if (layer.get('type') === 'base') {
+                    layer.setVisible(false);
+                }
+
+                // Show the selected layer
+                switch(layerType) {
+                    case 'google-satellite':
+                        if (title === 'Google Satellite') {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'google-roads':
+                        if (title === 'Google Roads') {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'google-hybrid':
+                        if (title === 'Google Hybrid') {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'bing-roads':
+                        if (title === 'Bing Roads') {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'bing-satellite':
+                        if (title === 'Bing Satellite') {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'bing-hybrid':
+                        if (title === 'Bing Hybrid') {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'osm':
+                        if (title === 'OpenStreetMap' || name.includes('osm') || name.includes('OpenStreetMap')) {
+                            layer.setVisible(true);
+                        }
+                        break;
+                    case 'maptiler':
+                        if (title.includes('MapTiler') || title.includes('Google-like Streets')) {
+                            layer.setVisible(true);
+                        }
+                        break;
+                }
+            });
+
+            updateStatus(`Switched to ${layerType} view`);
+        }
+
+        function centerOnLocation() {
+            if (navigator.geolocation && weatherMap) {
+                updateStatus('Getting your location...');
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const coords = [position.coords.longitude, position.coords.latitude];
+                    weatherMap.getView().animate({
+                        center: ol.proj.fromLonLat(coords),
+                        zoom: 10,
+                        duration: 1000
+                    });
+                    updateStatus('Location found');
+                }, () => {
+                    updateStatus('Location access denied');
+                });
+            }
+        }
+
+        function refreshData() {
+            if (radarLayer) {
+                updateStatus('Refreshing radar data...');
+                radarLayer.getSource().refresh();
+                setTimeout(() => updateStatus('Radar data refreshed'), 1000);
+            }
+        }
+
+        function updateStatus(message) {
+            const statusElement = document.getElementById('status-text');
+            if (statusElement) {
+                statusElement.textContent = message;
+            }
+            console.log('📊 Status:', message);
+        }
+
+        function showError(message, error) {
+            console.error('Error:', message, error);
+            updateStatus(`Error: ${message}`);
+        }
+
+        // Make functions globally available for onclick handlers
+        window.setBaseLayer = setBaseLayer;
+        window.centerOnLocation = centerOnLocation;
+        window.refreshData = refreshData;
+    </script>
+</body>
+</html>
