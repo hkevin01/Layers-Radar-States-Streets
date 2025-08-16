@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tile Layer Diagnostics</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css" type="text/css">
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #1a1a1a; color: #ddd; }
+        .container { display: flex; height: 100vh; }
+        .sidebar { width: 300px; background: #2a2a2a; padding: 20px; overflow-y: auto; }
+        .map-container { flex: 1; position: relative; }
+        #map { width: 100%; height: 100%; }
+
+        h1 { color: #4a9eff; margin-bottom: 20px; font-size: 18px; }
+        h2 { color: #66d9ff; margin-top: 20px; margin-bottom: 10px; font-size: 14px; }
+
+        .layer-test {
+            background: #333;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #555;
+        }
+
+        .layer-test.loading { border-left-color: #ffc107; }
+        .layer-test.success { border-left-color: #28a745; }
+        .layer-test.error { border-left-color: #dc3545; }
+
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 5px 5px 0;
+            font-size: 12px;
+        }
+
+        button:hover { background: #357abd; }
+        button.active { background: #28a745; }
+
+        .status {
+            font-family: monospace;
+            font-size: 11px;
+            margin: 5px 0;
+        }
+
+        .log {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+
+        .counter {
+            display: inline-block;
+            background: #444;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 2px;
+            font-family: monospace;
+            font-size: 10px;
+        }
+
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .warning { color: #ffc107; }
+        .info { color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>🗺️ Tile Layer Diagnostics</h1>
+
+            <h2>Quick Tests</h2>
+            <button onclick="testAllLayers()">Test All Layers</button>
+            <button onclick="clearResults()">Clear Results</button>
+            <button onclick="showInMap('google-satellite')">Default Google</button>
+
+            <h2>Base Layers</h2>
+            <div id="layer-tests"></div>
+
+            <h2>Radar Layers</h2>
+            <div id="radar-tests"></div>
+
+            <h2>Test Log</h2>
+            <div id="log" class="log">Ready...\n</div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    <script>
+        // Global state
+        const testResults = {};
+        const currentMap = null;
+
+        // Layer configurations to test
+        const layerConfigs = {
+            'google-satellite': {
+                name: 'Google Satellite',
+                url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+                type: 'base'
+            },
+            'google-roads': {
+                name: 'Google Roads',
+                url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                type: 'base'
+            },
+            'osm': {
+                name: 'OpenStreetMap',
+                url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                type: 'base'
+            },
+            'esri-satellite': {
+                name: 'ESRI Satellite',
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                type: 'base'
+            },
+            'bing-roads': {
+                name: 'Bing Roads',
+                url: 'https://ecn.t{0-3}.tiles.virtualearth.net/tiles/r{quad}?g=1',
+                type: 'base',
+                custom: 'bing'
+            },
+            'bing-satellite': {
+                name: 'Bing Satellite',
+                url: 'https://ecn.t{0-3}.tiles.virtualearth.net/tiles/a{quad}?g=1',
+                type: 'base',
+                custom: 'bing'
+            },
+            'maptiler': {
+                name: 'MapTiler Streets',
+                url: 'https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=demo',
+                type: 'base'
+            }
+        };
+
+        const radarConfigs = {
+            'nexrad': {
+                name: 'NEXRAD (Iowa)',
+                url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                type: 'overlay'
+            },
+            'weather-gov': {
+                name: 'Weather.gov',
+                url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/tile/{z}/{y}/{x}',
+                type: 'overlay'
+            },
+            'rainviewer': {
+                name: 'RainViewer',
+                url: 'https://tilecache.rainviewer.com/v2/radar/1640000000/256/{z}/{x}/{y}/0/1_1.png',
+                type: 'overlay'
+            }
+        };
+
+        // Logging
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toISOString().substr(11, 8);
+            const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+            logEl.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`${prefix} ${message}`);
+        }
+
+        // Bing Maps quad key calculation
+        function tileCoordToQuadKey(z, x, y) {
+            let quad = '';
+            for (let i = z; i > 0; i--) {
+                let digit = 0;
+                const mask = 1 << (i - 1);
+                if ((x & mask) !== 0) digit++;
+                if ((y & mask) !== 0) digit += 2;
+                quad += digit;
+            }
+            return quad;
+        }
+
+        // Create test layer
+        function createTestLayer(config, layerId) {
+            try {
+                if (config.custom === 'bing') {
+                    return new ol.layer.Tile({
+                        source: new ol.source.XYZ({
+                            url: config.url,
+                            attributions: '© Microsoft',
+                            crossOrigin: 'anonymous',
+                            maxZoom: 19,
+                            tileUrlFunction: function(tileCoord) {
+                                const z = tileCoord[0];
+                                const x = tileCoord[1];
+                                const y = tileCoord[2];
+                                const quad = tileCoordToQuadKey(z, x, y);
+                                const server = Math.floor(Math.random() * 4);
+                                return config.url.replace('{quad}', quad).replace('{0-3}', server);
+                            }
+                        }),
+                        opacity: config.type === 'overlay' ? 0.7 : 1.0
+                    });
+                } else {
+                    return new ol.layer.Tile({
+                        source: new ol.source.XYZ({
+                            url: config.url,
+                            attributions: config.name,
+                            crossOrigin: 'anonymous',
+                            maxZoom: config.type === 'base' ? 20 : 15
+                        }),
+                        opacity: config.type === 'overlay' ? 0.7 : 1.0
+                    });
+                }
+            } catch (error) {
+                log(`Failed to create layer ${layerId}: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        // Test single layer
+        function testLayer(layerId, config, isRadar = false) {
+            const testEl = document.getElementById(isRadar ? 'radar-tests' : 'layer-tests');
+
+            // Create test UI
+            const testDiv = document.createElement('div');
+            testDiv.className = 'layer-test loading';
+            testDiv.id = `test-${layerId}`;
+            testDiv.innerHTML = `
+                <strong>${config.name}</strong>
+                <div class="status">Testing...</div>
+                <div class="counters">
+                    <span class="counter">Loading: <span id="loading-${layerId}">0</span></span>
+                    <span class="counter">Loaded: <span id="loaded-${layerId}">0</span></span>
+                    <span class="counter">Error: <span id="error-${layerId}">0</span></span>
+                </div>
+                <button onclick="showInMap('${layerId}')">Show in Map</button>
+                <button onclick="testSingleTile('${layerId}')">Test Single Tile</button>
+            `;
+            testEl.appendChild(testDiv);
+
+            // Track counters
+            const counters = {
+                loading: 0,
+                loaded: 0,
+                error: 0
+            };
+
+            function updateCounters() {
+                document.getElementById(`loading-${layerId}`).textContent = counters.loading;
+                document.getElementById(`loaded-${layerId}`).textContent = counters.loaded;
+                document.getElementById(`error-${layerId}`).textContent = counters.error;
+            }
+
+            // Create test layer
+            const layer = createTestLayer(config, layerId);
+            if (!layer) {
+                testDiv.className = 'layer-test error';
+                testDiv.querySelector('.status').textContent = 'Failed to create layer';
+                return;
+            }
+
+            const source = layer.getSource();
+
+            // Add event listeners
+            source.on('tileloadstart', () => {
+                counters.loading++;
+                updateCounters();
+            });
+
+            source.on('tileloadend', () => {
+                counters.loaded++;
+                updateCounters();
+
+                if (counters.loaded > 0) {
+                    testDiv.className = 'layer-test success';
+                    testDiv.querySelector('.status').textContent = 'Tiles loading successfully';
+                    log(`${config.name}: Tiles loading successfully`, 'success');
+                }
+            });
+
+            source.on('tileloaderror', (event) => {
+                counters.error++;
+                updateCounters();
+
+                testDiv.className = 'layer-test error';
+                testDiv.querySelector('.status').textContent = 'Tile loading errors detected';
+                log(`${config.name}: Tile error - ${event.tile?.src || 'unknown URL'}`, 'error');
+            });
+
+            // Store for later use
+            testResults[layerId] = { layer, config, counters };
+
+            log(`Testing ${config.name}...`, 'info');
+        }
+
+        // Test all layers
+        function testAllLayers() {
+            log('Starting comprehensive layer test...', 'info');
+
+            // Clear previous results
+            document.getElementById('layer-tests').innerHTML = '';
+            document.getElementById('radar-tests').innerHTML = '';
+
+            // Test base layers
+            Object.entries(layerConfigs).forEach(([id, config]) => {
+                testLayer(id, config, false);
+            });
+
+            // Test radar layers
+            Object.entries(radarConfigs).forEach(([id, config]) => {
+                testLayer(id, config, true);
+            });
+        }
+
+        // Show layer in map
+        function showInMap(layerId) {
+            if (!testResults[layerId]) {
+                log(`Layer ${layerId} not tested yet`, 'warn');
+                return;
+            }
+
+            const { layer, config } = testResults[layerId];
+
+            // Create new map with this layer
+            const newMap = new ol.Map({
+                target: 'map',
+                layers: [layer],
+                view: new ol.View({
+                    center: ol.proj.fromLonLat([-95, 39]),
+                    zoom: 4
+                })
+            });
+
+            log(`Showing ${config.name} in map`, 'info');
+
+            // Update button states
+            document.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        // Test single tile
+        async function testSingleTile(layerId) {
+            const config = layerConfigs[layerId] || radarConfigs[layerId];
+            if (!config) return;
+
+            let testUrl = config.url
+                .replace('{z}', '4')
+                .replace('{x}', '8')
+                .replace('{y}', '6');
+
+            if (config.custom === 'bing') {
+                const quad = tileCoordToQuadKey(4, 8, 6);
+                testUrl = config.url.replace('{quad}', quad).replace('{0-3}', '0');
+            }
+
+            log(`Testing single tile: ${testUrl}`, 'info');
+
+            try {
+                const response = await fetch(testUrl, { mode: 'no-cors' });
+                log(`Single tile test for ${config.name}: Request sent (CORS prevents reading response)`, 'info');
+            } catch (error) {
+                log(`Single tile test for ${config.name}: ${error.message}`, 'error');
+            }
+        }
+
+        // Clear results
+        function clearResults() {
+            document.getElementById('layer-tests').innerHTML = '';
+            document.getElementById('radar-tests').innerHTML = '';
+            document.getElementById('log').textContent = 'Results cleared...\n';
+            Object.keys(testResults).forEach(key => delete testResults[key]);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Tile Layer Diagnostics Tool Ready', 'info');
+            log('Click "Test All Layers" to begin diagnostics', 'info');
+
+            // Show default Google satellite
+            showInMap('google-satellite');
+        });
+    </script>
+</body>
+</html>

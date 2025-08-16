@@ -172,6 +172,17 @@
                 <button id="rv-play" type="button">Play</button>
                 <button id="rv-pause" type="button">Pause</button>
             </div>
+            <div style="margin-top:6px; display:flex; gap:6px; align-items:center;">
+                <label for="rv-speed" style="margin:0; font-weight:normal;">Speed</label>
+                <select id="rv-speed">
+                    <option value="400">Fast</option>
+                    <option value="700">Normal</option>
+                    <option value="1000">Slow</option>
+                </select>
+                <label style="margin-left:8px; display:flex; align-items:center; gap:4px;">
+                    <input type="checkbox" id="rv-2h"> 2-hour loop
+                </label>
+            </div>
         </div>
     </div>
 
@@ -248,6 +259,8 @@
             const rvSelect = document.getElementById('rainviewer-time');
             const rvPlay = document.getElementById('rv-play');
             const rvPause = document.getElementById('rv-pause');
+            const rvSpeed = document.getElementById('rv-speed');
+            const rv2h = document.getElementById('rv-2h');
             if (rvSelect) {
                 window.WeatherRadarInit.enableRainviewerTimeline(weatherMap).then((frames) => {
                     rvSelect.innerHTML = '';
@@ -257,12 +270,19 @@
                     }
                     frames.forEach((f, idx) => {
                         const opt = document.createElement('option');
-                        const ts = f.time ? new Date(f.time * 1000).toISOString().replace('T',' ').slice(0,16) : (f.path || idx);
+                        let ts;
+                        if (f.time) {
+                            ts = new Date(f.time * 1000).toISOString().replace('T',' ').slice(0,16);
+                        } else {
+                            ts = f.path || idx;
+                        }
                         opt.value = String(idx);
                         opt.textContent = ts;
                         rvSelect.appendChild(opt);
                     });
-                    rvSelect.value = String(frames.length - 1); // default to latest
+                    // default to saved or latest
+                    const saved = localStorage.getItem('rv_frame_index');
+                    rvSelect.value = saved !== null ? saved : String(frames.length - 1);
                 });
 
                 rvSelect.addEventListener('change', (e) => {
@@ -274,12 +294,46 @@
             }
             rvPlay?.addEventListener('click', () => {
                 const state = weatherMap.__radarState;
-                window.WeatherRadarInit.playRainviewer(weatherMap, state, 700);
+                const ms = Number(localStorage.getItem('rv_speed_ms')) || 700;
+                window.WeatherRadarInit.playRainviewer(weatherMap, state, ms);
             });
             rvPause?.addEventListener('click', () => {
                 const state = weatherMap.__radarState;
                 window.WeatherRadarInit.pauseRainviewer(weatherMap, state);
             });
+
+            // Speed control
+            if (rvSpeed) {
+                const saved = localStorage.getItem('rv_speed_ms');
+                if (saved) rvSpeed.value = saved;
+                rvSpeed.addEventListener('change', (e) => {
+                    const ms = Number(e.target.value);
+                    localStorage.setItem('rv_speed_ms', String(ms));
+                    // If playing, update immediately
+                    const state = weatherMap.__radarState;
+                    if (state?.rv?.playing) {
+                        window.WeatherRadarInit.playRainviewer(weatherMap, state, ms);
+                    }
+                });
+            }
+
+            // 2-hour toggle (default enabled)
+            if (rv2h) {
+                rv2h.checked = true; // Always enabled for 2-hour mode
+                localStorage.setItem('rv_mode', '2h'); // Ensure 2h mode is set
+                rv2h.addEventListener('change', (e) => {
+                    // 2-hour mode is always active, this just provides user feedback
+                    localStorage.setItem('rv_mode', '2h');
+                    const state = weatherMap.__radarState;
+                    window.debugRadar?.setMode?.('2h');
+                    // Re-enable timeline to refresh
+                    window.WeatherRadarInit.enableRainviewerTimeline(weatherMap).then(() => {
+                        // keep selection aligned
+                        const saved = localStorage.getItem('rv_frame_index');
+                        if (saved && rvSelect) rvSelect.value = saved;
+                    });
+                });
+            }
         }
 
         function switchBaseLayer(layerType) {

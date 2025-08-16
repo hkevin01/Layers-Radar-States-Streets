@@ -159,19 +159,25 @@ window.WeatherRadarInit = (function() {
                     crossOrigin: "anonymous",
                     maxZoom: 19,
                     tileUrlFunction: function(tileCoord) {
-                        const z = tileCoord[0];
-                        const x = tileCoord[1];
-                        const y = tileCoord[2];
-                        let quad = "";
-                        for (let i = z; i > 0; i--) {
-                            let digit = 0;
-                            const mask = 1 << (i - 1);
-                            if ((x & mask) !== 0) digit++;
-                            if ((y & mask) !== 0) digit += 2;
-                            quad += digit;
+                        try {
+                            const z = tileCoord[0];
+                            const x = tileCoord[1];
+                            const y = tileCoord[2];
+                            let quad = "";
+                            for (let i = z; i > 0; i--) {
+                                let digit = 0;
+                                const mask = 1 << (i - 1);
+                                if ((x & mask) !== 0) digit++;
+                                if ((y & mask) !== 0) digit += 2;
+                                quad += digit;
+                            }
+                            const server = Math.floor(Math.random() * 4);
+                            return `https://ecn.t${server}.tiles.virtualearth.net/tiles/r${quad}?g=1`;
+                        } catch (error) {
+                            console.warn('Bing Maps URL generation error:', error);
+                            // Fallback to static tile server
+                            return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${tileCoord[0]}/${tileCoord[2]}/${tileCoord[1]}`;
                         }
-                        const server = Math.floor(Math.random() * 4);
-                        return `https://ecn.t${server}.tiles.virtualearth.net/tiles/r${quad}?g=1`;
                     }
                 })
             });
@@ -187,19 +193,25 @@ window.WeatherRadarInit = (function() {
                     crossOrigin: "anonymous",
                     maxZoom: 19,
                     tileUrlFunction: function(tileCoord) {
-                        const z = tileCoord[0];
-                        const x = tileCoord[1];
-                        const y = tileCoord[2];
-                        let quad = "";
-                        for (let i = z; i > 0; i--) {
-                            let digit = 0;
-                            const mask = 1 << (i - 1);
-                            if ((x & mask) !== 0) digit++;
-                            if ((y & mask) !== 0) digit += 2;
-                            quad += digit;
+                        try {
+                            const z = tileCoord[0];
+                            const x = tileCoord[1];
+                            const y = tileCoord[2];
+                            let quad = "";
+                            for (let i = z; i > 0; i--) {
+                                let digit = 0;
+                                const mask = 1 << (i - 1);
+                                if ((x & mask) !== 0) digit++;
+                                if ((y & mask) !== 0) digit += 2;
+                                quad += digit;
+                            }
+                            const server = Math.floor(Math.random() * 4);
+                            return `https://ecn.t${server}.tiles.virtualearth.net/tiles/a${quad}?g=1`;
+                        } catch (error) {
+                            console.warn('Bing Satellite URL generation error:', error);
+                            // Fallback to ESRI satellite
+                            return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${tileCoord[0]}/${tileCoord[2]}/${tileCoord[1]}`;
                         }
-                        const server = Math.floor(Math.random() * 4);
-                        return `https://ecn.t${server}.tiles.virtualearth.net/tiles/a${quad}?g=1`;
                     }
                 })
             });
@@ -215,25 +227,31 @@ window.WeatherRadarInit = (function() {
                     crossOrigin: "anonymous",
                     maxZoom: 19,
                     tileUrlFunction: function(tileCoord) {
-                        const z = tileCoord[0];
-                        const x = tileCoord[1];
-                        const y = tileCoord[2];
-                        let quad = "";
-                        for (let i = z; i > 0; i--) {
-                            let digit = 0;
-                            const mask = 1 << (i - 1);
-                            if ((x & mask) !== 0) digit++;
-                            if ((y & mask) !== 0) digit += 2;
-                            quad += digit;
+                        try {
+                            const z = tileCoord[0];
+                            const x = tileCoord[1];
+                            const y = tileCoord[2];
+                            let quad = "";
+                            for (let i = z; i > 0; i--) {
+                                let digit = 0;
+                                const mask = 1 << (i - 1);
+                                if ((x & mask) !== 0) digit++;
+                                if ((y & mask) !== 0) digit += 2;
+                                quad += digit;
+                            }
+                            const server = Math.floor(Math.random() * 4);
+                            return `https://ecn.t${server}.tiles.virtualearth.net/tiles/h${quad}?g=1`;
+                        } catch (error) {
+                            console.warn('Bing Hybrid URL generation error:', error);
+                            // Fallback to Google hybrid
+                            return `https://mt1.google.com/vt/lyrs=y&x=${tileCoord[1]}&y=${tileCoord[2]}&z=${tileCoord[0]}`;
                         }
-                        const server = Math.floor(Math.random() * 4);
-                        return `https://ecn.t${server}.tiles.virtualearth.net/tiles/h${quad}?g=1`;
                     }
                 })
             });
 
             const mapTilerLayer = mapTilerKey ? new ol.layer.Tile({
-                title: "Google-like Streets (MapTiler)",
+                title: "MapTiler Streets",
                 type: "base",
                 visible: false,
                 source: new ol.source.XYZ({
@@ -244,7 +262,16 @@ window.WeatherRadarInit = (function() {
                     ],
                     crossOrigin: "anonymous"
                 })
-            }) : null;
+            }) : new ol.layer.Tile({
+                title: "ESRI World Street Map",
+                type: "base",
+                visible: false,
+                source: new ol.source.XYZ({
+                    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+                    attributions: "© ESRI",
+                    crossOrigin: "anonymous"
+                })
+            });
 
             const map = new ol.Map({
                 target: targetId,
@@ -259,13 +286,36 @@ window.WeatherRadarInit = (function() {
                     bingRoadLayer, // Bing Maps road view
                     bingSatelliteLayer, // Bing Maps satellite view
                     bingHybridLayer, // Bing Maps hybrid view
-                    ...(mapTilerLayer ? [mapTilerLayer] : []),
+                    mapTilerLayer, // MapTiler or ESRI fallback
                     osmLayer,
                     new ol.layer.Tile({
                         source: new ol.source.XYZ({
                             url: "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png",
                             attributions: "© Iowa Environmental Mesonet",
-                            crossOrigin: "anonymous"
+                            crossOrigin: "anonymous",
+                            tileLoadFunction: function(tile, src) {
+                                // Add retry logic and fallback
+                                const img = tile.getImage();
+                                img.onload = function() {
+                                    tile.setState(1); // LOADED
+                                };
+                                img.onerror = function() {
+                                    // Try alternative NEXRAD source on error
+                                    const fallbackSrc = src.replace(
+                                        'mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913',
+                                        'tilecache.rainviewer.com/v2/radar/1640000000/256'
+                                    ).replace('.png', '/0/1_1.png');
+
+                                    if (img.src !== fallbackSrc) {
+                                        console.warn('NEXRAD tile failed, trying RainViewer fallback:', src);
+                                        img.src = fallbackSrc;
+                                    } else {
+                                        console.error('Both NEXRAD and RainViewer fallback failed:', src);
+                                        tile.setState(3); // ERROR
+                                    }
+                                };
+                                img.src = src;
+                            }
                         }),
                         opacity: 0.7,
                         name: "radar"
@@ -280,7 +330,8 @@ window.WeatherRadarInit = (function() {
                 radar: { start: 0, ok: 0, err: 0 },
                 startedAt: Date.now(),
                 radarSource: "NEXRAD",
-                rv: { frames: [], index: 0, playing: false, timerId: null }
+                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 700, mode: localStorage.getItem("rv_mode") || "2h" },
+                overlays: {}
             };
 
             // Attach tile event listeners for base (now using Google satellite as default)
@@ -315,22 +366,29 @@ window.WeatherRadarInit = (function() {
 
             // Attach tile event listeners for radar (with granular logs)
             const radarLayer = map.getLayers().item(map.getLayers().getLength() - 1);
-            const bindRadarListenersToSource = (src) => {
+            // Generic binder for tile logging on any overlay source
+            const bindTileListenersToSource = (src, counters, label) => {
                 if (!src || src.__radarListenersBound) return;
                 src.__radarListenersBound = true;
-                src.on("tileloadstart", (e) => { state.radar.start++; logRadar("START", e); updateDebugOverlay(state); });
-                src.on("tileloadend", (e) => { state.radar.ok++; logRadar("OK", e); updateDebugOverlay(state); });
+                src.on("tileloadstart", (e) => { counters.start++; (label==="radar"?logRadar("START", e):console.log(`${label} START`, e)); updateDebugOverlay(state); });
+                src.on("tileloadend", (e) => { counters.ok++; (label==="radar"?logRadar("OK", e):console.log(`${label} OK`, e)); updateDebugOverlay(state); });
                 src.on("tileloaderror", (e) => {
-                    state.radar.err++;
-                    logRadar("ERROR", e);
-                    showErrorBanner("Radar tiles failed to load");
+                    counters.err++;
+                    if (label === "radar") {
+                        logRadar("ERROR", e);
+                        showErrorBanner("Radar tiles failed to load");
+                    } else {
+                        console.warn(`${label} ERROR`, e);
+                    }
                     updateDebugOverlay(state);
-                    if (state.radar.err >= 3 && state.radar.ok === 0) {
+                    if (label === "radar" && state.radar.err >= 3 && state.radar.ok === 0) {
                         // Multiple early errors and no successes -> switch to fallback
                         switchRadarFallback(radarLayer, state);
                     }
                 });
             };
+
+            const bindRadarListenersToSource = (src) => bindTileListenersToSource(src, state.radar, "radar");
 
             const radarSource = radarLayer.getSource();
             bindRadarListenersToSource(radarSource);
@@ -379,6 +437,8 @@ window.WeatherRadarInit = (function() {
                     state,
                     hide: hideAllLoadingScreens,
                     status: () => ({ ...state }),
+                    setSpeed: (ms) => { state.rv.speedMs = Number(ms)||700; try{localStorage.setItem("rv_speed_ms", String(state.rv.speedMs));}catch(_){}} ,
+                    setMode: (mode) => { state.rv.mode = mode; try{localStorage.setItem("rv_mode", mode);}catch(_){}} ,
                 };
             }
 
@@ -440,31 +500,49 @@ window.WeatherRadarInit = (function() {
             if (!frames.length) return;
             const i = ((index % frames.length) + frames.length) % frames.length;
             const frame = frames[i];
-            const url = frame.path
-                ? `https://tilecache.rainviewer.com${frame.path}`
-                : `https://tilecache.rainviewer.com/v2/radar/${frame.time}/256/{z}/{x}/{y}/2/1_1.png`;
-            const src = new ol.source.XYZ({ url, attributions: "© RainViewer", crossOrigin: "anonymous" });
+
+            // Use the frame URL from RainViewer API
+            let url;
+            if (frame.path) {
+                url = `https://tilecache.rainviewer.com${frame.path}`;
+            } else {
+                url = `https://tilecache.rainviewer.com/v2/radar/${frame.time}/256/{z}/{x}/{y}/2/1_1.png`;
+            }
+
+            const src = new ol.source.XYZ({
+                url,
+                attributions: "© RainViewer",
+                crossOrigin: "anonymous"
+            });
+
             radarLayer.setSource(src);
+            radarLayer.setOpacity(0.7);
+
             if (stateRef) {
                 stateRef.rv.index = i;
                 stateRef.radarSource = `RainViewer@${frame.time || "path"}`;
+                try { localStorage.setItem("rv_frame_index", String(i)); } catch(_){}
             }
+
             startRadarAutoRefresh(radarLayer);
         } catch (e) {
             console.error("Failed to set RainViewer frame:", e);
         }
     }
 
-    function playRainviewer(map, stateRef, speedMs = 700) {
+    function playRainviewer(map, stateRef, speedMs = undefined) {
         try {
             const mapObj = map;
             if (!stateRef?.rv?.frames?.length) return;
             pauseRainviewer(map, stateRef);
+            const ms = Number(speedMs || stateRef.rv.speedMs || 700);
+            stateRef.rv.speedMs = ms;
+            try { localStorage.setItem("rv_speed_ms", String(ms)); } catch(_){}
             stateRef.rv.playing = true;
             stateRef.rv.timerId = setInterval(() => {
                 const next = (stateRef.rv.index + 1) % stateRef.rv.frames.length;
                 setRainviewerFrameByIndex(mapObj, next, stateRef);
-            }, speedMs);
+            }, ms);
         } catch (e) {
             console.warn("Failed to start RainViewer playback", e);
         }
@@ -484,9 +562,20 @@ window.WeatherRadarInit = (function() {
         try {
             if (!map) return [];
             const stateRef = map.__radarState || { rv: { frames: [], index: 0 } };
-            const frames = await getRainviewerTimeline();
+            let frames = await getRainviewerTimeline();
+
+            // Always use the natural 2-hour timeline from RainViewer API
             stateRef.rv.frames = frames;
             if (!map.__radarState) map.__radarState = stateRef;
+
+            // Restore last frame index if available
+            try {
+                const savedIdx = Number(localStorage.getItem("rv_frame_index"));
+                if (!Number.isNaN(savedIdx) && frames.length) {
+                    stateRef.rv.index = Math.min(Math.max(savedIdx, 0), frames.length - 1);
+                }
+            } catch(_){}
+
             return frames;
         } catch (e) {
             showErrorBanner(`Failed to enable RainViewer timeline: ${e.message}`);
@@ -644,10 +733,28 @@ window.WeatherRadarInit = (function() {
     setRainviewerFrameByIndex: setRainviewerFrameByIndex,
     playRainviewer: playRainviewer,
     pauseRainviewer: pauseRainviewer,
-    enableRainviewerTimeline: enableRainviewerTimeline
+        enableRainviewerTimeline: enableRainviewerTimeline,
+        // Generic overlay tile logging (for future overlays)
+        attachOverlayTileLogging: (layer, label) => {
+            try {
+                const src = layer?.getSource?.();
+                if (!src) return;
+                if (!window.__overlayCounters) window.__overlayCounters = {};
+                if (!window.__overlayCounters[label]) window.__overlayCounters[label] = { start: 0, ok: 0, err: 0 };
+                const counters = window.__overlayCounters[label];
+                if (!src.__radarListenersBound) {
+                    src.__radarListenersBound = true;
+                    src.on("tileloadstart", () => { counters.start++; console.log(`${label} START`); });
+                    src.on("tileloadend", () => { counters.ok++; console.log(`${label} OK`); });
+                    src.on("tileloaderror", (e) => { counters.err++; console.warn(`${label} ERROR`, e); });
+                }
+            } catch (e) { console.warn("Failed to attach overlay logging", e); }
+        }
     };
 })();
 
 // Also make functions available globally for backward compatibility
 window.initializeWeatherMap = window.WeatherRadarInit.initializeWeatherMap;
 window.registerServiceWorker = window.WeatherRadarInit.registerServiceWorker;
+// Back-compat alias for older tests and integrations
+window.WeatherMap = window.WeatherRadarInit;

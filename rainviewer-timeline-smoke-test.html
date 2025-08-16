@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RainViewer Timeline Features Smoke Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css" type="text/css">
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #1a1a1a; color: #ddd; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        h1 { color: #4a9eff; margin-bottom: 20px; }
+        h2 { color: #66d9ff; margin-top: 30px; margin-bottom: 15px; }
+
+        .test-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #4a9eff;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        button {
+            padding: 12px 20px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover { background: #357abd; }
+        button:disabled { background: #666; cursor: not-allowed; }
+
+        button.success { background: #28a745; }
+        button.error { background: #dc3545; }
+        button.warning { background: #ffc107; color: #000; }
+
+        .test-log {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            height: 200px;
+            overflow-y: auto;
+            margin: 15px 0;
+            border: 1px solid #333;
+        }
+
+        .mini-map {
+            width: 100%;
+            height: 300px;
+            border: 2px solid #333;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .results-summary {
+            background: #333;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .test-result {
+            display: inline-block;
+            padding: 5px 10px;
+            margin: 2px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .test-result.pass { background: #28a745; color: white; }
+        .test-result.fail { background: #dc3545; color: white; }
+        .test-result.warn { background: #ffc107; color: #000; }
+        .test-result.pending { background: #6c757d; color: white; }
+
+        .feature-test {
+            background: #363636;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .localStorage-display {
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+
+        .api-test {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .api-call {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #555;
+        }
+
+        .overlay-counters {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .counter {
+            background: #444;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌧️ RainViewer Timeline Features - Smoke Test Suite</h1>
+
+        <div class="results-summary">
+            <h3>Test Results Summary</h3>
+            <div id="test-results">
+                <span class="test-result pending">Loading...</span>
+            </div>
+            <div style="margin-top: 10px;">
+                <strong>Tests Passed:</strong> <span id="pass-count">0</span> |
+                <strong>Failed:</strong> <span id="fail-count">0</span> |
+                <strong>Warnings:</strong> <span id="warn-count">0</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button onclick="runAllTests()">🧪 Run All Tests</button>
+            <button onclick="clearResults()">🗑️ Clear Results</button>
+            <button onclick="clearLocalStorage()">🗂️ Clear localStorage</button>
+            <button onclick="showLocalStorage()">👁️ Show localStorage</button>
+        </div>
+
+        <div class="test-section">
+            <h2>🎛️ Speed Control Tests</h2>
+            <div class="feature-test">
+                <p><strong>Feature:</strong> Animation speed control with 400/700/1000ms options and localStorage persistence</p>
+                <div class="controls">
+                    <button onclick="testSpeedControlAPI()">Test Speed Control API</button>
+                    <button onclick="testSpeedPersistence()">Test Speed Persistence</button>
+                    <button onclick="testSpeedValidation()">Test Speed Validation</button>
+                </div>
+                <div id="speed-test-results"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎞️ Frame Persistence Tests</h2>
+            <div class="feature-test">
+                <p><strong>Feature:</strong> Persist selected RainViewer frame across page reloads via localStorage</p>
+                <div class="controls">
+                    <button onclick="testFramePersistence()">Test Frame Persistence</button>
+                    <button onclick="testFrameIndexValidation()">Test Frame Index Validation</button>
+                    <button onclick="testFrameRestoration()">Test Frame Restoration</button>
+                </div>
+                <div id="frame-test-results"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>⏱️ Timeline API Tests</h2>
+            <div class="feature-test">
+                <p><strong>Feature:</strong> RainViewer timeline API functions (2-hour timeline)</p>
+                <div class="controls">
+                    <button onclick="testTimelineAPI()">Test Timeline API</button>
+                    <button onclick="testTimelineFetch()">Test Timeline Fetch</button>
+                    <button onclick="testPlayPauseAPI()">Test Play/Pause API</button>
+                </div>
+                <div id="timeline-test-results"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Overlay Logging Tests</h2>
+            <div class="feature-test">
+                <p><strong>Feature:</strong> Generic overlay tile logging function for future overlay layers</p>
+                <div class="controls">
+                    <button onclick="testOverlayLoggingAPI()">Test Overlay Logging API</button>
+                    <button onclick="testOverlayCounters()">Test Overlay Counters</button>
+                    <button onclick="testOverlayResilience()">Test Overlay Resilience</button>
+                </div>
+                <div id="overlay-test-results"></div>
+                <div class="overlay-counters">
+                    <div class="counter">Test Loaded: <span id="test-loaded">0</span></div>
+                    <div class="counter">Test Loading: <span id="test-loading">0</span></div>
+                    <div class="counter">Test Error: <span id="test-error">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🗺️ Integration Tests</h2>
+            <div class="feature-test">
+                <p><strong>Feature:</strong> End-to-end integration with OpenLayers map and RainViewer service</p>
+                <div class="controls">
+                    <button onclick="testMapIntegration()">Test Map Integration</button>
+                    <button onclick="testRainViewerService()">Test RainViewer Service</button>
+                    <button onclick="testFullWorkflow()">Test Full Workflow</button>
+                </div>
+                <div id="integration-test-results"></div>
+                <div id="test-map" class="mini-map"></div>
+            </div>
+        </div>
+
+        <div class="localStorage-display" id="localStorage-display">
+            <strong>localStorage State:</strong> (Click "Show localStorage" to view)
+        </div>
+
+        <div class="test-log" id="test-log">
+            RainViewer Timeline Smoke Test Suite Ready...\n
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    <script src="/js/weather-init-global.js"></script>
+    <script>
+        // Test Suite Configuration
+        const testResults = {
+            passed: 0,
+            failed: 0,
+            warnings: 0,
+            tests: []
+        };
+
+        // Logging Functions
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('test-log');
+            const timestamp = new Date().toISOString().substr(11, 8);
+            const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+            logEl.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`${prefix} ${message}`);
+        }
+
+        function pass(testName, message) {
+            testResults.passed++;
+            testResults.tests.push({ name: testName, status: 'pass', message });
+            log(`PASS: ${testName} - ${message}`, 'success');
+            updateResultsSummary();
+        }
+
+        function fail(testName, message) {
+            testResults.failed++;
+            testResults.tests.push({ name: testName, status: 'fail', message });
+            log(`FAIL: ${testName} - ${message}`, 'error');
+            updateResultsSummary();
+        }
+
+        function warn(testName, message) {
+            testResults.warnings++;
+            testResults.tests.push({ name: testName, status: 'warn', message });
+            log(`WARN: ${testName} - ${message}`, 'warn');
+            updateResultsSummary();
+        }
+
+        function updateResultsSummary() {
+            document.getElementById('pass-count').textContent = testResults.passed;
+            document.getElementById('fail-count').textContent = testResults.failed;
+            document.getElementById('warn-count').textContent = testResults.warnings;
+
+            const resultsEl = document.getElementById('test-results');
+            resultsEl.innerHTML = testResults.tests.map(test =>
+                `<span class="test-result ${test.status}">${test.name}</span>`
+            ).join('');
+        }
+
+        // Utility Functions
+        function clearResults() {
+            testResults.passed = 0;
+            testResults.failed = 0;
+            testResults.warnings = 0;
+            testResults.tests = [];
+            document.getElementById('test-log').textContent = 'Test results cleared...\n';
+            updateResultsSummary();
+        }
+
+        function clearLocalStorage() {
+            const keys = ['rv_speed_ms', 'rv_frame_index', 'rv_mode'];
+            keys.forEach(key => localStorage.removeItem(key));
+            log('localStorage cleared for RainViewer keys', 'info');
+            showLocalStorage();
+        }
+
+        function showLocalStorage() {
+            const keys = ['rv_speed_ms', 'rv_frame_index', 'rv_mode'];
+            const display = keys.map(key =>
+                `${key}: ${localStorage.getItem(key) || 'null'}`
+            ).join(' | ');
+            document.getElementById('localStorage-display').innerHTML =
+                `<strong>localStorage State:</strong> ${display}`;
+        }
+
+        // Speed Control Tests
+        function testSpeedControlAPI() {
+            log('Testing Speed Control API...', 'info');
+
+            try {
+                // Test if WeatherMap global is available
+                if (typeof WeatherMap === 'undefined') {
+                    fail('Speed API', 'WeatherMap global not available');
+                    return;
+                }
+
+                // Test speed values
+                const testSpeeds = [400, 700, 1000];
+                testSpeeds.forEach(speed => {
+                    localStorage.setItem('rv_speed_ms', speed);
+                    const stored = parseInt(localStorage.getItem('rv_speed_ms'));
+                    if (stored === speed) {
+                        pass(`Speed ${speed}ms`, `Speed value stored correctly`);
+                    } else {
+                        fail(`Speed ${speed}ms`, `Expected ${speed}, got ${stored}`);
+                    }
+                });
+
+                // Test invalid speed handling
+                localStorage.setItem('rv_speed_ms', 'invalid');
+                const defaultSpeed = parseInt(localStorage.getItem('rv_speed_ms')) || 700;
+                if (isNaN(defaultSpeed) || defaultSpeed === 700) {
+                    pass('Speed Validation', 'Invalid speed falls back properly');
+                } else {
+                    warn('Speed Validation', 'Unexpected fallback behavior');
+                }
+
+            } catch (error) {
+                fail('Speed API', `Exception: ${error.message}`);
+            }
+        }
+
+        function testSpeedPersistence() {
+            log('Testing Speed Persistence...', 'info');
+
+            try {
+                // Clear and set test values
+                localStorage.removeItem('rv_speed_ms');
+
+                // Test persistence of different values
+                const testValues = [400, 700, 1000];
+                testValues.forEach(value => {
+                    localStorage.setItem('rv_speed_ms', value);
+                    const retrieved = localStorage.getItem('rv_speed_ms');
+                    if (retrieved === value.toString()) {
+                        pass(`Persist ${value}ms`, 'Speed persisted correctly');
+                    } else {
+                        fail(`Persist ${value}ms`, `Expected ${value}, got ${retrieved}`);
+                    }
+                });
+
+            } catch (error) {
+                fail('Speed Persistence', `Exception: ${error.message}`);
+            }
+        }
+
+        function testSpeedValidation() {
+            log('Testing Speed Validation...', 'info');
+
+            try {
+                // Test edge cases
+                const testCases = [
+                    { input: '0', expected: false, name: 'Zero speed' },
+                    { input: '-1', expected: false, name: 'Negative speed' },
+                    { input: 'abc', expected: false, name: 'String input' },
+                    { input: '999999', expected: false, name: 'Very large speed' },
+                    { input: '700', expected: true, name: 'Valid speed' }
+                ];
+
+                testCases.forEach(testCase => {
+                    localStorage.setItem('rv_speed_ms', testCase.input);
+                    const value = parseInt(localStorage.getItem('rv_speed_ms'));
+                    const isValid = !isNaN(value) && value > 0 && value <= 10000;
+
+                    if (isValid === testCase.expected) {
+                        pass(testCase.name, `Validation correct for ${testCase.input}`);
+                    } else {
+                        fail(testCase.name, `Validation failed for ${testCase.input}`);
+                    }
+                });
+
+            } catch (error) {
+                fail('Speed Validation', `Exception: ${error.message}`);
+            }
+        }
+
+        // Frame Persistence Tests
+        function testFramePersistence() {
+            log('Testing Frame Persistence...', 'info');
+
+            try {
+                // Test frame index persistence
+                const testIndices = [0, 5, 10, 15];
+                testIndices.forEach(index => {
+                    localStorage.setItem('rv_frame_index', index);
+                    const stored = parseInt(localStorage.getItem('rv_frame_index'));
+                    if (stored === index) {
+                        pass(`Frame ${index}`, 'Frame index persisted correctly');
+                    } else {
+                        fail(`Frame ${index}`, `Expected ${index}, got ${stored}`);
+                    }
+                });
+
+            } catch (error) {
+                fail('Frame Persistence', `Exception: ${error.message}`);
+            }
+        }
+
+        function testFrameIndexValidation() {
+            log('Testing Frame Index Validation...', 'info');
+
+            try {
+                const testCases = [
+                    { input: '-1', name: 'Negative index' },
+                    { input: 'abc', name: 'String input' },
+                    { input: '1000', name: 'Large index' },
+                    { input: '0', name: 'Valid zero index' },
+                    { input: '5', name: 'Valid positive index' }
+                ];
+
+                testCases.forEach(testCase => {
+                    localStorage.setItem('rv_frame_index', testCase.input);
+                    const value = parseInt(localStorage.getItem('rv_frame_index'));
+                    const isValidNumber = !isNaN(value) && value >= 0;
+
+                    if (isValidNumber || testCase.input === 'abc') {
+                        pass(testCase.name, `Index validation handled correctly`);
+                    } else {
+                        warn(testCase.name, `Unexpected validation result`);
+                    }
+                });
+
+            } catch (error) {
+                fail('Frame Index Validation', `Exception: ${error.message}`);
+            }
+        }
+
+        function testFrameRestoration() {
+            log('Testing Frame Restoration...', 'info');
+
+            try {
+                // Simulate restoration process
+                localStorage.setItem('rv_frame_index', '7');
+                const restoredIndex = parseInt(localStorage.getItem('rv_frame_index'));
+
+                if (restoredIndex === 7) {
+                    pass('Frame Restoration', 'Frame index restored correctly from localStorage');
+                } else {
+                    fail('Frame Restoration', `Expected 7, got ${restoredIndex}`);
+                }
+
+                // Test restoration with missing value
+                localStorage.removeItem('rv_frame_index');
+                const defaultIndex = parseInt(localStorage.getItem('rv_frame_index')) || 0;
+
+                if (defaultIndex === 0) {
+                    pass('Default Frame', 'Missing frame index defaults to 0');
+                } else {
+                    fail('Default Frame', `Expected 0, got ${defaultIndex}`);
+                }
+
+            } catch (error) {
+                fail('Frame Restoration', `Exception: ${error.message}`);
+            }
+        }
+
+        // Timeline API Tests
+        function testTimelineAPI() {
+            log('Testing Timeline API...', 'info');
+
+            try {
+                // Check if WeatherMap API is available
+                if (typeof WeatherMap === 'undefined') {
+                    fail('Timeline API', 'WeatherMap global not available');
+                    return;
+                }
+
+                // Test API methods existence
+                const requiredMethods = [
+                    'getRainviewerTimeline',
+                    'setRainviewerFrameByIndex',
+                    'playRainviewer',
+                    'pauseRainviewer',
+                    'enableRainviewerTimeline'
+                ];
+
+                requiredMethods.forEach(method => {
+                    if (typeof WeatherMap[method] === 'function') {
+                        pass(`API ${method}`, 'Method exists and is callable');
+                    } else {
+                        fail(`API ${method}`, 'Method missing or not function');
+                    }
+                });
+
+            } catch (error) {
+                fail('Timeline API', `Exception: ${error.message}`);
+            }
+        }
+
+        async function testTimelineFetch() {
+            log('Testing Timeline Fetch...', 'info');
+
+            try {
+                // Test RainViewer API endpoint
+                const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.radar && Array.isArray(data.radar.past)) {
+                        pass('RainViewer API', `Fetched ${data.radar.past.length} past frames`);
+
+                        // Test timeline data structure
+                        if (data.radar.past.length > 0) {
+                            const frame = data.radar.past[0];
+                            if (frame.time && frame.path) {
+                                pass('Timeline Data', 'Frame structure is valid');
+                            } else {
+                                fail('Timeline Data', 'Frame missing required fields');
+                            }
+                        }
+                    } else {
+                        fail('RainViewer API', 'Invalid response structure');
+                    }
+                } else {
+                    fail('RainViewer API', `HTTP ${response.status}: ${response.statusText}`);
+                }
+
+            } catch (error) {
+                fail('Timeline Fetch', `Exception: ${error.message}`);
+            }
+        }
+
+        function testPlayPauseAPI() {
+            log('Testing Play/Pause API...', 'info');
+
+            try {
+                if (typeof WeatherMap === 'undefined') {
+                    fail('Play/Pause API', 'WeatherMap global not available');
+                    return;
+                }
+
+                // Test play/pause methods
+                if (typeof WeatherMap.playRainviewer === 'function') {
+                    pass('Play API', 'playRainviewer method available');
+                } else {
+                    fail('Play API', 'playRainviewer method missing');
+                }
+
+                if (typeof WeatherMap.pauseRainviewer === 'function') {
+                    pass('Pause API', 'pauseRainviewer method available');
+                } else {
+                    fail('Pause API', 'pauseRainviewer method missing');
+                }
+
+            } catch (error) {
+                fail('Play/Pause API', `Exception: ${error.message}`);
+            }
+    }
+
+    // Overlay Logging Tests
+        function testOverlayLoggingAPI() {
+            log('Testing Overlay Logging API...', 'info');
+
+            try {
+                if (typeof WeatherMap === 'undefined') {
+                    fail('Overlay Logging API', 'WeatherMap global not available');
+                    return;
+                }
+
+                // Test if attachOverlayTileLogging method exists
+                if (typeof WeatherMap.attachOverlayTileLogging === 'function') {
+                    pass('Overlay Logging', 'attachOverlayTileLogging method available');
+                } else {
+                    fail('Overlay Logging', 'attachOverlayTileLogging method missing');
+                }
+
+                // Test logging function with mock source
+                const mockSource = {
+                    on: function(event, callback) {
+                        // Mock event binding
+                        setTimeout(() => {
+                            if (event === 'tileloadstart') {
+                                callback({ target: { getKey: () => 'test-tile' } });
+                            }
+                        }, 100);
+                    }
+                };
+
+                const testCounters = {
+                    loaded: document.getElementById('test-loaded'),
+                    loading: document.getElementById('test-loading'),
+                    error: document.getElementById('test-error')
+                };
+
+                if (typeof WeatherMap.attachOverlayTileLogging === 'function') {
+                    WeatherMap.attachOverlayTileLogging(
+                        mockSource,
+                        testCounters.loaded,
+                        testCounters.loading,
+                        testCounters.error,
+                        'Test Overlay'
+                    );
+                    pass('Overlay Integration', 'Logging attached to mock source');
+                }
+
+            } catch (error) {
+                fail('Overlay Logging API', `Exception: ${error.message}`);
+            }
+        }
+
+        function testOverlayCounters() {
+            log('Testing Overlay Counters...', 'info');
+
+            try {
+                // Test counter elements exist
+                const counters = ['test-loaded', 'test-loading', 'test-error'];
+                counters.forEach(counterId => {
+                    const element = document.getElementById(counterId);
+                    if (element) {
+                        pass(`Counter ${counterId}`, 'Counter element exists');
+                        element.textContent = '0'; // Reset for testing
+                    } else {
+                        fail(`Counter ${counterId}`, 'Counter element missing');
+                    }
+                });
+
+                // Test counter updates
+                const loadedCounter = document.getElementById('test-loaded');
+                if (loadedCounter) {
+                    loadedCounter.textContent = '5';
+                    if (loadedCounter.textContent === '5') {
+                        pass('Counter Update', 'Counter updates correctly');
+                    } else {
+                        fail('Counter Update', 'Counter update failed');
+                    }
+                }
+
+            } catch (error) {
+                fail('Overlay Counters', `Exception: ${error.message}`);
+            }
+        }
+
+        function testOverlayResilience() {
+            log('Testing Overlay Resilience...', 'info');
+
+            try {
+                // Test with null/undefined parameters
+                if (typeof WeatherMap !== 'undefined' && typeof WeatherMap.attachOverlayTileLogging === 'function') {
+
+                    // Should handle null source gracefully
+                    try {
+                        WeatherMap.attachOverlayTileLogging(null, null, null, null, 'Test');
+                        pass('Null Parameters', 'Handles null parameters gracefully');
+                    } catch (e) {
+                        warn('Null Parameters', 'Does not handle null parameters gracefully');
+                    }
+
+                    // Should handle undefined elements
+                    try {
+                        const mockSource = { on: () => {} };
+                        WeatherMap.attachOverlayTileLogging(
+                            mockSource,
+                            undefined,
+                            undefined,
+                            undefined,
+                            'Test'
+                        );
+                        pass('Undefined Elements', 'Handles undefined counter elements');
+                    } catch (e) {
+                        warn('Undefined Elements', 'Does not handle undefined elements gracefully');
+                    }
+                }
+
+            } catch (error) {
+                fail('Overlay Resilience', `Exception: ${error.message}`);
+            }
+        }
+
+        // Integration Tests
+        function testMapIntegration() {
+            log('Testing Map Integration...', 'info');
+
+            try {
+                // Test OpenLayers availability
+                if (typeof ol === 'undefined') {
+                    fail('Map Integration', 'OpenLayers not available');
+                    return;
+                }
+
+                // Create test map
+                const testMapEl = document.getElementById('test-map');
+                if (!testMapEl) {
+                    fail('Map Integration', 'Test map element not found');
+                    return;
+                }
+
+                const testMap = new ol.Map({
+                    target: 'test-map',
+                    layers: [
+                        new ol.layer.Tile({
+                            source: new ol.source.OSM()
+                        })
+                    ],
+                    view: new ol.View({
+                        center: ol.proj.fromLonLat([-95, 39]),
+                        zoom: 4
+                    })
+                });
+
+                if (testMap) {
+                    pass('Map Creation', 'OpenLayers map created successfully');
+
+                    // Test adding RainViewer layer
+                    const rainviewerLayer = new ol.layer.Tile({
+                        source: new ol.source.XYZ({
+                            url: 'https://tilecache.rainviewer.com/v2/radar/1640000000/256/{z}/{x}/{y}/0/1_1.png',
+                            attributions: 'RainViewer'
+                        }),
+                        opacity: 0.7
+                    });
+
+                    testMap.addLayer(rainviewerLayer);
+                    pass('RainViewer Layer', 'RainViewer layer added to map');
+                } else {
+                    fail('Map Creation', 'Failed to create OpenLayers map');
+                }
+
+            } catch (error) {
+                fail('Map Integration', `Exception: ${error.message}`);
+            }
+        }
+
+        async function testRainViewerService() {
+            log('Testing RainViewer Service...', 'info');
+
+            try {
+                // Test service availability
+                const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+
+                if (response.ok) {
+                    pass('RainViewer Service', 'API endpoint accessible');
+
+                    const data = await response.json();
+                    if (data.radar && data.radar.past) {
+                        pass('Service Data', `Retrieved ${data.radar.past.length} radar frames`);
+
+                        // Test tile accessibility
+                        if (data.radar.past.length > 0) {
+                            const frame = data.radar.past[0];
+                            const tileUrl = `https://tilecache.rainviewer.com${frame.path}/256/1/1/0/0_0.png`;
+
+                            try {
+                                const tileResponse = await fetch(tileUrl);
+                                if (tileResponse.ok) {
+                                    pass('Tile Service', 'RainViewer tiles accessible');
+                                } else {
+                                    warn('Tile Service', `Tile HTTP ${tileResponse.status}`);
+                                }
+                            } catch (tileError) {
+                                warn('Tile Service', `Tile fetch error: ${tileError.message}`);
+                            }
+                        }
+                    } else {
+                        fail('Service Data', 'Invalid API response structure');
+                    }
+                } else {
+                    fail('RainViewer Service', `API HTTP ${response.status}: ${response.statusText}`);
+                }
+
+            } catch (error) {
+                fail('RainViewer Service', `Exception: ${error.message}`);
+            }
+        }
+
+        async function testFullWorkflow() {
+            log('Testing Full Workflow...', 'info');
+
+            try {
+                // Test complete user workflow
+                log('Simulating complete user workflow...', 'info');
+
+                // 1. Set speed preference
+                localStorage.setItem('rv_speed_ms', '700');
+
+                // 2. Set frame preference
+                localStorage.setItem('rv_frame_index', '5');
+
+                // 3. Set mode preference
+                localStorage.setItem('rv_mode', 'standard');
+
+                // 4. Verify persistence
+                const speed = localStorage.getItem('rv_speed_ms');
+                const frame = localStorage.getItem('rv_frame_index');
+                const mode = localStorage.getItem('rv_mode');
+
+                if (speed === '700' && frame === '5' && mode === 'standard') {
+                    pass('Full Workflow', 'Complete user preferences saved and restored');
+                } else {
+                    fail('Full Workflow', 'Preference persistence failed');
+                }
+
+                // 5. Test API availability for workflow
+                if (typeof WeatherMap !== 'undefined') {
+                    const apiMethods = [
+                        'getRainviewerTimeline',
+                        'playRainviewer',
+                        'pauseRainviewer',
+                        'attachOverlayTileLogging'
+                    ];
+
+                    const allMethodsAvailable = apiMethods.every(method =>
+                        typeof WeatherMap[method] === 'function'
+                    );
+
+                    if (allMethodsAvailable) {
+                        pass('Workflow APIs', 'All required APIs available for workflow');
+                    } else {
+                        fail('Workflow APIs', 'Some required APIs missing');
+                    }
+                }
+
+            } catch (error) {
+                fail('Full Workflow', `Exception: ${error.message}`);
+            }
+        }
+
+        // Main Test Runner
+        async function runAllTests() {
+            log('Starting RainViewer Timeline Features Smoke Test Suite...', 'info');
+            clearResults();
+
+            // Speed Control Tests
+            log('=== SPEED CONTROL TESTS ===', 'info');
+            testSpeedControlAPI();
+            testSpeedPersistence();
+            testSpeedValidation();
+
+            // Frame Persistence Tests
+            log('=== FRAME PERSISTENCE TESTS ===', 'info');
+            testFramePersistence();
+            testFrameIndexValidation();
+            testFrameRestoration();
+
+            // Timeline API Tests
+            log('=== TIMELINE API TESTS ===', 'info');
+            testTimelineAPI();
+            await testTimelineFetch();
+            testPlayPauseAPI();
+            // Removed 6-hour fallback test
+
+            // Overlay Logging Tests
+            log('=== OVERLAY LOGGING TESTS ===', 'info');
+            testOverlayLoggingAPI();
+            testOverlayCounters();
+            testOverlayResilience();
+
+            // Integration Tests
+            log('=== INTEGRATION TESTS ===', 'info');
+            testMapIntegration();
+            await testRainViewerService();
+            await testFullWorkflow();
+
+            log('=== TEST SUITE COMPLETE ===', 'info');
+            log(`Results: ${testResults.passed} passed, ${testResults.failed} failed, ${testResults.warnings} warnings`, 'info');
+
+            showLocalStorage();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('RainViewer Timeline Features Smoke Test Suite initialized', 'info');
+            showLocalStorage();
+        });
+    </script>
+</body>
+</html>

@@ -133,6 +133,7 @@
             border-radius: 3px;
             background: #374151;
             outline: none;
+            appearance: none;
             -webkit-appearance: none;
             box-sizing: border-box;
         }
@@ -392,6 +393,17 @@
                         <button class="btn" id="rv-play">Play</button>
                         <button class="btn" id="rv-pause">Pause</button>
                     </div>
+                    <div style="display:flex; gap:8px; align-items:center; width:100%;">
+                        <label for="rv-speed" style="font-size:0.9rem; color:#a1a1aa;">Speed</label>
+                        <select id="rv-speed" style="flex:1; padding:6px; background:#111827; color:#e5e7eb; border:1px solid #374151; border-radius:6px;">
+                            <option value="400">Fast</option>
+                            <option value="700">Normal</option>
+                            <option value="1000">Slow</option>
+                        </select>
+                        <label style="display:flex; align-items:center; gap:6px;">
+                            <input type="checkbox" id="rv-2h"> 2-hour loop
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -555,6 +567,8 @@
             const rvSelect = document.getElementById('rv-time');
             const rvPlay = document.getElementById('rv-play');
             const rvPause = document.getElementById('rv-pause');
+            const rvSpeed = document.getElementById('rv-speed');
+            const rv2h = document.getElementById('rv-2h');
             if (rvSelect) {
                 window.WeatherRadarInit.enableRainviewerTimeline(weatherMap).then((frames) => {
                     rvSelect.innerHTML = '';
@@ -564,12 +578,18 @@
                     }
                     frames.forEach((f, idx) => {
                         const opt = document.createElement('option');
-                        const ts = f.time ? new Date(f.time * 1000).toISOString().replace('T',' ').slice(0,16) : (f.path || idx);
+                        let ts;
+                        if (f.time) {
+                            ts = new Date(f.time * 1000).toISOString().replace('T',' ').slice(0,16);
+                        } else {
+                            ts = f.path || idx;
+                        }
                         opt.value = String(idx);
                         opt.textContent = ts;
                         rvSelect.appendChild(opt);
                     });
-                    rvSelect.value = String(frames.length - 1);
+                    const saved = localStorage.getItem('rv_frame_index');
+                    rvSelect.value = saved !== null ? saved : String(frames.length - 1);
                 });
 
                 rvSelect.addEventListener('change', (e) => {
@@ -581,12 +601,43 @@
             }
             rvPlay?.addEventListener('click', () => {
                 const state = weatherMap.__radarState;
-                window.WeatherRadarInit.playRainviewer(weatherMap, state, 700);
+                const ms = Number(localStorage.getItem('rv_speed_ms')) || 700;
+                window.WeatherRadarInit.playRainviewer(weatherMap, state, ms);
             });
             rvPause?.addEventListener('click', () => {
                 const state = weatherMap.__radarState;
                 window.WeatherRadarInit.pauseRainviewer(weatherMap, state);
             });
+
+            // Speed control
+            if (rvSpeed) {
+                const saved = localStorage.getItem('rv_speed_ms');
+                if (saved) rvSpeed.value = saved;
+                rvSpeed.addEventListener('change', (e) => {
+                    const ms = Number(e.target.value);
+                    localStorage.setItem('rv_speed_ms', String(ms));
+                    const state = weatherMap.__radarState;
+                    if (state?.rv?.playing) {
+                        window.WeatherRadarInit.playRainviewer(weatherMap, state, ms);
+                    }
+                });
+            }
+
+            // 2-hour toggle (default enabled)
+            if (rv2h) {
+                rv2h.checked = true; // Always enabled for 2-hour mode
+                localStorage.setItem('rv_mode', '2h'); // Ensure 2h mode is set
+                rv2h.addEventListener('change', (e) => {
+                    // 2-hour mode is always active, this just provides user feedback
+                    localStorage.setItem('rv_mode', '2h');
+                    const state = weatherMap.__radarState;
+                    window.debugRadar?.setMode?.('2h');
+                    window.WeatherRadarInit.enableRainviewerTimeline(weatherMap).then(() => {
+                        const saved = localStorage.getItem('rv_frame_index');
+                        if (saved && rvSelect) rvSelect.value = saved;
+                    });
+                });
+            }
 
             console.log('✅ Modern controls setup complete');
         }
