@@ -439,7 +439,7 @@ window.WeatherRadarInit = (function() {
                 radar: { start: 0, ok: 0, err: 0 },
                 startedAt: Date.now(),
                 radarSource: "NEXRAD",
-                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 8000, mode: localStorage.getItem("rv_mode") || "2h", transitioning: false, transitionStartAt: 0, lastAdvanceAt: 0, crossfadeDurationMs: Number(localStorage.getItem("rv_crossfade_ms")) || 4000 },
+                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 8000, mode: localStorage.getItem("rv_mode") || "2h", transitioning: false, transitionStartAt: 0, lastAdvanceAt: 0, crossfadeDurationMs: Number(localStorage.getItem("rv_crossfade_ms")) || 3000 },
                 fallback: { active: false, lastAt: 0, count: 0 },
                 overlays: {}
             };
@@ -626,7 +626,7 @@ window.WeatherRadarInit = (function() {
                     status: () => ({ ...state }),
                     setSpeed: (ms) => { state.rv.speedMs = Number(ms)||700; try{localStorage.setItem("rv_speed_ms", String(state.rv.speedMs));}catch(_){}} ,
                     setMode: (mode) => { state.rv.mode = mode; try{localStorage.setItem("rv_mode", mode);}catch(_){}} ,
-                    setCrossfade: (ms) => { state.rv.crossfadeDurationMs = Number(ms)||4000; try{localStorage.setItem("rv_crossfade_ms", String(state.rv.crossfadeDurationMs));}catch(_){}} ,
+                    setCrossfade: (ms) => { state.rv.crossfadeDurationMs = Number(ms)||3000; try{localStorage.setItem("rv_crossfade_ms", String(state.rv.crossfadeDurationMs));}catch(_){}} ,
                 };
             }
 
@@ -751,7 +751,7 @@ window.WeatherRadarInit = (function() {
 
                 // Wait for at least a few tiles to load on the new source, or fallback after a timeout
                 const targetOpacity = 0.7;
-                const duration = (stateRef?.rv?.crossfadeDurationMs) || 4000;
+                const duration = (stateRef?.rv?.crossfadeDurationMs) || 3000;
                 stateRef.rv.transitioning = true;
                 stateRef.rv.transitionStartAt = Date.now();
 
