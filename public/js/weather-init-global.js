@@ -137,19 +137,22 @@ window.WeatherRadarInit = (function() {
             });
             console.log("✅ Service Worker registered:", registration.scope);
 
-            // Set up message channel
-            const messageChannel = new MessageChannel();
-            messageChannel.port1.onmessage = (event) => {
-                if (event.data.status === "ready") {
-                    console.log("Service Worker is ready");
-                }
-            };
-
-            // Send init message
-            registration.active?.postMessage(
-                { type: "INIT" },
-                [messageChannel.port2]
-            );
+            // Setup communication if SW is already active
+            if (registration.active) {
+                console.log("Service Worker is ready");
+            } else {
+                // Wait for SW to become active
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'activated') {
+                                console.log("Service Worker is ready");
+                            }
+                        });
+                    }
+                });
+            }
 
         } catch (error) {
             console.warn("Service Worker registration skipped due to error:", error);
@@ -434,7 +437,7 @@ window.WeatherRadarInit = (function() {
                 radar: { start: 0, ok: 0, err: 0 },
                 startedAt: Date.now(),
                 radarSource: "NEXRAD",
-                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 5000, mode: localStorage.getItem("rv_mode") || "2h", transitioning: false, crossfadeDurationMs: 2000 },
+                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 8000, mode: localStorage.getItem("rv_mode") || "2h", transitioning: false, crossfadeDurationMs: Number(localStorage.getItem("rv_crossfade_ms")) || 4000 },
                 fallback: { active: false, lastAt: 0, count: 0 },
                 overlays: {}
             };
@@ -612,6 +615,7 @@ window.WeatherRadarInit = (function() {
                     status: () => ({ ...state }),
                     setSpeed: (ms) => { state.rv.speedMs = Number(ms)||700; try{localStorage.setItem("rv_speed_ms", String(state.rv.speedMs));}catch(_){}} ,
                     setMode: (mode) => { state.rv.mode = mode; try{localStorage.setItem("rv_mode", mode);}catch(_){}} ,
+                    setCrossfade: (ms) => { state.rv.crossfadeDurationMs = Number(ms)||4000; try{localStorage.setItem("rv_crossfade_ms", String(state.rv.crossfadeDurationMs));}catch(_){}} ,
                 };
             }
 
@@ -713,7 +717,7 @@ window.WeatherRadarInit = (function() {
 
                 // Wait for at least a few tiles to load on the new source, or fallback after a timeout
                 const targetOpacity = 0.7;
-                const duration = (stateRef?.rv?.crossfadeDurationMs) || 800;
+                const duration = (stateRef?.rv?.crossfadeDurationMs) || 4000;
                 stateRef.rv.transitioning = true;
 
                 let done = false;
@@ -732,12 +736,12 @@ window.WeatherRadarInit = (function() {
 
                 try {
                     let toOk = 0;
-                    const minTiles = 2; // require at least a couple of tiles before fading
+                    const minTiles = 3; // require at least a few tiles before fading
                     const onLoadEnd = () => {
                         toOk++;
                         if (toOk >= minTiles) {
-                            // Small delay to allow a few tiles to land
-                            setTimeout(maybeStart, 120);
+                            // Longer delay to allow more tiles to land for smoother transitions
+                            setTimeout(maybeStart, 300);
                             try { src.un('tileloadend', onLoadEnd); } catch (_) {}
                         }
                     };
@@ -745,7 +749,7 @@ window.WeatherRadarInit = (function() {
                 } catch (_) { /* ignore */ }
 
                 // Fallback: if nothing loads in time, either skip frame or force a gentle fade
-                const maxWait = Math.min(6000, Math.max(900, Math.floor((stateRef?.rv?.speedMs || 5000) * 0.9)));
+                const maxWait = Math.min(8000, Math.max(1500, Math.floor((stateRef?.rv?.speedMs || 8000) * 0.9)));
                     setTimeout(() => {
                     if (!done) {
                         // If still nothing loaded, consider skipping this frame once
@@ -784,7 +788,7 @@ window.WeatherRadarInit = (function() {
             const mapObj = map;
             if (!stateRef?.rv?.frames?.length) return;
             pauseRainviewer(map, stateRef);
-            const ms = Number(speedMs || stateRef.rv.speedMs || 5000);
+            const ms = Number(speedMs || stateRef.rv.speedMs || 8000);
             stateRef.rv.speedMs = ms;
             try { localStorage.setItem("rv_speed_ms", String(ms)); } catch(_){}
             stateRef.rv.playing = true;
@@ -801,7 +805,7 @@ window.WeatherRadarInit = (function() {
                         const next2 = (stateRef.rv.index + 1) % stateRef.rv.frames.length;
                         setRainviewerFrameByIndex(mapObj, next2, stateRef);
                     }
-                }, Math.max(900, Math.min(2000, Math.floor(ms * 0.6))));
+                }, Math.max(1500, Math.min(3000, Math.floor(ms * 0.6))));
             }, ms);
         } catch (e) {
             console.warn("Failed to start RainViewer playback", e);
@@ -1079,12 +1083,16 @@ window.WeatherRadarInit = (function() {
             const toEnd = targetOpacity;
             const fromEnd = 0;
 
-            function easeInOut(t){ return t<0.5 ? 2*t*t : -1+(4-2*t)*t; }
+            // Slower, more gradual easing for very smooth transitions
+            function easeInOutSlow(t) {
+                // Cubic ease-in-out with slower start/end
+                return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            }
 
             function step(ts) {
                 const elapsed = ts - start;
                 const t = Math.max(0, Math.min(1, elapsed / durationMs));
-                const e = easeInOut(t);
+                const e = easeInOutSlow(t);
                 const fromVal = fromStart + (fromEnd - fromStart) * e;
                 const toVal = toStart + (toEnd - toStart) * e;
                 try {
