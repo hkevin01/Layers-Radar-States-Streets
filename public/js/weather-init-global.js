@@ -437,7 +437,7 @@ window.WeatherRadarInit = (function() {
                 radar: { start: 0, ok: 0, err: 0 },
                 startedAt: Date.now(),
                 radarSource: "NEXRAD",
-                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 8000, mode: localStorage.getItem("rv_mode") || "2h", transitioning: false, crossfadeDurationMs: Number(localStorage.getItem("rv_crossfade_ms")) || 4000 },
+                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 8000, mode: localStorage.getItem("rv_mode") || "2h", transitioning: false, transitionStartAt: 0, lastAdvanceAt: 0, crossfadeDurationMs: Number(localStorage.getItem("rv_crossfade_ms")) || 4000 },
                 fallback: { active: false, lastAt: 0, count: 0 },
                 overlays: {}
             };
@@ -558,10 +558,19 @@ window.WeatherRadarInit = (function() {
             // Prefer RainViewer as the primary radar source
             // This will fetch the latest 2-hour timeline and set the most recent frame
             try {
-        enableRainviewerTimeline(map).then((frames) => {
+                enableRainviewerTimeline(map).then((frames) => {
                     if (Array.isArray(frames) && frames.length) {
                         const latestIdx = frames.length - 1;
-            setRainviewerFrameByIndex(map, latestIdx, map.__radarState);
+                        setRainviewerFrameByIndex(map, latestIdx, map.__radarState);
+                        // Autoplay the RainViewer timeline by default (can be disabled via ?autoplay=0)
+                        try {
+                            const sp = new URL(window.location.href).searchParams;
+                            const ap = String(sp.get("autoplay") || "").toLowerCase();
+                            const shouldAutoplay = !(ap === "0" || ap === "false");
+                            if (shouldAutoplay) {
+                                playRainviewer(map, map.__radarState, map.__radarState?.rv?.speedMs);
+                            }
+                        } catch (_) { /* no-op */ }
                         showErrorBanner("Using RainViewer radar by default");
                     } else {
                         console.warn("RainViewer frames unavailable; keeping NEXRAD until fallback triggers");
@@ -618,6 +627,27 @@ window.WeatherRadarInit = (function() {
                     setCrossfade: (ms) => { state.rv.crossfadeDurationMs = Number(ms)||4000; try{localStorage.setItem("rv_crossfade_ms", String(state.rv.crossfadeDurationMs));}catch(_){}} ,
                 };
             }
+
+            // Watchdog: if a transition lasts too long or no progress happens, unstick
+            try {
+                if (!window.__rvWatchdog) {
+                    window.__rvWatchdog = setInterval(() => {
+                        try {
+                            const st = map.__radarState?.rv;
+                            if (!st) return;
+                            const now = Date.now();
+                            // If transitioning for > 10s, force-finish
+                            if (st.transitioning && st.transitionStartAt && now - st.transitionStartAt > 10000) {
+                                st.transitioning = false;
+                                st.transitionStartAt = 0;
+                                // Nudge to next frame to avoid visual lock
+                                const next = (st.index + 1) % (st.frames?.length || 1);
+                                setRainviewerFrameByIndex(map, next, map.__radarState);
+                            }
+                        } catch (_) { /* no-op */ }
+                    }, 3000);
+                }
+            } catch (_) { /* noop */ }
 
             // Initial hide attempt (in case map paints immediately)
             maybeHideLoading(state, "init");
@@ -693,7 +723,6 @@ window.WeatherRadarInit = (function() {
             const src = new ol.source.XYZ({
                 url,
                 attributions: "© RainViewer",
-                crossOrigin: "anonymous",
                 maxZoom: 10
             });
 
@@ -719,6 +748,7 @@ window.WeatherRadarInit = (function() {
                 const targetOpacity = 0.7;
                 const duration = (stateRef?.rv?.crossfadeDurationMs) || 4000;
                 stateRef.rv.transitioning = true;
+                stateRef.rv.transitionStartAt = Date.now();
 
                 let done = false;
                 const maybeStart = () => {
@@ -731,6 +761,7 @@ window.WeatherRadarInit = (function() {
                             toLayer.setOpacity(targetOpacity);
                         } catch (_) { /* noop */ }
                         stateRef.rv.transitioning = false;
+                        stateRef.rv.transitionStartAt = 0;
                     });
                 };
 
@@ -757,6 +788,8 @@ window.WeatherRadarInit = (function() {
                                 const next2 = i < (frames.length - 1) ? (i + 1) : i;
                             // Mark current transition finished before jumping
                             stateRef.rv.transitioning = false;
+                            stateRef.rv.transitionStartAt = 0;
+                                stateRef.rv.lastAdvanceAt = Date.now();
                             setRainviewerFrameByIndex(mapObj, next2, stateRef);
                         } else {
                             maybeStart();
