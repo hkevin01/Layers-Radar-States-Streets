@@ -33,7 +33,7 @@
       "name": "Current Radar",
       "short_name": "Current",
       "description": "View current NEXRAD weather radar",
-  "url": "/public/weather-radar.html#current",
+      "url": "/public/weather-radar.html#current",
       "icons": [
         {
           "src": "/assets/icons/current-radar.png",
@@ -45,7 +45,7 @@
       "name": "Radar Animation",
       "short_name": "Animation",
       "description": "View animated radar timeline",
-  "url": "/public/weather-radar.html#animation",
+      "url": "/public/weather-radar.html#animation",
       "icons": [
         {
           "src": "/assets/icons/animation-shortcut.png",
@@ -57,7 +57,7 @@
       "name": "Weather Alerts",
       "short_name": "Alerts",
       "description": "View active weather alerts",
-  "url": "/public/weather-radar.html#alerts",
+      "url": "/public/weather-radar.html#alerts",
       "icons": [
         {
           "src": "/assets/icons/alerts-shortcut.png",

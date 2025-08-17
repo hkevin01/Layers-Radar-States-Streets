@@ -104,10 +104,9 @@ window.WeatherRadarInit = (function() {
                 await registration.unregister();
             }
 
-            // Pick a service worker script that is actually served with a JavaScript MIME type
+                        // Pick a service worker script that is actually served with a JavaScript MIME type
             const candidates = ["/public/sw.js", "/sw.js"]; // prefer /public
             let chosen = null;
-            let chosenBlobUrl = null;
             for (const path of candidates) {
                 try {
                     const resp = await fetch(path, { cache: 'no-store' });
@@ -115,15 +114,13 @@ window.WeatherRadarInit = (function() {
                     const ct = (resp.headers.get('content-type') || '').toLowerCase();
                     const text = await resp.text();
                     const looksHtml = /^\s*<!doctype|^\s*<html|^\s*<head|^\s*<body/i.test(text);
-                    const looksJs = /self\.|addEventListener\(\s*['"](install|activate|fetch)['"]\)/i.test(text);
+                    const looksJs = /self\.|addEventListener\(\s*['"](install|activate|fetch)['"]/i.test(text);
                     if (looksHtml) { console.warn(`Skipping SW at ${path}: response looks like HTML`); continue; }
                     if (!/javascript|ecmascript|text\/plain|application\/x-javascript/.test(ct) && !looksJs) {
                         console.warn(`Skipping SW at ${path}: content-type not JS-like and code doesn't look like SW`);
                         continue;
                     }
-                    // Use a Blob URL from the fetched body to ensure we register exactly what we validated
-                    const blob = new Blob([text], { type: 'application/javascript' });
-                    chosenBlobUrl = URL.createObjectURL(blob);
+                    // Validated as JavaScript-like content
                     chosen = path;
                     break;
                 } catch (_) { /* try next */ }
@@ -134,7 +131,8 @@ window.WeatherRadarInit = (function() {
             }
 
             // Register new service worker with correct scope
-            const registration = await navigator.serviceWorker.register(chosenBlobUrl || chosen, {
+            // Note: Cannot use blob URLs for SW registration, so use original path if validated
+            const registration = await navigator.serviceWorker.register(chosen, {
                 scope: "/public/"
             });
             console.log("✅ Service Worker registered:", registration.scope);
@@ -174,7 +172,7 @@ window.WeatherRadarInit = (function() {
                 throw new Error("OpenLayers not loaded - ensure ol.js is included before this script");
             }
 
-            console.log("✅ OpenLayers found:", ol.VERSION);
+            console.log("✅ OpenLayers found:", ol.VERSION || "version unavailable");
 
             // Build base layers
             const osmLayer = new ol.layer.Tile({
