@@ -3,9 +3,9 @@
  * Provides offline functionality, caching, and background sync
  */
 
-const CACHE_NAME = "radar-map-v2.1.0";
-const STATIC_CACHE = "radar-static-v2.1.0";
-const DYNAMIC_CACHE = "radar-dynamic-v2.1.0";
+const CACHE_NAME = "radar-map-v6.0.0";
+const STATIC_CACHE = "radar-static-v6.0.0";
+const DYNAMIC_CACHE = "radar-dynamic-v6.0.0";
 
 // Files to cache for offline usage
 const STATIC_FILES = [
@@ -303,15 +303,7 @@ async function syncRadarData() {
     if (response.ok) {
       const cache = await caches.open(DYNAMIC_CACHE);
       cache.put("/api/radar/latest", response.clone());
-
-      // Notify clients of update
-      const clients = await self.clients.matchAll();
-      clients.forEach(client => {
-        client.postMessage({
-          type: "RADAR_DATA_UPDATED",
-          timestamp: Date.now()
-        });
-      });
+      console.log("Radar data updated in cache");
     }
   } catch (error) {
     console.error("Background radar sync failed:", error);

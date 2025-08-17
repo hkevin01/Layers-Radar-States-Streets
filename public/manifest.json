@@ -13,8 +13,14 @@
   "categories": ["weather", "maps", "utilities"],
   "icons": [
     {
-      "src": "/assets/icons/icon-144x144.png",
-      "sizes": "144x144",
+      "src": "/icons/radar-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/radar-icon-512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }
@@ -36,8 +42,8 @@
       "url": "/public/weather-radar.html#current",
       "icons": [
         {
-          "src": "/assets/icons/current-radar.png",
-          "sizes": "96x96"
+          "src": "/icons/radar-icon-192.png",
+          "sizes": "192x192"
         }
       ]
     },
@@ -48,20 +54,8 @@
       "url": "/public/weather-radar.html#animation",
       "icons": [
         {
-          "src": "/assets/icons/animation-shortcut.png",
-          "sizes": "96x96"
-        }
-      ]
-    },
-    {
-      "name": "Weather Alerts",
-      "short_name": "Alerts",
-      "description": "View active weather alerts",
-      "url": "/public/weather-radar.html#alerts",
-      "icons": [
-        {
-          "src": "/assets/icons/alerts-shortcut.png",
-          "sizes": "96x96"
+          "src": "/icons/radar-icon-192.png",
+          "sizes": "192x192"
         }
       ]
     }
