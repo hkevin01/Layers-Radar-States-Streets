@@ -388,11 +388,13 @@ window.WeatherRadarInit = (function() {
             // Create a second radar layer (for crossfade). It sits above the primary radar layer.
             try {
                 const radarPrimary = map.getLayers().item(map.getLayers().getLength() - 1);
+                try { if (typeof radarPrimary.setPreload === 'function') radarPrimary.setPreload(1); } catch (_) { /* no-op */ }
                 const radarSecondary = new ol.layer.Tile({
                     source: null,
                     opacity: 0,
                     visible: true,
-                    name: "radar2"
+                    name: "radar2",
+                    preload: 1
                 });
                 // Ensure map reference is available to helpers
                 radarPrimary.set('mapRef', map);
@@ -723,7 +725,9 @@ window.WeatherRadarInit = (function() {
             const src = new ol.source.XYZ({
                 url,
                 attributions: "© RainViewer",
-                maxZoom: 10
+                maxZoom: 10,
+                // Disable OL's internal tile fade so our crossfade controls visual blending
+                transition: 0
             });
 
             // Apply cache-buster to the new source immediately
@@ -739,6 +743,7 @@ window.WeatherRadarInit = (function() {
 
                 // Set new source on the toLayer
                 toLayer.setSource(src);
+                // Keep the new layer completely invisible until tiles load
                 toLayer.setOpacity(0);
                 toLayer.setVisible(true);
                 // Bind listeners for tile logging/counters
@@ -767,12 +772,14 @@ window.WeatherRadarInit = (function() {
 
                 try {
                     let toOk = 0;
-                    const minTiles = 3; // require at least a few tiles before fading
+                    const minTiles = 5; // Wait for more tiles to ensure smooth transition
                     const onLoadEnd = () => {
                         toOk++;
                         if (toOk >= minTiles) {
+                            // Set initial opacity only after tiles are ready
+                            toLayer.setOpacity(0.001);
                             // Longer delay to allow more tiles to land for smoother transitions
-                            setTimeout(maybeStart, 300);
+                            setTimeout(maybeStart, 500);
                             try { src.un('tileloadend', onLoadEnd); } catch (_) {}
                         }
                     };
@@ -783,15 +790,19 @@ window.WeatherRadarInit = (function() {
                 const maxWait = Math.min(8000, Math.max(1500, Math.floor((stateRef?.rv?.speedMs || 8000) * 0.9)));
                     setTimeout(() => {
                     if (!done) {
-                        // If still nothing loaded, consider skipping this frame once
+                        // If still nothing loaded, keep old layer visible and skip this frame
                         if (frames.length > 1) {
-                                const next2 = i < (frames.length - 1) ? (i + 1) : i;
+                            // Ensure old layer stays visible
+                            try { fromLayer.setOpacity(0.7); toLayer.setOpacity(0); } catch (_) {}
+                            const next2 = i < (frames.length - 1) ? (i + 1) : i;
                             // Mark current transition finished before jumping
                             stateRef.rv.transitioning = false;
                             stateRef.rv.transitionStartAt = 0;
                                 stateRef.rv.lastAdvanceAt = Date.now();
                             setRainviewerFrameByIndex(mapObj, next2, stateRef);
                         } else {
+                            // Force start with minimal opacity on new layer
+                            toLayer.setOpacity(0.001);
                             maybeStart();
                         }
                     }
@@ -1112,7 +1123,7 @@ window.WeatherRadarInit = (function() {
             if (map.__rvAnimId) { try { cancelAnimationFrame(map.__rvAnimId); } catch (_) {} }
             const start = performance.now();
             const fromStart = Number(fromLayer.getOpacity() ?? 0.7);
-            const toStart = Number(toLayer.getOpacity() ?? 0);
+            const toStart = Number(toLayer.getOpacity() ?? 0.001);
             const toEnd = targetOpacity;
             const fromEnd = 0;
 
@@ -1126,8 +1137,24 @@ window.WeatherRadarInit = (function() {
                 const elapsed = ts - start;
                 const t = Math.max(0, Math.min(1, elapsed / durationMs));
                 const e = easeInOutSlow(t);
-                const fromVal = fromStart + (fromEnd - fromStart) * e;
-                const toVal = toStart + (toEnd - toStart) * e;
+                let fromVal = fromStart + (fromEnd - fromStart) * e;
+                let toVal = toStart + (toEnd - toStart) * e;
+
+                // Strong overlap guard: ensure significant visibility from old layer
+                // until new layer is substantially loaded
+                const minFromFloor = Math.min(0.25, targetOpacity * 0.4);
+                const toReadyThreshold = targetOpacity * 0.6;
+                if (toVal < toReadyThreshold) {
+                    fromVal = Math.max(fromVal, minFromFloor);
+                }
+
+                // Additional guard: never let both layers go below a combined minimum
+                const combinedOpacity = fromVal + toVal;
+                if (combinedOpacity < 0.3) {
+                    const boost = 0.3 - combinedOpacity;
+                    fromVal += boost * 0.7; // Favor keeping old layer visible
+                    toVal += boost * 0.3;
+                }
                 try {
                     fromLayer.setOpacity(fromVal);
                     toLayer.setOpacity(toVal);
@@ -1136,16 +1163,29 @@ window.WeatherRadarInit = (function() {
                     map.__rvAnimId = requestAnimationFrame(step);
                 } else {
                     try {
-                        fromLayer.setOpacity(fromEnd);
+                        // Finalize ensuring the new layer is fully visible
                         toLayer.setOpacity(toEnd);
+                        fromLayer.setOpacity(fromEnd);
                     } catch (_) {}
                     onDone?.();
                 }
             }
             map.__rvAnimId = requestAnimationFrame(step);
         } catch (_) {
-            // If anything goes wrong, jump to end state
-            try { fromLayer?.setOpacity(0); toLayer?.setOpacity(targetOpacity); } catch (_) {}
+            // If anything goes wrong, ensure old layer stays visible until recovery
+            try {
+                if (fromLayer && toLayer) {
+                    // Keep old layer visible if new layer isn't ready
+                    const toOpacity = toLayer.getOpacity() || 0;
+                    if (toOpacity < targetOpacity * 0.5) {
+                        fromLayer.setOpacity(Math.max(0.3, targetOpacity * 0.5));
+                        toLayer.setOpacity(0);
+                    } else {
+                        fromLayer.setOpacity(0);
+                        toLayer.setOpacity(targetOpacity);
+                    }
+                }
+            } catch (_) {}
             onDone?.();
         }
     }

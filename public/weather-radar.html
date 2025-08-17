@@ -207,10 +207,20 @@
         async function initializeApp() {
             try {
                 updateLoadingStatus('Registering service worker...');
-                await registerServiceWorker();
+                const regFn = window.registerServiceWorker || window.WeatherRadarInit?.registerServiceWorker;
+                if (typeof regFn === 'function') {
+                    await regFn();
+                } else {
+                    console.warn('registerServiceWorker not found; continuing without SW');
+                }
 
                 updateLoadingStatus('Initializing weather map...');
-                weatherMap = await initializeWeatherMap();
+                const initFn = window.initializeWeatherMap || window.WeatherRadarInit?.initializeWeatherMap;
+                if (typeof initFn === 'function') {
+                    weatherMap = await initFn();
+                } else {
+                    throw new Error('initializeWeatherMap not available');
+                }
 
                 updateLoadingStatus('Setting up controls...');
                 setupControls();
