@@ -104,8 +104,23 @@ window.WeatherRadarInit = (function() {
                 await registration.unregister();
             }
 
+            // Pick a service worker script that is actually served with a JavaScript MIME type
+            const candidates = ["/public/sw.js", "/sw.js"]; // prefer /public
+            let chosen = null;
+            for (const path of candidates) {
+                try {
+                    const resp = await fetch(path, { cache: 'no-store' });
+                    const ct = resp.headers.get('content-type') || '';
+                    if (resp.ok && /javascript|ecmascript/.test(ct)) { chosen = path; break; }
+                } catch (_) { /* try next */ }
+            }
+            if (!chosen) {
+                console.warn("Skipping Service Worker registration: sw.js not served as JavaScript");
+                return;
+            }
+
             // Register new service worker with correct scope
-            const registration = await navigator.serviceWorker.register("/public/sw.js", {
+            const registration = await navigator.serviceWorker.register(chosen, {
                 scope: "/public/"
             });
             console.log("✅ Service Worker registered:", registration.scope);
@@ -354,6 +369,26 @@ window.WeatherRadarInit = (function() {
                 ]
             });
 
+            // Create a second radar layer (for crossfade). It sits above the primary radar layer.
+            try {
+                const radarPrimary = map.getLayers().item(map.getLayers().getLength() - 1);
+                const radarSecondary = new ol.layer.Tile({
+                    source: null,
+                    opacity: 0,
+                    visible: true,
+                    name: "radar2"
+                });
+                // Ensure map reference is available to helpers
+                radarPrimary.set('mapRef', map);
+                radarSecondary.set('mapRef', map);
+                // Put the secondary radar on top
+                map.addLayer(radarSecondary);
+                // Track active layer for crossfade swaps
+                map.__rvLayers = { A: radarPrimary, B: radarSecondary, active: 'A' };
+            } catch (e) {
+                console.warn('Failed to create secondary radar layer for crossfade:', e);
+            }
+
             // If using MapTiler, attach error fallback to ESRI when repeated failures occur
             try {
                 if (mapTilerKey && mapTilerLayer && typeof mapTilerLayer.getSource === 'function') {
@@ -386,7 +421,7 @@ window.WeatherRadarInit = (function() {
                 radar: { start: 0, ok: 0, err: 0 },
                 startedAt: Date.now(),
                 radarSource: "NEXRAD",
-                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 700, mode: localStorage.getItem("rv_mode") || "2h" },
+                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 1200, mode: localStorage.getItem("rv_mode") || "2h" },
                 fallback: { active: false, lastAt: 0, count: 0 },
                 overlays: {}
             };
@@ -422,7 +457,7 @@ window.WeatherRadarInit = (function() {
             };
 
             // Attach tile event listeners for radar (with granular logs)
-            const radarLayer = map.getLayers().item(map.getLayers().getLength() - 1);
+            const radarLayer = map.__rvLayers ? map.__rvLayers.A : map.getLayers().item(map.getLayers().getLength() - 1);
             // Generic binder for tile logging on any overlay source
             const bindTileListenersToSource = (src, counters, label) => {
                 if (!src || src.__radarListenersBound) return;
@@ -468,6 +503,9 @@ window.WeatherRadarInit = (function() {
 
             const bindRadarListenersToSource = (src) => bindTileListenersToSource(src, state.radar, "radar");
 
+            // Expose binder for use by crossfade logic outside this init function
+            map.__bindRadarListenersToSource = (src) => bindRadarListenersToSource(src);
+
             const radarSource = radarLayer.getSource();
             bindRadarListenersToSource(radarSource);
 
@@ -483,8 +521,39 @@ window.WeatherRadarInit = (function() {
                 }
             });
 
+            // Also bind change:source for the secondary layer if present
+            try {
+                if (map.__rvLayers?.B) {
+                    map.__rvLayers.B.on('change:source', () => {
+                        try {
+                            const newSrc = map.__rvLayers.B.getSource();
+                            state.radar.start = 0; state.radar.ok = 0; state.radar.err = 0;
+                            bindRadarListenersToSource(newSrc);
+                        } catch (e) {
+                            console.warn('Failed to bind listeners to radar2 source', e);
+                        }
+                    });
+                }
+            } catch (e) { /* no-op */ }
+
             // Start periodic radar refresh (20s) with cache-busting
             startRadarAutoRefresh(radarLayer);
+
+            // Prefer RainViewer as the primary radar source
+            // This will fetch the latest 2-hour timeline and set the most recent frame
+            try {
+        enableRainviewerTimeline(map).then((frames) => {
+                    if (Array.isArray(frames) && frames.length) {
+                        const latestIdx = frames.length - 1;
+            setRainviewerFrameByIndex(map, latestIdx, map.__radarState);
+                        showErrorBanner("Using RainViewer radar by default");
+                    } else {
+                        console.warn("RainViewer frames unavailable; keeping NEXRAD until fallback triggers");
+                    }
+                }).catch((e) => console.warn("RainViewer default init failed", e));
+            } catch (e) {
+                console.warn("Failed to enable RainViewer by default", e);
+            }
 
             // Hide loading on first full render
             map.once("rendercomplete", () => {
@@ -578,6 +647,9 @@ window.WeatherRadarInit = (function() {
 
     function findRadarLayer(map) {
         if (!map) return null;
+        if (map.__rvLayers && (map.__rvLayers.active === 'A' || map.__rvLayers.active === 'B')) {
+            return map.__rvLayers[map.__rvLayers.active];
+        }
         const layers = map.getLayers().getArray();
         return layers.find((l) => l.get("name") === "radar") || layers[layers.length - 1] || null;
     }
@@ -595,7 +667,8 @@ window.WeatherRadarInit = (function() {
             // Use the frame URL from RainViewer API
             let url;
             if (frame.path) {
-                url = `https://tilecache.rainviewer.com${frame.path}`;
+                // frame.path is a base path; append tile template per docs
+                url = `https://tilecache.rainviewer.com${frame.path}/256/{z}/{x}/{y}/2/1_1.png`;
             } else {
                 url = `https://tilecache.rainviewer.com/v2/radar/${frame.time}/256/{z}/{x}/{y}/2/1_1.png`;
             }
@@ -603,11 +676,44 @@ window.WeatherRadarInit = (function() {
             const src = new ol.source.XYZ({
                 url,
                 attributions: "© RainViewer",
-                crossOrigin: "anonymous"
+                crossOrigin: "anonymous",
+                maxZoom: 10
             });
 
-            radarLayer.setSource(src);
-            radarLayer.setOpacity(0.7);
+            // Apply cache-buster to the new source immediately
+            try { applyRadarCacheBustingToSource(src); } catch (_) {}
+
+            // If dual-layer crossfade is available, fade between layers
+            const doCrossfade = !!mapObj.__rvLayers && (stateRef?.rv ? stateRef.rv.crossfadeEnabled !== false : true);
+            if (doCrossfade) {
+                const activeKey = mapObj.__rvLayers.active || 'A';
+                const fromLayer = mapObj.__rvLayers[activeKey];
+                const toKey = activeKey === 'A' ? 'B' : 'A';
+                const toLayer = mapObj.__rvLayers[toKey];
+
+                // Set new source on the toLayer
+                toLayer.setSource(src);
+                toLayer.setOpacity(0);
+                toLayer.setVisible(true);
+                // Bind listeners for tile logging/counters
+                try { mapObj.__bindRadarListenersToSource?.(src); } catch (_) {}
+
+                const duration = (stateRef?.rv?.crossfadeDurationMs) || 450;
+                const targetOpacity = 0.7;
+                animateCrossfadeLayers(mapObj, fromLayer, toLayer, duration, targetOpacity, () => {
+                    try {
+                        // Swap active pointer after fade completes
+                        mapObj.__rvLayers.active = toKey;
+                        // Ensure fromLayer is hidden for next cycle
+                        fromLayer.setOpacity(0);
+                        toLayer.setOpacity(targetOpacity);
+                    } catch (_) { /* noop */ }
+                });
+            } else {
+                // Fallback: single-layer swap
+                radarLayer.setSource(src);
+                radarLayer.setOpacity(0.7);
+            }
 
             if (stateRef) {
                 stateRef.rv.index = i;
@@ -628,13 +734,22 @@ window.WeatherRadarInit = (function() {
             const mapObj = map;
             if (!stateRef?.rv?.frames?.length) return;
             pauseRainviewer(map, stateRef);
-            const ms = Number(speedMs || stateRef.rv.speedMs || 700);
+            const ms = Number(speedMs || stateRef.rv.speedMs || 1200);
             stateRef.rv.speedMs = ms;
             try { localStorage.setItem("rv_speed_ms", String(ms)); } catch(_){}
             stateRef.rv.playing = true;
             stateRef.rv.timerId = setInterval(() => {
+                const startOk = stateRef.radar?.ok || 0;
                 const next = (stateRef.rv.index + 1) % stateRef.rv.frames.length;
                 setRainviewerFrameByIndex(mapObj, next, stateRef);
+                // Heuristic: if no new tiles have loaded soon after, skip ahead once
+                setTimeout(() => {
+                    const afterOk = stateRef.radar?.ok || 0;
+                    if (afterOk <= startOk) {
+                        const next2 = (stateRef.rv.index + 1) % stateRef.rv.frames.length;
+                        setRainviewerFrameByIndex(mapObj, next2, stateRef);
+                    }
+                }, Math.max(400, Math.min(900, Math.floor(ms * 0.75))));
             }, ms);
         } catch (e) {
             console.warn("Failed to start RainViewer playback", e);
@@ -764,11 +879,23 @@ window.WeatherRadarInit = (function() {
                         const rv = new ol.source.XYZ({
                             url: url,
                             attributions: "© RainViewer",
-                            crossOrigin: "anonymous"
+                            crossOrigin: "anonymous",
+                            maxZoom: 10
                         });
 
                         if (radarLayer) {
-                            radarLayer.setSource(rv);
+                            // If crossfade layers exist, update the active layer source
+                            const mapRef = radarLayer.get('mapRef');
+                            if (mapRef?.__rvLayers) {
+                                const activeKey = mapRef.__rvLayers.active || 'A';
+                                const activeLayer = mapRef.__rvLayers[activeKey];
+                                try { applyRadarCacheBustingToSource(rv); } catch (_) {}
+                                activeLayer.setSource(rv);
+                                activeLayer.setOpacity(0.7);
+                            } else {
+                                radarLayer.setSource(rv);
+                                radarLayer.setOpacity(0.7);
+                            }
                             if (state) state.radarSource = "RainViewer-Live";
                             // Reduce banner spam: only show once per cooldown
                             if (!state || (Date.now() - (state.fallback?.lastAt || 0)) > 59000) {
@@ -790,8 +917,16 @@ window.WeatherRadarInit = (function() {
                             attributions: "© ESRI",
                             crossOrigin: "anonymous"
                         });
-                        radarLayer.setSource(esri);
-                        radarLayer.setOpacity(0.3); // Lower opacity for satellite
+                        const mapRef = radarLayer.get('mapRef');
+                        if (mapRef?.__rvLayers) {
+                            const activeKey = mapRef.__rvLayers.active || 'A';
+                            const activeLayer = mapRef.__rvLayers[activeKey];
+                            activeLayer.setSource(esri);
+                            activeLayer.setOpacity(0.3);
+                        } else {
+                            radarLayer.setSource(esri);
+                            radarLayer.setOpacity(0.3); // Lower opacity for satellite
+                        }
                         if (state) state.radarSource = "ESRI-Satellite-Fallback";
                         if (!state || (Date.now() - (state.fallback?.lastAt || 0)) > 59000) {
                             showErrorBanner("Using ESRI satellite imagery - radar unavailable.");
@@ -834,7 +969,6 @@ window.WeatherRadarInit = (function() {
                 clearInterval(radarAutoRefresh.intervalId);
                 radarAutoRefresh.intervalId = null;
             }
-
             const source = radarLayer.getSource();
             applyRadarCacheBustingToSource(source);
 
@@ -842,26 +976,77 @@ window.WeatherRadarInit = (function() {
             const computeKey = () => Math.floor(Date.now() / 20000);
             radarAutoRefresh.key = computeKey();
             // Trigger an immediate refresh so the first view gets the cache-busted URLs
-            if (typeof source.refresh === "function") {
-                source.refresh();
-            } else {
-                // Force a change event as a fallback
-                source.changed?.();
+            if (source) {
+                if (typeof source.refresh === "function") { source.refresh(); } else { source.changed?.(); }
             }
 
             radarAutoRefresh.intervalId = setInterval(() => {
                 radarAutoRefresh.key = computeKey();
-                // Refresh the current source (it may have changed due to fallback)
-                const currentSource = radarLayer.getSource();
-                applyRadarCacheBustingToSource(currentSource);
-                if (typeof currentSource.refresh === "function") {
-                    currentSource.refresh();
+                // Refresh the current source(s) (it/they may have changed due to crossfade/fallback)
+                const mapRef = radarLayer.get('mapRef');
+                if (mapRef?.__rvLayers) {
+                    const layers = [mapRef.__rvLayers.A, mapRef.__rvLayers.B].filter(Boolean);
+                    for (const lyr of layers) {
+                        try {
+                            const srcL = lyr.getSource();
+                            applyRadarCacheBustingToSource(srcL);
+                            if (srcL) {
+                                if (typeof srcL.refresh === 'function') srcL.refresh(); else srcL.changed?.();
+                            }
+                        } catch (_) { /* ignore */ }
+                    }
                 } else {
-                    currentSource.changed?.();
+                    const currentSource = radarLayer.getSource();
+                    applyRadarCacheBustingToSource(currentSource);
+                    if (currentSource) {
+                        if (typeof currentSource.refresh === "function") { currentSource.refresh(); } else { currentSource.changed?.(); }
+                    }
                 }
             }, 20000);
         } catch (e) {
             console.error("Failed to start radar auto-refresh:", e);
+        }
+    }
+
+    // --- Crossfade Animation Utility -----------------------------------------
+    function animateCrossfadeLayers(map, fromLayer, toLayer, durationMs, targetOpacity, onDone) {
+        try {
+            if (!fromLayer || !toLayer) { onDone?.(); return; }
+            // Cancel any previous animation
+            if (map.__rvAnimId) { try { cancelAnimationFrame(map.__rvAnimId); } catch (_) {} }
+            const start = performance.now();
+            const fromStart = Number(fromLayer.getOpacity() ?? 0.7);
+            const toStart = Number(toLayer.getOpacity() ?? 0);
+            const toEnd = targetOpacity;
+            const fromEnd = 0;
+
+            function easeInOut(t){ return t<0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+            function step(ts) {
+                const elapsed = ts - start;
+                const t = Math.max(0, Math.min(1, elapsed / durationMs));
+                const e = easeInOut(t);
+                const fromVal = fromStart + (fromEnd - fromStart) * e;
+                const toVal = toStart + (toEnd - toStart) * e;
+                try {
+                    fromLayer.setOpacity(fromVal);
+                    toLayer.setOpacity(toVal);
+                } catch (_) { /* no-op */ }
+                if (t < 1) {
+                    map.__rvAnimId = requestAnimationFrame(step);
+                } else {
+                    try {
+                        fromLayer.setOpacity(fromEnd);
+                        toLayer.setOpacity(toEnd);
+                    } catch (_) {}
+                    onDone?.();
+                }
+            }
+            map.__rvAnimId = requestAnimationFrame(step);
+        } catch (_) {
+            // If anything goes wrong, jump to end state
+            try { fromLayer?.setOpacity(0); toLayer?.setOpacity(targetOpacity); } catch (_) {}
+            onDone?.();
         }
     }
 

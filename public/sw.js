@@ -3,9 +3,9 @@
  * Provides offline functionality, caching, and background sync
  */
 
-const CACHE_NAME = "radar-map-v2.0.0";
-const STATIC_CACHE = "radar-static-v2.0.0";
-const DYNAMIC_CACHE = "radar-dynamic-v2.0.0";
+const CACHE_NAME = "radar-map-v2.1.0";
+const STATIC_CACHE = "radar-static-v2.1.0";
+const DYNAMIC_CACHE = "radar-dynamic-v2.1.0";
 
 // Files to cache for offline usage
 const STATIC_FILES = [
@@ -88,10 +88,24 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Handle different types of requests with appropriate strategies
-  if (isStaticFile(request.url)) {
-    // Static files: Cache First strategy
+  // Documents (HTML): always Network First to ensure latest UI
+  if (isDocumentRequest(request)) {
+    event.respondWith(networkFirst(request, { noStore: true }));
+  }
+  // Scripts and styles: Network First to propagate updates, fallback to cache
+  else if (isScriptOrStyle(request)) {
+    event.respondWith(networkFirst(request, { noStore: true }));
+  }
+  // RainViewer tiles: Network Only (no SW caching) to avoid stale loops
+  else if (isRainviewerTile(request.url)) {
+    event.respondWith(networkOnly(request));
+  }
+  // Other static assets: Cache First
+  else if (isStaticFile(request.url)) {
     event.respondWith(cacheFirst(request));
-  } else if (isTileRequest(request.url)) {
+  }
+  // Other map tiles: Stale While Revalidate
+  else if (isTileRequest(request.url)) {
     // Map tiles: Stale While Revalidate strategy
     event.respondWith(staleWhileRevalidate(request));
   } else if (isAPIRequest(request.url)) {
@@ -171,7 +185,7 @@ async function cacheFirst(request) {
       return cachedResponse;
     }
 
-    const networkResponse = await fetch(request);
+  const networkResponse = await fetch(request);
     const cache = await caches.open(STATIC_CACHE);
     cache.put(request, networkResponse.clone());
 
@@ -203,9 +217,10 @@ async function staleWhileRevalidate(request) {
 /**
  * Network First Strategy - for API data
  */
-async function networkFirst(request) {
+async function networkFirst(request, opts = {}) {
   try {
-    const networkResponse = await fetch(request);
+    const fetchReq = opts.noStore ? new Request(request, { cache: 'no-store' }) : request;
+    const networkResponse = await fetch(fetchReq);
     const cache = await caches.open(DYNAMIC_CACHE);
     cache.put(request, networkResponse.clone());
     return networkResponse;
@@ -213,6 +228,18 @@ async function networkFirst(request) {
     const cachedResponse = await caches.match(request);
     return cachedResponse ||
       new Response("API data not available offline", { status: 503 });
+  }
+}
+
+/**
+ * Network Only Strategy - bypass caching entirely
+ */
+async function networkOnly(request) {
+  try {
+    const fetchReq = new Request(request, { cache: 'no-store' });
+    return await fetch(fetchReq);
+  } catch (error) {
+    return new Response("Network unavailable", { status: 503 });
   }
 }
 
@@ -248,6 +275,18 @@ function isAPIRequest(url) {
   return url.includes("/api/") ||
          url.includes("weather.gov") ||
          url.includes("noaa.gov");
+}
+
+function isRainviewerTile(url) {
+  return url.includes('tilecache.rainviewer.com');
+}
+
+function isDocumentRequest(request) {
+  return request.destination === 'document' || (request.headers.get('accept') || '').includes('text/html');
+}
+
+function isScriptOrStyle(request) {
+  return request.destination === 'script' || request.destination === 'style' || /\.(js|css)(\?|$)/.test(request.url);
 }
 
 /**
