@@ -16,7 +16,9 @@ const STATIC_FILES = [
   "/public/index.html",
   "/public/manifest.json",
   "/public/js/script.js",
-  "/assets/icons/icon-144x144.png"
+  "/icons/radar-icon-192.png",
+  "/icons/radar-icon-512.png",
+  "/favicon.ico"
 ];
 
 // Tile servers and API endpoints that should be cached
