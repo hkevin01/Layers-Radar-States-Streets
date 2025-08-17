@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar Loading Test</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { background: white; margin: 20px 0; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .error { color: #d32f2f; font-weight: bold; }
+        .success { color: #388e3c; font-weight: bold; }
+        .info { color: #1976d2; }
+        .loading { color: #ff9800; }
+        h1 { color: #333; text-align: center; }
+        h2 { color: #555; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .test-result { padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .test-result.success { background: #e8f5e8; }
+        .test-result.error { background: #fdeaea; }
+        .test-result.info { background: #e3f2fd; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌦️ Radar Source Status Test</h1>
+
+        <div class="test-section">
+            <h2>Test Results</h2>
+            <div id="tests">
+                <div class="test-result loading">🔄 Running tests...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Quick Action</h2>
+            <p><strong>If all tests pass:</strong>
+                <a href="weather-radar.html" style="color: #1976d2; text-decoration: none; font-weight: bold;">✅ Open Weather Radar App</a>
+            </p>
+            <p><strong>If tests fail:</strong> Check console logs or network connectivity</p>
+        </div>
+
+        <div class="test-section">
+            <h2>Technical Details</h2>
+            <pre id="details">Collecting radar source information...</pre>
+        </div>
+    </div>
+
+    <script>
+        async function testRadarSources() {
+            const testsDiv = document.getElementById('tests');
+            const detailsDiv = document.getElementById('details');
+            testsDiv.innerHTML = '';
+
+            let details = `Radar Source Test Report\n`;
+            details += `========================\n`;
+            details += `Timestamp: ${new Date().toISOString()}\n\n`;
+
+            // Test NEXRAD
+            try {
+                const startTime = Date.now();
+                const response = await fetch('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/5/15/12.png');
+                const loadTime = Date.now() - startTime;
+
+                if (response.ok) {
+                    testsDiv.innerHTML += '<div class="test-result success">✅ NEXRAD IEM: Working (' + loadTime + 'ms)</div>';
+                    details += `NEXRAD IEM: SUCCESS (${response.status}, ${loadTime}ms)\n`;
+                } else {
+                    testsDiv.innerHTML += '<div class="test-result error">❌ NEXRAD IEM: Failed (HTTP ' + response.status + ')</div>';
+                    details += `NEXRAD IEM: FAILED (${response.status})\n`;
+                }
+            } catch (e) {
+                testsDiv.innerHTML += '<div class="test-result error">❌ NEXRAD IEM: Network Error - ' + e.message + '</div>';
+                details += `NEXRAD IEM: ERROR - ${e.message}\n`;
+            }
+
+            // Test RainViewer API
+            try {
+                const startTime = Date.now();
+                const apiResponse = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+                const loadTime = Date.now() - startTime;
+
+                if (apiResponse.ok) {
+                    const data = await apiResponse.json();
+                    const pastFrames = data?.radar?.past || [];
+                    const nowcastFrames = data?.radar?.nowcast || [];
+                    const totalFrames = pastFrames.length + nowcastFrames.length;
+
+                    details += `RainViewer API: SUCCESS (${apiResponse.status}, ${loadTime}ms)\n`;
+                    details += `  - Past frames: ${pastFrames.length}\n`;
+                    details += `  - Nowcast frames: ${nowcastFrames.length}\n`;
+                    details += `  - Total frames: ${totalFrames}\n`;
+
+                    if (totalFrames > 0) {
+                        testsDiv.innerHTML += '<div class="test-result success">✅ RainViewer API: Working (' + totalFrames + ' frames, ' + loadTime + 'ms)</div>';
+
+                        // Test a tile from the latest frame
+                        const allFrames = [...pastFrames, ...nowcastFrames];
+                        const latest = allFrames[allFrames.length - 1];
+                        let tileUrl;
+                        if (latest.path) {
+                            tileUrl = `https://tilecache.rainviewer.com${latest.path}/256/5/15/12/2/1_1.png`;
+                        } else {
+                            tileUrl = `https://tilecache.rainviewer.com/v2/radar/${latest.time}/256/5/15/12/2/1_1.png`;
+                        }
+
+                        details += `  - Testing tile URL: ${tileUrl}\n`;
+
+                        try {
+                            const tileStartTime = Date.now();
+                            const tileResponse = await fetch(tileUrl);
+                            const tileLoadTime = Date.now() - tileStartTime;
+
+                            if (tileResponse.ok) {
+                                testsDiv.innerHTML += '<div class="test-result success">✅ RainViewer Tiles: Working (' + tileLoadTime + 'ms)</div>';
+                                details += `RainViewer Tiles: SUCCESS (${tileResponse.status}, ${tileLoadTime}ms)\n`;
+                            } else {
+                                testsDiv.innerHTML += '<div class="test-result error">❌ RainViewer Tiles: Failed (HTTP ' + tileResponse.status + ')</div>';
+                                details += `RainViewer Tiles: FAILED (${tileResponse.status})\n`;
+                            }
+                        } catch (e) {
+                            testsDiv.innerHTML += '<div class="test-result error">❌ RainViewer Tiles: Network Error - ' + e.message + '</div>';
+                            details += `RainViewer Tiles: ERROR - ${e.message}\n`;
+                        }
+                    } else {
+                        testsDiv.innerHTML += '<div class="test-result error">❌ RainViewer API: No frames available</div>';
+                        details += `RainViewer API: No frames available\n`;
+                    }
+                } else {
+                    testsDiv.innerHTML += '<div class="test-result error">❌ RainViewer API: Failed (HTTP ' + apiResponse.status + ')</div>';
+                    details += `RainViewer API: FAILED (${apiResponse.status})\n`;
+                }
+            } catch (e) {
+                testsDiv.innerHTML += '<div class="test-result error">❌ RainViewer API: Network Error - ' + e.message + '</div>';
+                details += `RainViewer API: ERROR - ${e.message}\n`;
+            }
+
+            details += '\n=== SUMMARY ===\n';
+            details += 'Primary radar source: NEXRAD IEM\n';
+            details += 'Timeline/animation source: RainViewer\n';
+            details += 'Fallback strategy: RainViewer -> ESRI Satellite\n';
+
+            testsDiv.innerHTML += '<div class="test-result info">🔧 Test completed. Check details below for technical information.</div>';
+            detailsDiv.textContent = details;
+        }
+
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', testRadarSources);
+    </script>
+</body>
+</html>
+                        } else {
+                            tileUrl = `https://tilecache.rainviewer.com/v2/radar/${latest.time}/256/5/15/12/2/1_1.png`;
+                        }
+
+                        try {
+                            const tileResponse = await fetch(tileUrl);
+                            if (tileResponse.ok) {
+                                testsDiv.innerHTML += '<p class="success">✅ RainViewer Tiles: Working</p>';
+                            } else {
+                                testsDiv.innerHTML += '<p class="error">❌ RainViewer Tiles: Failed (' + tileResponse.status + ')</p>';
+                            }
+                        } catch (e) {
+                            testsDiv.innerHTML += '<p class="error">❌ RainViewer Tiles: Error - ' + e.message + '</p>';
+                        }
+                    } else {
+                        testsDiv.innerHTML += '<p class="error">❌ RainViewer API: No frames available</p>';
+                    }
+                } else {
+                    testsDiv.innerHTML += '<p class="error">❌ RainViewer API: Failed (' + apiResponse.status + ')</p>';
+                }
+            } catch (e) {
+                testsDiv.innerHTML += '<p class="error">❌ RainViewer API: Error - ' + e.message + '</p>';
+            }
+
+            testsDiv.innerHTML += '<hr><p class="info">Test completed. NEXRAD should work as primary source, RainViewer as timeline source.</p>';
+        }
+
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', testRadarSources);
+    </script>
+</body>
+</html>

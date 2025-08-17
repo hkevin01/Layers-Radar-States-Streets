@@ -97,12 +97,12 @@ export async function initializeWeatherMap() {
             source: new ol.source.OSM()
         });
 
-        const mapTilerLayer = mapTilerKey ? new ol.layer.Tile({
+    const mapTilerLayer = mapTilerKey ? new ol.layer.Tile({
             title: "Google-like Streets (MapTiler)",
             type: "base",
             visible: true,
             source: new ol.source.XYZ({
-                url: `https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${mapTilerKey}`,
+        url: `https://api.maptiler.com/maps/streets-v2/tiles/256/{z}/{x}/{y}.png?key=${mapTilerKey}`,
                 attributions: [
                     "© MapTiler",
                     "© OpenStreetMap contributors"
@@ -137,6 +137,7 @@ export async function initializeWeatherMap() {
             base: { start: 0, ok: 0, err: 0 },
             radar: { start: 0, ok: 0, err: 0 },
             startedAt: Date.now(),
+            fallback: { active: false, lastAt: 0, count: 0 }
         };
 
         // Attach tile event listeners for base
@@ -148,15 +149,46 @@ export async function initializeWeatherMap() {
     // Attach tile event listeners for radar
         const radarLayer = map.getLayers().item(map.getLayers().getLength() - 1);
         const radarSource = radarLayer.getSource();
-        radarSource.on("tileloadstart", () => { state.radar.start++; updateDebugOverlay(state); });
-        radarSource.on("tileloadend", () => { state.radar.ok++; updateDebugOverlay(state); });
-        radarSource.on("tileloaderror", () => {
-            state.radar.err++;
-            showErrorBanner("Radar tiles failed to load");
-            updateDebugOverlay(state);
-            if (state.radar.err >= 3 && state.radar.ok === 0) {
-        switchRadarFallback(radarLayer);
-            }
+        const bindRadarListeners = (src) => {
+            if (!src || src.__rvBound) return;
+            src.__rvBound = true;
+            src.on("tileloadstart", () => { state.radar.start++; updateDebugOverlay(state); });
+            src.on("tileloadend", () => { state.radar.ok++; updateDebugOverlay(state); });
+            src.on("tileloaderror", () => {
+                state.radar.err++;
+                const now = Date.now();
+                const inCooldown = (now - (state.fallback.lastAt || 0)) < 120000; // 2 minutes
+                const alreadyFallback = !!(state.__onRainViewer);
+                if (state.radar.err >= 5 && state.radar.ok === 0 && state.radar.start > 3) {
+                    if (state.fallback.active || inCooldown || alreadyFallback) {
+                        if (!state.__notedFallbackCooldown) {
+                            showErrorBanner("Radar tiles failing; waiting on fallback cooldown");
+                            state.__notedFallbackCooldown = true;
+                        }
+                    } else {
+                        state.fallback.active = true;
+                        state.fallback.lastAt = now;
+                        state.fallback.count = (state.fallback.count || 0) + 1;
+                        showErrorBanner("Radar tiles failed to load - switching to fallback");
+                        switchRadarFallback(radarLayer, state);
+                        state.__notedFallbackCooldown = false;
+                        setTimeout(() => { state.fallback.active = false; }, 120000);
+                    }
+                } else if (state.radar.err > 10 && state.radar.ok < 3) {
+                    // Don't spam banners; log only
+                    console.warn("High radar tile error rate; continuing");
+                }
+                updateDebugOverlay(state);
+            });
+        };
+        bindRadarListeners(radarSource);
+        // Reset counters and rebind on source change
+        radarLayer.on("change:source", () => {
+            try {
+                state.radar.start = 0; state.radar.ok = 0; state.radar.err = 0;
+                const newSrc = radarLayer.getSource();
+                bindRadarListeners(newSrc);
+            } catch (e) { console.warn("Failed to rebind radar listeners", e); }
         });
 
     // Start periodic radar refresh (20s) with cache-busting
@@ -298,17 +330,35 @@ function showErrorBanner(message) {
 }
 
 // Switch radar layer source to RainViewer fallback
-function switchRadarFallback(radarLayer) {
+function switchRadarFallback(radarLayer, state) {
     try {
-        const rv = new ol.source.XYZ({
-            url: "https://tilecache.rainviewer.com/v2/radar/nowcast_0/256/{z}/{x}/{y}/2/1_1.png",
-            attributions: "© RainViewer",
-            crossOrigin: "anonymous"
-        });
-        radarLayer.setSource(rv);
-        showErrorBanner("Switched to RainViewer fallback for radar.");
-        // Ensure auto-refresh continues on the new source
-        startRadarAutoRefresh(radarLayer);
+        // Fetch current RainViewer frames and use the latest valid URL (timestamp or path)
+        fetch('https://api.rainviewer.com/public/weather-maps.json')
+            .then(res => res.json())
+            .then(data => {
+                const frames = [...(data?.radar?.past || []), ...(data?.radar?.nowcast || [])];
+                if (frames.length === 0) throw new Error('No RainViewer frames');
+                const latest = frames[frames.length - 1];
+                let url;
+                if (latest.path) {
+                    url = `https://tilecache.rainviewer.com${latest.path}/256/{z}/{x}/{y}/2/1_1.png`;
+                } else {
+                    url = `https://tilecache.rainviewer.com/v2/radar/${latest.time}/256/{z}/{x}/{y}/2/1_1.png`;
+                }
+                const rv = new ol.source.XYZ({ url, attributions: "© RainViewer", crossOrigin: "anonymous" });
+                radarLayer.setSource(rv);
+                state.__onRainViewer = true;
+                if (!state || (Date.now() - (state.fallback?.lastAt || 0)) > 59000) {
+                    showErrorBanner("Switched to RainViewer fallback for radar.");
+                }
+                // Reset counters
+                if (state) { state.radar.start = 0; state.radar.ok = 0; state.radar.err = 0; }
+                // Ensure auto-refresh continues on the new source
+                startRadarAutoRefresh(radarLayer);
+            })
+            .catch(err => {
+                console.warn('RainViewer API failed; leaving current source. Error:', err);
+            });
     } catch (e) {
         console.error("Failed to switch radar fallback:", e);
     }

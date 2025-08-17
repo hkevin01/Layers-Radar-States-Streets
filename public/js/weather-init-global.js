@@ -332,9 +332,21 @@ window.WeatherRadarInit = (function() {
                     osmLayer,
                     new ol.layer.Tile({
                         source: new ol.source.XYZ({
-                            url: "https://tilecache.rainviewer.com/v2/radar/nowcast_0/256/{z}/{x}/{y}/2/1_1.png",
-                            attributions: "© RainViewer",
-                            crossOrigin: "anonymous"
+                            url: "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png",
+                            attributions: "© Iowa Environmental Mesonet",
+                            crossOrigin: "anonymous",
+                            tileLoadFunction: function(tile, src) {
+                                const img = tile.getImage();
+                                img.onload = function() {
+                                    tile.setState(1); // LOADED
+                                };
+                                img.onerror = function() {
+                                    // Log individual tile errors but don't immediately switch sources
+                                    console.warn('NEXRAD tile failed (normal for some areas):', src);
+                                    tile.setState(3); // ERROR - let OpenLayers handle fallback
+                                };
+                                img.src = src;
+                            }
                         }),
                         opacity: 0.7,
                         name: "radar"
@@ -375,6 +387,7 @@ window.WeatherRadarInit = (function() {
                 startedAt: Date.now(),
                 radarSource: "NEXRAD",
                 rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 700, mode: localStorage.getItem("rv_mode") || "2h" },
+                fallback: { active: false, lastAt: 0, count: 0 },
                 overlays: {}
             };
 
@@ -420,15 +433,36 @@ window.WeatherRadarInit = (function() {
                     counters.err++;
                     if (label === "radar") {
                         logRadar("ERROR", e);
-                        showErrorBanner("Radar tiles failed to load");
+                        // Only show error banner and switch fallback if we have many errors and no successes
+                        // Add cooldown and one-shot guard to avoid thrashing
+                        const now = Date.now();
+                        const inCooldown = (now - (state.fallback.lastAt || 0)) < 120000; // 2 min cooldown
+                        const alreadyFallback = String(state.radarSource || "").toLowerCase().includes("rainviewer");
+                        if (state.radar.err >= 5 && state.radar.ok === 0 && counters.start > 3) {
+                            if (state.fallback.active || inCooldown || alreadyFallback) {
+                                // Avoid repeated switching; just note once
+                                if (!state.__notedFallbackCooldown) {
+                                    showErrorBanner("Radar tiles failing; waiting on fallback cooldown");
+                                    state.__notedFallbackCooldown = true;
+                                }
+                            } else {
+                                showErrorBanner("Radar tiles failed to load - switching to fallback");
+                                state.fallback.active = true;
+                                state.fallback.lastAt = now;
+                                state.fallback.count = (state.fallback.count || 0) + 1;
+                                switchRadarFallback(radarLayer, state);
+                                // Clear cooldown note when we attempt a switch
+                                state.__notedFallbackCooldown = false;
+                                // Auto-release active flag after cooldown window
+                                setTimeout(() => { state.fallback.active = false; }, 120000);
+                            }
+                        } else if (state.radar.err > 10 && state.radar.ok < 3) {
+                            console.warn('High radar tile error rate, but some tiles loading - continuing');
+                        }
                     } else {
                         console.warn(`${label} ERROR`, e);
                     }
                     updateDebugOverlay(state);
-                    if (label === "radar" && state.radar.err >= 3 && state.radar.ok === 0) {
-                        // Multiple early errors and no successes -> switch to fallback
-                        switchRadarFallback(radarLayer, state);
-                    }
                 });
             };
 
@@ -438,9 +472,11 @@ window.WeatherRadarInit = (function() {
             bindRadarListenersToSource(radarSource);
 
             // Ensure listeners get rebound if the radar source changes (e.g., fallback)
-            radarLayer.on("change:source", () => {
+        radarLayer.on("change:source", () => {
                 try {
                     const newSrc = radarLayer.getSource();
+            // Reset radar counters when source changes to avoid immediate re-trigger
+            state.radar.start = 0; state.radar.ok = 0; state.radar.err = 0;
                     bindRadarListenersToSource(newSrc);
                 } catch (e) {
                     console.warn("Failed to bind listeners to new radar source", e);
@@ -464,7 +500,18 @@ window.WeatherRadarInit = (function() {
                         if (state.radar.ok === 0) {
                             showErrorBanner("Radar isn't available right now. Showing base map and continuing to retry.");
                             // As an extra safety, switch to fallback if we still have no radar
-                            try { switchRadarFallback(radarLayer, state); } catch (_) { /* ignore */ }
+                            const now = Date.now();
+                            const inCooldown = (now - (state.fallback?.lastAt || 0)) < 120000;
+                            const alreadyFallback = String(state.radarSource || "").toLowerCase().includes("rainviewer");
+                            if (!inCooldown && !alreadyFallback && !state.fallback?.active) {
+                                try {
+                                    state.fallback.active = true;
+                                    state.fallback.lastAt = now;
+                                    state.fallback.count = (state.fallback.count || 0) + 1;
+                                    switchRadarFallback(radarLayer, state);
+                                    setTimeout(() => { state.fallback.active = false; }, 120000);
+                                } catch (_) { /* ignore */ }
+                            }
                         }
                     } else {
                         showErrorBanner("Base map not loading; check network/CORS");
@@ -700,16 +747,59 @@ window.WeatherRadarInit = (function() {
     // Switch radar layer source to RainViewer fallback
     function switchRadarFallback(radarLayer, state) {
         try {
-            const rv = new ol.source.XYZ({
-                url: "https://tilecache.rainviewer.com/v2/radar/nowcast_0/256/{z}/{x}/{y}/2/1_1.png",
-                attributions: "© RainViewer",
-                crossOrigin: "anonymous"
-            });
-            radarLayer.setSource(rv);
-            if (state) state.radarSource = "RainViewer";
-            showErrorBanner("Switched to RainViewer fallback for radar.");
-            // Ensure auto-refresh continues on the new source
-            startRadarAutoRefresh(radarLayer);
+            // Fetch current RainViewer timestamps and use the latest
+            fetch('https://api.rainviewer.com/public/weather-maps.json')
+                .then(res => res.json())
+                .then(data => {
+                    const frames = [...(data?.radar?.past || []), ...(data?.radar?.nowcast || [])];
+                    if (frames.length > 0) {
+                        const latest = frames[frames.length - 1];
+                        let url;
+                        if (latest.path) {
+                            url = `https://tilecache.rainviewer.com${latest.path}/256/{z}/{x}/{y}/2/1_1.png`;
+                        } else {
+                            url = `https://tilecache.rainviewer.com/v2/radar/${latest.time}/256/{z}/{x}/{y}/2/1_1.png`;
+                        }
+
+                        const rv = new ol.source.XYZ({
+                            url: url,
+                            attributions: "© RainViewer",
+                            crossOrigin: "anonymous"
+                        });
+
+                        if (radarLayer) {
+                            radarLayer.setSource(rv);
+                            if (state) state.radarSource = "RainViewer-Live";
+                            // Reduce banner spam: only show once per cooldown
+                            if (!state || (Date.now() - (state.fallback?.lastAt || 0)) > 59000) {
+                                showErrorBanner("Switched to RainViewer live radar data.");
+                            }
+                            // Reset counters when switching
+                            if (state) { state.radar.start = 0; state.radar.ok = 0; state.radar.err = 0; }
+                            startRadarAutoRefresh(radarLayer);
+                        }
+                    } else {
+                        throw new Error('No RainViewer frames available');
+                    }
+                })
+                .catch(err => {
+                    console.warn('RainViewer API failed, using ESRI satellite as final fallback:', err);
+                    if (radarLayer) {
+                        const esri = new ol.source.XYZ({
+                            url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                            attributions: "© ESRI",
+                            crossOrigin: "anonymous"
+                        });
+                        radarLayer.setSource(esri);
+                        radarLayer.setOpacity(0.3); // Lower opacity for satellite
+                        if (state) state.radarSource = "ESRI-Satellite-Fallback";
+                        if (!state || (Date.now() - (state.fallback?.lastAt || 0)) > 59000) {
+                            showErrorBanner("Using ESRI satellite imagery - radar unavailable.");
+                        }
+                        if (state) { state.radar.start = 0; state.radar.ok = 0; state.radar.err = 0; }
+                    }
+                });
+
             updateDebugOverlay(state || { base: {start:0,ok:0,err:0}, radar: {start:0,ok:0,err:0}, hidden: false });
         } catch (e) {
             console.error("Failed to switch radar fallback:", e);
