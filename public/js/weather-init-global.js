@@ -107,11 +107,25 @@ window.WeatherRadarInit = (function() {
             // Pick a service worker script that is actually served with a JavaScript MIME type
             const candidates = ["/public/sw.js", "/sw.js"]; // prefer /public
             let chosen = null;
+            let chosenBlobUrl = null;
             for (const path of candidates) {
                 try {
                     const resp = await fetch(path, { cache: 'no-store' });
-                    const ct = resp.headers.get('content-type') || '';
-                    if (resp.ok && /javascript|ecmascript/.test(ct)) { chosen = path; break; }
+                    if (!resp.ok) continue;
+                    const ct = (resp.headers.get('content-type') || '').toLowerCase();
+                    const text = await resp.text();
+                    const looksHtml = /^\s*<!doctype|^\s*<html|^\s*<head|^\s*<body/i.test(text);
+                    const looksJs = /self\.|addEventListener\(\s*['"](install|activate|fetch)['"]/i.test(text);
+                    if (looksHtml) { console.warn(`Skipping SW at ${path}: response looks like HTML`); continue; }
+                    if (!/javascript|ecmascript|text\/plain|application\/x-javascript/.test(ct) && !looksJs) {
+                        console.warn(`Skipping SW at ${path}: content-type not JS-like and code doesn't look like SW`);
+                        continue;
+                    }
+                    // Use a Blob URL from the fetched body to ensure we register exactly what we validated
+                    const blob = new Blob([text], { type: 'application/javascript' });
+                    chosenBlobUrl = URL.createObjectURL(blob);
+                    chosen = path;
+                    break;
                 } catch (_) { /* try next */ }
             }
             if (!chosen) {
@@ -120,7 +134,7 @@ window.WeatherRadarInit = (function() {
             }
 
             // Register new service worker with correct scope
-            const registration = await navigator.serviceWorker.register(chosen, {
+            const registration = await navigator.serviceWorker.register(chosenBlobUrl || chosen, {
                 scope: "/public/"
             });
             console.log("✅ Service Worker registered:", registration.scope);
@@ -140,8 +154,9 @@ window.WeatherRadarInit = (function() {
             );
 
         } catch (error) {
-            console.error("Service Worker registration failed:", error);
-            throw error;
+            console.warn("Service Worker registration skipped due to error:", error);
+            // Soft-fail: proceed without SW rather than surfacing a runtime error
+            return;
         }
     }
 
@@ -421,7 +436,7 @@ window.WeatherRadarInit = (function() {
                 radar: { start: 0, ok: 0, err: 0 },
                 startedAt: Date.now(),
                 radarSource: "NEXRAD",
-                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 1200, mode: localStorage.getItem("rv_mode") || "2h" },
+                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 2500, mode: localStorage.getItem("rv_mode") || "2h", transitioning: false, crossfadeDurationMs: 800 },
                 fallback: { active: false, lastAt: 0, count: 0 },
                 overlays: {}
             };
@@ -698,17 +713,54 @@ window.WeatherRadarInit = (function() {
                 // Bind listeners for tile logging/counters
                 try { mapObj.__bindRadarListenersToSource?.(src); } catch (_) {}
 
-                const duration = (stateRef?.rv?.crossfadeDurationMs) || 450;
+                // Wait for at least a few tiles to load on the new source, or fallback after a timeout
                 const targetOpacity = 0.7;
-                animateCrossfadeLayers(mapObj, fromLayer, toLayer, duration, targetOpacity, () => {
-                    try {
-                        // Swap active pointer after fade completes
-                        mapObj.__rvLayers.active = toKey;
-                        // Ensure fromLayer is hidden for next cycle
-                        fromLayer.setOpacity(0);
-                        toLayer.setOpacity(targetOpacity);
-                    } catch (_) { /* noop */ }
-                });
+                const duration = (stateRef?.rv?.crossfadeDurationMs) || 800;
+                stateRef.rv.transitioning = true;
+
+                let done = false;
+                const maybeStart = () => {
+                    if (done) return;
+                    done = true;
+                    animateCrossfadeLayers(mapObj, fromLayer, toLayer, duration, targetOpacity, () => {
+                        try {
+                            mapObj.__rvLayers.active = toKey;
+                            fromLayer.setOpacity(0);
+                            toLayer.setOpacity(targetOpacity);
+                        } catch (_) { /* noop */ }
+                        stateRef.rv.transitioning = false;
+                    });
+                };
+
+                try {
+                    let toOk = 0;
+                    const minTiles = 2; // require at least a couple of tiles before fading
+                    const onLoadEnd = () => {
+                        toOk++;
+                        if (toOk >= minTiles) {
+                            // Small delay to allow a few tiles to land
+                            setTimeout(maybeStart, 120);
+                            try { src.un('tileloadend', onLoadEnd); } catch (_) {}
+                        }
+                    };
+                    src.on('tileloadend', onLoadEnd);
+                } catch (_) { /* ignore */ }
+
+                // Fallback: if nothing loads in time, either skip frame or force a gentle fade
+                const maxWait = Math.min(2200, Math.max(900, Math.floor((stateRef?.rv?.speedMs || 2500) * 0.9)));
+                setTimeout(() => {
+                    if (!done) {
+                        // If still nothing loaded, consider skipping this frame once
+                        if (frames.length > 1) {
+                            const next2 = (i + 1) % frames.length;
+                            // Mark current transition finished before jumping
+                            stateRef.rv.transitioning = false;
+                            setRainviewerFrameByIndex(mapObj, next2, stateRef);
+                        } else {
+                            maybeStart();
+                        }
+                    }
+                }, maxWait);
             } else {
                 // Fallback: single-layer swap
                 radarLayer.setSource(src);
@@ -734,11 +786,13 @@ window.WeatherRadarInit = (function() {
             const mapObj = map;
             if (!stateRef?.rv?.frames?.length) return;
             pauseRainviewer(map, stateRef);
-            const ms = Number(speedMs || stateRef.rv.speedMs || 1200);
+            const ms = Number(speedMs || stateRef.rv.speedMs || 2500);
             stateRef.rv.speedMs = ms;
             try { localStorage.setItem("rv_speed_ms", String(ms)); } catch(_){}
             stateRef.rv.playing = true;
             stateRef.rv.timerId = setInterval(() => {
+                // Avoid advancing while a crossfade/transition is in progress
+                if (stateRef?.rv?.transitioning) return;
                 const startOk = stateRef.radar?.ok || 0;
                 const next = (stateRef.rv.index + 1) % stateRef.rv.frames.length;
                 setRainviewerFrameByIndex(mapObj, next, stateRef);
@@ -749,7 +803,7 @@ window.WeatherRadarInit = (function() {
                         const next2 = (stateRef.rv.index + 1) % stateRef.rv.frames.length;
                         setRainviewerFrameByIndex(mapObj, next2, stateRef);
                     }
-                }, Math.max(400, Math.min(900, Math.floor(ms * 0.75))));
+                }, Math.max(600, Math.min(1200, Math.floor(ms * 0.7))));
             }, ms);
         } catch (e) {
             console.warn("Failed to start RainViewer playback", e);
