@@ -115,7 +115,7 @@ window.WeatherRadarInit = (function() {
                     const ct = (resp.headers.get('content-type') || '').toLowerCase();
                     const text = await resp.text();
                     const looksHtml = /^\s*<!doctype|^\s*<html|^\s*<head|^\s*<body/i.test(text);
-                    const looksJs = /self\.|addEventListener\(\s*['"](install|activate|fetch)['"]/i.test(text);
+                    const looksJs = /self\.|addEventListener\(\s*['"](install|activate|fetch)['"]\)/i.test(text);
                     if (looksHtml) { console.warn(`Skipping SW at ${path}: response looks like HTML`); continue; }
                     if (!/javascript|ecmascript|text\/plain|application\/x-javascript/.test(ct) && !looksJs) {
                         console.warn(`Skipping SW at ${path}: content-type not JS-like and code doesn't look like SW`);
@@ -436,7 +436,7 @@ window.WeatherRadarInit = (function() {
                 radar: { start: 0, ok: 0, err: 0 },
                 startedAt: Date.now(),
                 radarSource: "NEXRAD",
-                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 2500, mode: localStorage.getItem("rv_mode") || "2h", transitioning: false, crossfadeDurationMs: 800 },
+                rv: { frames: [], index: 0, playing: false, timerId: null, speedMs: Number(localStorage.getItem("rv_speed_ms")) || 5000, mode: localStorage.getItem("rv_mode") || "2h", transitioning: false, crossfadeDurationMs: 2000 },
                 fallback: { active: false, lastAt: 0, count: 0 },
                 overlays: {}
             };
@@ -747,12 +747,12 @@ window.WeatherRadarInit = (function() {
                 } catch (_) { /* ignore */ }
 
                 // Fallback: if nothing loads in time, either skip frame or force a gentle fade
-                const maxWait = Math.min(2200, Math.max(900, Math.floor((stateRef?.rv?.speedMs || 2500) * 0.9)));
-                setTimeout(() => {
+                const maxWait = Math.min(3000, Math.max(900, Math.floor((stateRef?.rv?.speedMs || 5000) * 0.9)));
+                    setTimeout(() => {
                     if (!done) {
                         // If still nothing loaded, consider skipping this frame once
                         if (frames.length > 1) {
-                            const next2 = (i + 1) % frames.length;
+                                const next2 = i < (frames.length - 1) ? (i + 1) : i;
                             // Mark current transition finished before jumping
                             stateRef.rv.transitioning = false;
                             setRainviewerFrameByIndex(mapObj, next2, stateRef);
@@ -786,7 +786,7 @@ window.WeatherRadarInit = (function() {
             const mapObj = map;
             if (!stateRef?.rv?.frames?.length) return;
             pauseRainviewer(map, stateRef);
-            const ms = Number(speedMs || stateRef.rv.speedMs || 2500);
+            const ms = Number(speedMs || stateRef.rv.speedMs || 5000);
             stateRef.rv.speedMs = ms;
             try { localStorage.setItem("rv_speed_ms", String(ms)); } catch(_){}
             stateRef.rv.playing = true;
@@ -803,7 +803,7 @@ window.WeatherRadarInit = (function() {
                         const next2 = (stateRef.rv.index + 1) % stateRef.rv.frames.length;
                         setRainviewerFrameByIndex(mapObj, next2, stateRef);
                     }
-                }, Math.max(600, Math.min(1200, Math.floor(ms * 0.7))));
+                }, Math.max(900, Math.min(2000, Math.floor(ms * 0.6))));
             }, ms);
         } catch (e) {
             console.warn("Failed to start RainViewer playback", e);
