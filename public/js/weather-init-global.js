@@ -747,7 +747,7 @@ window.WeatherRadarInit = (function() {
                 } catch (_) { /* ignore */ }
 
                 // Fallback: if nothing loads in time, either skip frame or force a gentle fade
-                const maxWait = Math.min(3000, Math.max(900, Math.floor((stateRef?.rv?.speedMs || 5000) * 0.9)));
+                const maxWait = Math.min(6000, Math.max(900, Math.floor((stateRef?.rv?.speedMs || 5000) * 0.9)));
                     setTimeout(() => {
                     if (!done) {
                         // If still nothing loaded, consider skipping this frame once
@@ -1035,20 +1035,27 @@ window.WeatherRadarInit = (function() {
             }
 
             radarAutoRefresh.intervalId = setInterval(() => {
+                try {
+                    const mapRef = radarLayer.get('mapRef');
+                    const stateRef = mapRef?.__radarState;
+                    // Avoid refreshing sources mid-crossfade to prevent visible flashing
+                    if (stateRef?.rv?.transitioning) {
+                        return;
+                    }
+                } catch (_) { /* ignore */ }
                 radarAutoRefresh.key = computeKey();
                 // Refresh the current source(s) (it/they may have changed due to crossfade/fallback)
                 const mapRef = radarLayer.get('mapRef');
                 if (mapRef?.__rvLayers) {
-                    const layers = [mapRef.__rvLayers.A, mapRef.__rvLayers.B].filter(Boolean);
-                    for (const lyr of layers) {
-                        try {
-                            const srcL = lyr.getSource();
-                            applyRadarCacheBustingToSource(srcL);
-                            if (srcL) {
-                                if (typeof srcL.refresh === 'function') srcL.refresh(); else srcL.changed?.();
-                            }
-                        } catch (_) { /* ignore */ }
-                    }
+                    try {
+                        const activeKey = mapRef.__rvLayers.active || 'A';
+                        const lyr = mapRef.__rvLayers[activeKey];
+                        const srcL = lyr?.getSource?.();
+                        applyRadarCacheBustingToSource(srcL);
+                        if (srcL) {
+                            if (typeof srcL.refresh === 'function') srcL.refresh(); else srcL.changed?.();
+                        }
+                    } catch (_) { /* ignore */ }
                 } else {
                     const currentSource = radarLayer.getSource();
                     applyRadarCacheBustingToSource(currentSource);
