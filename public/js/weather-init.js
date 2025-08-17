@@ -161,6 +161,7 @@ export async function initializeWeatherMap() {
                 const alreadyFallback = !!(state.__onRainViewer);
                 if (state.radar.err >= 5 && state.radar.ok === 0 && state.radar.start > 3) {
                     if (state.fallback.active || inCooldown || alreadyFallback) {
+                        // Show a cooldown notice at most once per cooldown window
                         if (!state.__notedFallbackCooldown) {
                             showErrorBanner("Radar tiles failing; waiting on fallback cooldown");
                             state.__notedFallbackCooldown = true;
@@ -169,7 +170,11 @@ export async function initializeWeatherMap() {
                         state.fallback.active = true;
                         state.fallback.lastAt = now;
                         state.fallback.count = (state.fallback.count || 0) + 1;
-                        showErrorBanner("Radar tiles failed to load - switching to fallback");
+                        // Throttle the switch notice
+                        if (!state.__lastSwitchMsgAt || (now - state.__lastSwitchMsgAt) > 60000) {
+                            showErrorBanner("Radar tiles failed to load - switching to fallback");
+                            state.__lastSwitchMsgAt = now;
+                        }
                         switchRadarFallback(radarLayer, state);
                         state.__notedFallbackCooldown = false;
                         setTimeout(() => { state.fallback.active = false; }, 120000);
@@ -332,6 +337,14 @@ function showErrorBanner(message) {
 // Switch radar layer source to RainViewer fallback
 function switchRadarFallback(radarLayer, state) {
     try {
+        // If already on RainViewer, avoid repeating the switch/banners
+        try {
+            const currentUrl = radarLayer?.getSource?.()?.getUrls?.()?.[0] || radarLayer?.getSource?.()?.getUrl?.();
+            if (state?.__onRainViewer && typeof currentUrl === 'string' && currentUrl.includes('tilecache.rainviewer.com')) {
+                return;
+            }
+        } catch (_) { /* ignore */ }
+
         // Fetch current RainViewer frames and use the latest valid URL (timestamp or path)
         fetch('https://api.rainviewer.com/public/weather-maps.json')
             .then(res => res.json())
@@ -345,11 +358,16 @@ function switchRadarFallback(radarLayer, state) {
                 } else {
                     url = `https://tilecache.rainviewer.com/v2/radar/${latest.time}/256/{z}/{x}/{y}/2/1_1.png`;
                 }
-                const rv = new ol.source.XYZ({ url, attributions: "© RainViewer", crossOrigin: "anonymous" });
+                const rv = new ol.source.XYZ({ url, attributions: "© RainViewer", crossOrigin: "anonymous", maxZoom: 10 });
+                try { applyRadarCacheBustingToSource(rv); } catch (_) {}
                 radarLayer.setSource(rv);
                 state.__onRainViewer = true;
-                if (!state || (Date.now() - (state.fallback?.lastAt || 0)) > 59000) {
+                // Global de-dupe for switch banner across multiple maps/pages
+                const now = Date.now();
+                const lastMsg = window.__rvLastFallbackMsgAt || 0;
+                if ((now - lastMsg) > 60000) {
                     showErrorBanner("Switched to RainViewer fallback for radar.");
+                    window.__rvLastFallbackMsgAt = now;
                 }
                 // Reset counters
                 if (state) { state.radar.start = 0; state.radar.ok = 0; state.radar.err = 0; }
