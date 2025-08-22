@@ -1,0 +1,11 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: weather-api
+
+api:
+  weather:
+    noaa:
+      metarUrl: "https://aviationweather.gov/api/data/metar"
