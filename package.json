@@ -5,10 +5,10 @@
   "main": "src/main.js",
   "type": "module",
   "scripts": {
-  "start": "npx http-server . -p 8080 -o --cors",
-  "start:8081": "npx http-server . -p 8081 -o --cors",
-  "start:8082": "npx http-server . -p 8082 -o --cors",
-  "start:9090": "npx http-server . -p 9090 -o --cors",
+    "start": "npx http-server . -p 8080 -o --cors",
+    "start:8081": "npx http-server . -p 8081 -o --cors",
+    "start:8082": "npx http-server . -p 8082 -o --cors",
+    "start:9090": "npx http-server . -p 9090 -o --cors",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint src/ tests/",
@@ -29,23 +29,26 @@
   "author": "hkevin01",
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/jest": "^29.0.0",
+    "cypress": "^15.0.0",
     "eslint": "^8.0.0",
-    "prettier": "^3.0.0",
     "jest": "^29.0.0",
     "jest-environment-jsdom": "^29.0.0",
-    "@types/jest": "^29.0.0"
+    "prettier": "^3.0.0",
+    "selenium-webdriver": "^4.35.0"
   },
   "dependencies": {
     "http-server": "^14.1.1",
+    "idb": "^7.1.1",
     "ol": "^8.2.0",
     "proj4": "^2.9.1",
-    "workbox-window": "^7.0.0",
-    "workbox-routing": "^7.0.0",
-    "workbox-strategies": "^7.0.0",
-    "workbox-precaching": "^7.0.0",
     "workbox-cacheable-response": "^7.0.0",
     "workbox-expiration": "^7.0.0",
-    "idb": "^7.1.1"
+    "workbox-precaching": "^7.0.0",
+    "workbox-routing": "^7.0.0",
+    "workbox-strategies": "^7.0.0",
+    "workbox-window": "^7.0.0"
   },
   "engines": {
     "node": ">=16.0.0",
@@ -58,8 +61,13 @@
   ],
   "jest": {
     "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
-    "moduleFileExtensions": ["js", "json"],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ],
+    "moduleFileExtensions": [
+      "js",
+      "json"
+    ],
     "transform": {
       "^.+\\.js$": "babel-jest"
     },
