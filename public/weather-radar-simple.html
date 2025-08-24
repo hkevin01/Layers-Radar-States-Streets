@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Radar - Simple Working Version</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css">
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { width: 100vw; height: 100vh; }
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .controls button {
+            display: block;
+            width: 100%;
+            padding: 5px 10px;
+            margin: 5px 0;
+            cursor: pointer;
+        }
+        .controls label {
+            display: block;
+            margin: 10px 0 5px;
+            font-size: 12px;
+        }
+        .controls input[type="range"] {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="controls">
+        <h3>Weather Radar</h3>
+        <button onclick="toggleRadar()">Toggle Radar</button>
+        <button onclick="resetView()">Reset View</button>
+        <label>Radar Opacity: <span id="opacityValue">70%</span></label>
+        <input type="range" id="opacity" min="0" max="100" value="70" oninput="updateOpacity(this.value)">
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
+    <script>
+        let map, radarLayer;
+        
+        // Initialize map
+        function initMap() {
+            // Base layer
+            const baseLayer = new ol.layer.Tile({
+                source: new ol.source.OSM()
+            });
+            
+            // Radar layer
+            radarLayer = new ol.layer.Tile({
+                source: new ol.source.XYZ({
+                    url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+                    crossOrigin: 'anonymous'
+                }),
+                opacity: 0.7
+            });
+            
+            // Create map
+            map = new ol.Map({
+                target: 'map',
+                layers: [baseLayer, radarLayer],
+                view: new ol.View({
+                    center: ol.proj.fromLonLat([-98.5795, 39.8283]),
+                    zoom: 5
+                })
+            });
+            
+            console.log('Map initialized successfully');
+        }
+        
+        // Toggle radar visibility
+        function toggleRadar() {
+            if (radarLayer) {
+                radarLayer.setVisible(!radarLayer.getVisible());
+            }
+        }
+        
+        // Reset view to default
+        function resetView() {
+            if (map) {
+                map.getView().animate({
+                    center: ol.proj.fromLonLat([-98.5795, 39.8283]),
+                    zoom: 5,
+                    duration: 500
+                });
+            }
+        }
+        
+        // Update radar opacity
+        function updateOpacity(value) {
+            const opacity = value / 100;
+            if (radarLayer) {
+                radarLayer.setOpacity(opacity);
+            }
+            document.getElementById('opacityValue').textContent = value + '%';
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', initMap);
+    </script>
+</body>
+</html>

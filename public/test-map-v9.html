@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenLayers v9 Map Test</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css">
+  <script src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
+  <style>
+    html, body, #map {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .info-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+    .status {
+      margin-top: 5px;
+      padding: 5px;
+      border-radius: 3px;
+    }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    .info { background: #d1ecf1; color: #0c5460; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="info-panel">
+    <h3>Map Test (OpenLayers v9)</h3>
+    <div id="ol-status" class="status">Checking OpenLayers...</div>
+    <div id="map-status" class="status">Checking map...</div>
+    <div id="layers-status" class="status">Checking layers...</div>
+    <div>
+      <button onclick="testMap()">Run Map Test</button>
+    </div>
+  </div>
+
+  <script>
+    function updateStatus(id, message, type) {
+      const element = document.getElementById(id);
+      element.textContent = message;
+      element.className = 'status ' + type;
+    }
+
+    function testMap() {
+      console.log('Running map test with OpenLayers v9...');
+      
+      // Check if OpenLayers is loaded
+      if (typeof ol === 'undefined') {
+        updateStatus('ol-status', '❌ OpenLayers not loaded', 'error');
+        return;
+      }
+      
+      updateStatus('ol-status', '✅ OpenLayers ' + ol.VERSION + ' loaded', 'success');
+      
+      try {
+        // Create map
+        console.log('Creating map...');
+        const map = new ol.Map({
+          target: 'map',
+          layers: [
+            new ol.layer.Tile({
+              source: new ol.source.OSM()
+            })
+          ],
+          view: new ol.View({
+            center: ol.proj.fromLonLat([-98.5795, 39.8283]),
+            zoom: 4
+          })
+        });
+        
+        console.log('Map created:', map);
+        updateStatus('map-status', '✅ Map created successfully', 'success');
+        
+        // Check layers
+        const layers = map.getLayers().getArray();
+        console.log('Layers:', layers);
+        updateStatus('layers-status', '✅ ' + layers.length + ' layers added', 'success');
+        
+        // Add event listener to report when map is rendered
+        map.once('rendercomplete', function() {
+          console.log('Map render complete!');
+          updateStatus('map-status', '✅ Map rendered successfully', 'success');
+        });
+        
+      } catch (error) {
+        console.error('Error creating map:', error);
+        updateStatus('map-status', '❌ Error: ' + error.message, 'error');
+      }
+    }
+    
+    // Auto-run test after page loads
+    window.addEventListener('load', function() {
+      setTimeout(testMap, 500);
+    });
+  </script>
+</body>
+</html>

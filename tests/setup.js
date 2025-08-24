@@ -1,53 +1,91 @@
-// Jest setup file
-import { jest } from '@jest/globals';
+// Vitest setup file
+import { vi } from 'vitest';
 
 // Mock OpenLayers for testing
-global.OpenLayers = {
-  Map: jest.fn().mockImplementation(() => ({
-    getProjection: jest.fn(),
-    addLayer: jest.fn(),
-    addControl: jest.fn(),
-    setCenter: jest.fn(),
-    getZoom: jest.fn().mockReturnValue(4),
-    zoomTo: jest.fn(),
-    events: {
-      register: jest.fn()
-    },
-    layers: []
+global.ol = {
+  Map: vi.fn().mockImplementation(() => ({
+    getView: vi.fn().mockReturnValue({
+      getCenter: vi.fn().mockReturnValue([0, 0]),
+      getZoom: vi.fn().mockReturnValue(4),
+      getRotation: vi.fn().mockReturnValue(0),
+      getProjection: vi.fn().mockReturnValue({
+        getCode: vi.fn().mockReturnValue('EPSG:3857')
+      })
+    }),
+    getLayers: vi.fn().mockReturnValue({
+      getArray: vi.fn().mockReturnValue([])
+    }),
+    getSize: vi.fn().mockReturnValue([800, 600]),
+    addLayer: vi.fn(),
+    removeLayer: vi.fn(),
+    on: vi.fn(),
+    un: vi.fn(),
+    events: {},
+    target: 'map'
   })),
-  Layer: {
-    TMS: jest.fn(),
-    OSM: jest.fn(),
-    Markers: jest.fn()
+  layer: {
+    Tile: vi.fn().mockImplementation((options) => ({
+      get: vi.fn((key) => {
+        if (key === 'title') return options?.title || 'Mock Layer';
+        if (key === 'tileCounter') return { loading: 0, loaded: 0, errors: 0 };
+        return null;
+      }),
+      set: vi.fn(),
+      getVisible: vi.fn().mockReturnValue(true),
+      getOpacity: vi.fn().mockReturnValue(1),
+      getSource: vi.fn().mockReturnValue({
+        on: vi.fn(),
+        un: vi.fn(),
+        events: {}
+      })
+    })),
+    Vector: vi.fn()
   },
-  Projection: jest.fn(),
-  LonLat: jest.fn().mockImplementation(() => ({
-    transform: jest.fn().mockReturnThis()
+  source: {
+    OSM: vi.fn().mockImplementation(() => ({
+      on: vi.fn(),
+      un: vi.fn(),
+      events: {}
+    })),
+    TileWMS: vi.fn(),
+    Vector: vi.fn()
+  },
+  View: vi.fn().mockImplementation(() => ({
+    getCenter: vi.fn().mockReturnValue([0, 0]),
+    getZoom: vi.fn().mockReturnValue(4),
+    getRotation: vi.fn().mockReturnValue(0),
+    getProjection: vi.fn().mockReturnValue({
+      getCode: vi.fn().mockReturnValue('EPSG:3857')
+    })
   })),
-  Control: {
-    LayerSwitcher: jest.fn()
+  proj: {
+    fromLonLat: vi.fn().mockImplementation((coords) => coords),
+    toLonLat: vi.fn().mockImplementation((coords) => coords)
   }
 };
 
-// Mock jQuery
-global.$ = {
-  ajax: jest.fn()
-};
-
-// Mock DOM elements
-Object.defineProperty(window, 'document', {
+// Mock DOM methods for testing
+Object.defineProperty(global, 'document', {
   value: {
-    getElementById: jest.fn().mockReturnValue({
+    getElementById: vi.fn().mockReturnValue({
       style: { display: 'none' }
     }),
-    createElement: jest.fn().mockReturnValue({
+    createElement: vi.fn().mockReturnValue({
       id: '',
-      style: { display: 'none' }
+      style: { display: 'none' },
+      classList: {
+        add: vi.fn(),
+        remove: vi.fn(),
+        contains: vi.fn().mockReturnValue(false)
+      },
+      appendChild: vi.fn(),
+      removeChild: vi.fn(),
+      parentNode: null
     }),
     body: {
-      appendChild: jest.fn(),
-      removeChild: jest.fn()
+      appendChild: vi.fn(),
+      removeChild: vi.fn()
     },
-    addEventListener: jest.fn()
+    addEventListener: vi.fn()
   }
 });
