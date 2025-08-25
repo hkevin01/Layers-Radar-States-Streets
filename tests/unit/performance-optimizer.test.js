@@ -1,9 +1,4 @@
-/**
- * Unit Tests for PerformanceOptimizer
- * Tests the fixed implementation that caused the original TypeError
- */
-
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the PerformanceOptimizer class based on our fixed implementation
 class PerformanceOptimizer {
@@ -23,18 +18,18 @@ class PerformanceOptimizer {
         try {
             const map = this._getMap();
             if (!map || !map.getView) return [-180, -90, 180, 90];
-            
+
             const view = map.getView();
             if (!view || !view.calculateExtent) return [-180, -90, 180, 90];
-            
+
             const size = map.getSize() || [800, 600];
             const extent = view.calculateExtent(size);
-            
+
             // Transform from Web Mercator to WGS84
             if (ol && ol.proj && ol.proj.transformExtent) {
                 return ol.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
             }
-            
+
             return extent;
         } catch (error) {
             console.warn('Error getting visible bounds:', error);
@@ -46,7 +41,7 @@ class PerformanceOptimizer {
         try {
             const map = this._getMap();
             if (!map || !map.getView) return 10;
-            
+
             const view = map.getView();
             return view?.getZoom?.() || 10;
         } catch (error) {
@@ -58,16 +53,16 @@ class PerformanceOptimizer {
     // Main optimization methods
     async optimizePerformance() {
         if (this.isOptimizing) return;
-        
+
         this.isOptimizing = true;
-        
+
         try {
             const bounds = this._getVisibleBounds4326();
             const zoom = this._getZoom();
-            
+
             await this.preloadTiles(bounds, zoom);
             this.optimizeLayerRendering();
-            
+
         } catch (error) {
             console.error('Performance optimization failed:', error);
         } finally {
@@ -78,25 +73,25 @@ class PerformanceOptimizer {
     async preloadTiles(bounds, zoom) {
         // Simulate tile preloading logic
         const tileKey = `${bounds.join(',')}-${zoom}`;
-        
+
         if (!this.preloadedTiles.has(tileKey)) {
             // Simulate async tile loading
             await new Promise(resolve => setTimeout(resolve, 10));
             this.preloadedTiles.set(tileKey, true);
         }
-        
+
         return this.preloadedTiles.size;
     }
 
     optimizeLayerRendering() {
         const map = this._getMap();
-        
+
         if (map && map.getLayers) {
             const layers = map.getLayers();
             // Simulate layer optimization
             return layers?.getArray?.()?.length || 0;
         }
-        
+
         return 0;
     }
 
@@ -115,20 +110,23 @@ describe('PerformanceOptimizer', () => {
 
     beforeEach(() => {
         // Create mock map component that matches OpenLayers structure
+        const view = {
+            getZoom: vi.fn(() => 12),
+            calculateExtent: vi.fn(() => [-10000000, -5000000, 10000000, 5000000])
+        };
+        const layers = {
+            getArray: vi.fn(() => [
+                { type: 'tile' },
+                { type: 'vector' }
+            ])
+        };
+        const map = {
+            getView: vi.fn(() => view),
+            getSize: vi.fn(() => [1024, 768]),
+            getLayers: vi.fn(() => layers)
+        };
         mockMapComponent = {
-            getMap: vi.fn(() => ({
-                getView: vi.fn(() => ({
-                    getZoom: vi.fn(() => 12),
-                    calculateExtent: vi.fn(() => [-10000000, -5000000, 10000000, 5000000])
-                })),
-                getSize: vi.fn(() => [1024, 768]),
-                getLayers: vi.fn(() => ({
-                    getArray: vi.fn(() => [
-                        { type: 'tile' },
-                        { type: 'vector' }
-                    ])
-                }))
-            }))
+            getMap: vi.fn(() => map)
         };
 
         optimizer = new PerformanceOptimizer(mockMapComponent);
@@ -183,9 +181,9 @@ describe('PerformanceOptimizer', () => {
         it('should prevent concurrent optimization', async () => {
             const promise1 = optimizer.optimizePerformance();
             const promise2 = optimizer.optimizePerformance();
-            
+
             await Promise.all([promise1, promise2]);
-            
+
             // Second call should exit early due to isOptimizing flag
             expect(optimizer.isOptimizing).toBe(false);
         });
@@ -193,7 +191,7 @@ describe('PerformanceOptimizer', () => {
         it('should preload tiles based on current view', async () => {
             const bounds = [-180, -90, 180, 90];
             const zoom = 10;
-            
+
             const tileCount = await optimizer.preloadTiles(bounds, zoom);
             expect(tileCount).toBeGreaterThan(0);
             expect(optimizer.preloadedTiles.size).toBeGreaterThan(0);
@@ -202,13 +200,13 @@ describe('PerformanceOptimizer', () => {
         it('should not duplicate tile preloading', async () => {
             const bounds = [-180, -90, 180, 90];
             const zoom = 10;
-            
+
             await optimizer.preloadTiles(bounds, zoom);
             const initialCount = optimizer.preloadedTiles.size;
-            
+
             await optimizer.preloadTiles(bounds, zoom);
             const finalCount = optimizer.preloadedTiles.size;
-            
+
             expect(finalCount).toBe(initialCount);
         });
 
@@ -221,7 +219,7 @@ describe('PerformanceOptimizer', () => {
     describe('Statistics and Monitoring', () => {
         it('should provide optimization statistics', () => {
             const stats = optimizer.getOptimizationStats();
-            
+
             expect(stats).toHaveProperty('preloadedTiles');
             expect(stats).toHaveProperty('isOptimizing');
             expect(stats).toHaveProperty('queueLength');
@@ -230,12 +228,12 @@ describe('PerformanceOptimizer', () => {
 
         it('should track optimization state during operation', async () => {
             const optimizationPromise = optimizer.optimizePerformance();
-            
+
             // Check state during optimization
             expect(optimizer.isOptimizing).toBe(true);
-            
+
             await optimizationPromise;
-            
+
             // Check state after optimization
             expect(optimizer.isOptimizing).toBe(false);
         });
@@ -249,9 +247,9 @@ describe('PerformanceOptimizer', () => {
                     throw new Error('Map access failed');
                 })
             };
-            
+
             const optimizer2 = new PerformanceOptimizer(errorMapComponent);
-            
+
             await expect(optimizer2.optimizePerformance()).resolves.not.toThrow();
         });
 
@@ -265,10 +263,10 @@ describe('PerformanceOptimizer', () => {
                 getSize: vi.fn(() => [800, 600]),
                 getLayers: vi.fn(() => ({ getArray: vi.fn(() => []) }))
             });
-            
+
             const bounds = optimizer._getVisibleBounds4326();
             const zoom = optimizer._getZoom();
-            
+
             expect(bounds).toEqual([-180, -90, 180, 90]);
             expect(zoom).toBe(10);
         });

@@ -104,9 +104,11 @@ async function initializeApp(containerId = 'map') {
     // Load saved accessibility settings
     accessibilityHelper.loadAccessibilitySettings();
 
-    // Expose instances globally for backward compatibility
-    window.map = mapComponent.getMap();
-    window.mapComponent = mapComponent;
+  // Expose instances globally for backward compatibility
+  // weatherRadarApp.getMap() returns an ol.Map instance, which does not have getMap().
+  // Provide both window.map (ol.Map) and window.mapComponent with a .map property for compatibility with tests.
+  window.map = mapComponent;
+  window.mapComponent = { map: mapComponent, getMap: () => mapComponent };
     window.uiControls = uiControls;
     window.mobileControls = mobileControls;
     window.pwaHelper = pwaHelper;
@@ -376,14 +378,14 @@ function isInitialized() {
 
 // Export functions for module usage
 export {
-    cleanup, getAllComponents,
-    getMapComponent,
-    getPerformanceReport,
-    init_load,
-    initializeApp,
-    isFullyInitialized,
-    isInitialized,
-    toggleFeature
+  cleanup, getAllComponents,
+  getMapComponent,
+  getPerformanceReport,
+  init_load,
+  initializeApp,
+  isFullyInitialized,
+  isInitialized,
+  toggleFeature
 };
 
 // Expose functions globally for HTML script tag usage
@@ -440,7 +442,7 @@ class OpenLayersEventHooks {
     this.setupViewEventListeners();
     this.setupLayerEventListeners();
     this.setupPerformanceMonitoring();
-    
+
     console.log('✅ OpenLayers Event Hooks initialized');
   }
 
@@ -565,20 +567,20 @@ class OpenLayersEventHooks {
     // Frame rate monitoring
     let lastTime = Date.now();
     let frameCount = 0;
-    
+
     const measureFPS = () => {
       frameCount++;
       const currentTime = Date.now();
-      
+
       if (currentTime - lastTime >= 1000) {
         this.diagnosticData.performance.fps = frameCount;
         frameCount = 0;
         lastTime = currentTime;
       }
-      
+
       requestAnimationFrame(measureFPS);
     };
-    
+
     requestAnimationFrame(measureFPS);
   }
 
@@ -629,7 +631,7 @@ class OpenLayersEventHooks {
    */
   sanitizeEventData(data) {
     if (!data) return null;
-    
+
     // Remove circular references and large objects
     const sanitized = {};
     Object.keys(data).forEach(key => {
@@ -642,7 +644,7 @@ class OpenLayersEventHooks {
         sanitized[key] = value;
       }
     });
-    
+
     return sanitized;
   }
 
@@ -791,7 +793,7 @@ class DiagnosticOverlay {
         event.preventDefault();
         this.toggle();
       }
-      
+
       // Ctrl+Shift+D to clear diagnostic data
       if (event.ctrlKey && event.shiftKey && event.key === 'D') {
         event.preventDefault();
@@ -806,7 +808,7 @@ class DiagnosticOverlay {
   toggle() {
     this.isVisible = !this.isVisible;
     this.overlay.style.display = this.isVisible ? 'block' : 'none';
-    
+
     if (this.isVisible) {
       this.startUpdating();
     } else {
@@ -854,41 +856,41 @@ class DiagnosticOverlay {
   formatDiagnosticData(data) {
     const performance = data.performance || {};
     const status = data.status || {};
-    
-    const memoryMB = performance.memoryUsed ? 
+
+    const memoryMB = performance.memoryUsed ?
       Math.round(performance.memoryUsed / 1024 / 1024) : 'N/A';
-    const memoryTotalMB = performance.memoryTotal ? 
+    const memoryTotalMB = performance.memoryTotal ?
       Math.round(performance.memoryTotal / 1024 / 1024) : 'N/A';
 
     return `
       <div style="border-bottom: 1px solid #333; margin-bottom: 10px; padding-bottom: 5px;">
         <strong>🔍 OpenLayers Diagnostics</strong>
       </div>
-      
+
       <div style="margin-bottom: 10px;">
         <strong>Status:</strong><br>
         Map Ready: <span style="color: ${status.mapReady ? '#00ff00' : '#ff0000'}">${status.mapReady ? 'YES' : 'NO'}</span><br>
         Tiles Loaded: <span style="color: ${status.tilesLoaded ? '#00ff00' : '#ff0000'}">${status.tilesLoaded ? 'YES' : 'NO'}</span><br>
       </div>
-      
+
       <div style="margin-bottom: 10px;">
         <strong>Performance:</strong><br>
         Memory: ${memoryMB}MB / ${memoryTotalMB}MB<br>
         FPS: ${performance.fps || 'N/A'}<br>
       </div>
-      
+
       <div style="margin-bottom: 10px;">
         <strong>Event Counts:</strong><br>
         Map Events: ${data.mapEvents ? data.mapEvents.length : 0}<br>
         Tile Events: ${data.tileEvents ? data.tileEvents.length : 0}<br>
         View Events: ${data.viewEvents ? data.viewEvents.length : 0}<br>
       </div>
-      
+
       <div style="margin-bottom: 10px;">
         <strong>Recent Events:</strong><br>
         ${this.formatRecentEvents(data)}
       </div>
-      
+
       <div style="font-size: 10px; color: #666; border-top: 1px solid #333; margin-top: 10px; padding-top: 5px;">
         Ctrl+D: Toggle | Ctrl+Shift+D: Clear Data
       </div>

@@ -20,44 +20,44 @@ class WeatherRadarApp {
             enableControls: true,
             ...config
         };
-        
+
         this.isReady = false;
         this.eventListeners = new Map();
-        
+
         console.log('🌦️ Weather Radar App initialized with config:', this.config);
     }
-    
+
     /**
      * Initialize the application
      */
     async init() {
         try {
             console.log('🚀 Starting Weather Radar Application...');
-            
+
             // Create core instance
             this.core = new WeatherRadarCore(this.config);
-            
+
             // Set up event forwarding
             this.setupEventForwarding();
-            
+
             // Initialize core
-            await this.core.init();
-            
+            await this.core.initialize();
+
             this.isReady = true;
             console.log('✅ Weather Radar Application ready!');
-            
+
             // Emit ready event
             this.emit('ready', { app: this });
-            
+
             return this;
-            
+
         } catch (error) {
             console.error('❌ Weather Radar App initialization failed:', error);
             this.emit('error', { error, app: this });
             throw error;
         }
     }
-    
+
     /**
      * Set up event forwarding from core to app
      */
@@ -66,42 +66,42 @@ class WeatherRadarApp {
         document.addEventListener('weatherradar:initialized', (e) => {
             this.emit('initialized', e.detail);
         });
-        
+
         document.addEventListener('weatherradar:map:clicked', (e) => {
             this.emit('mapClicked', e.detail);
         });
-        
+
         document.addEventListener('weatherradar:map:moved', (e) => {
             this.emit('mapMoved', e.detail);
         });
-        
+
         document.addEventListener('weatherradar:layer:toggled', (e) => {
             this.emit('layerToggled', e.detail);
         });
-        
+
         document.addEventListener('weatherradar:location:found', (e) => {
             this.emit('locationFound', e.detail);
         });
-        
+
         document.addEventListener('weatherradar:error', (e) => {
             this.emit('error', e.detail);
         });
     }
-    
+
     /**
      * Get the map instance
      */
     getMap() {
         return this.core ? this.core.map : null;
     }
-    
+
     /**
      * Get application state
      */
     getState() {
         return this.core ? this.core.getState() : null;
     }
-    
+
     /**
      * Center map on location
      */
@@ -110,7 +110,7 @@ class WeatherRadarApp {
             this.core.centerOnLocation();
         }
     }
-    
+
     /**
      * Switch base layer
      */
@@ -119,7 +119,7 @@ class WeatherRadarApp {
             this.core.switchBaseLayer(layerType);
         }
     }
-    
+
     /**
      * Set radar type
      */
@@ -128,7 +128,7 @@ class WeatherRadarApp {
             this.core.setRadarType(radarType);
         }
     }
-    
+
     /**
      * Toggle layer visibility
      */
@@ -140,7 +140,7 @@ class WeatherRadarApp {
             this.emit('layerToggled', { layer: layerKey, visible });
         }
     }
-    
+
     /**
      * Set layer opacity
      */
@@ -150,7 +150,7 @@ class WeatherRadarApp {
             this.emit('layerOpacity', { layer: layerKey, opacity });
         }
     }
-    
+
     /**
      * Add event listener
      */
@@ -160,7 +160,7 @@ class WeatherRadarApp {
         }
         this.eventListeners.get(eventName).push(handler);
     }
-    
+
     /**
      * Remove event listener
      */
@@ -173,7 +173,7 @@ class WeatherRadarApp {
             }
         }
     }
-    
+
     /**
      * Emit event
      */
@@ -188,7 +188,7 @@ class WeatherRadarApp {
             });
         }
     }
-    
+
     /**
      * Clean up and dispose of resources
      */
@@ -197,10 +197,10 @@ class WeatherRadarApp {
             this.core.cleanup();
             this.core = null;
         }
-        
+
         this.eventListeners.clear();
         this.isReady = false;
-        
+
         console.log('🧹 Weather Radar App destroyed');
         this.emit('destroyed', { app: this });
     }
@@ -230,16 +230,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('🔧 Auto-initialization disabled');
         return;
     }
-    
+
     console.log('📄 DOM loaded, initializing weather radar application...');
-    
+
     try {
         await initWeatherRadar();
-        
+
         // Make globally available for debugging and backward compatibility
         window.weatherRadarApp = globalWeatherRadarApp;
         window.mainWeatherRadarApp = globalWeatherRadarApp;
-        
+
     } catch (error) {
         console.error('❌ Failed to auto-initialize weather radar:', error);
     }

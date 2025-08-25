@@ -64,7 +64,7 @@ npm run test:report        # View test reports
 
 ### Test Structure
 
-```
+```text
 tests/
 ├── unit/                     # Unit tests (Vitest)
 │   └── performance-optimizer.test.js
@@ -177,7 +177,7 @@ npm run build           # No-op for static site
 
 ## 📁 Project Structure
 
-```
+```text
 ├── public/
 │   └── index.html          # Main HTML file with OpenLayers
 ├── src/
@@ -207,6 +207,28 @@ npm run test:unit:ui             # Visual unit test interface
 
 # Check server status
 curl http://127.0.0.1:8082/public/index.html
+
+- Toggle diagnostics overlay with the D key. It shows current size, zoom, center, and visible extent in EPSG:4326. The overlay state persists across reloads.
+- Use `window.__getMapDiagnostics()` in DevTools console to retrieve the same info programmatically.
+- If the OpenLayers CDN fails, the app attempts to load a local fallback from `public/vendor/ol/ol.js` and `ol.css`. Run:
+
+```bash
+npm install
+npm run prepare:ol
+```
+
+to populate the fallback files from your `node_modules/ol` package (v8.2.0).
+
+### Quick checks
+
+```bash
+npm run dev
+npm run test:quick
+npm run test:cypress
+npm run test:playwright
+npm run test:unit
+```
+
 ```
 
 ## 📝 Contributing
@@ -228,3 +250,29 @@ MIT License - see LICENSE file for details.
 - [Cypress Testing](https://docs.cypress.io/)
 - [Vitest Documentation](https://vitest.dev/)
 - [Selenium WebDriver](https://selenium-python.readthedocs.io/)
+
+### OpenLayers CDN fallback
+
+This app loads OpenLayers v8 from the CDN first and automatically falls back to a local copy if the CDN is unavailable.
+
+- CDN URLs used:
+    - JS: <https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js>
+    - CSS: <https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css>
+- Local fallback files will be placed at:
+    - `public/vendor/ol/ol.js`
+    - `public/vendor/ol/ol.css`
+
+Setup for fallback (runs automatically on install):
+
+```bash
+npm install
+# postinstall runs: npm run prepare:ol
+```
+
+Manual refresh of fallback assets if needed:
+
+```bash
+npm run prepare:ol
+```
+
+If both CDN and local fallback fail, the page will show an on-screen error banner. See TROUBLESHOOTING.md for the “Blank map” checklist.

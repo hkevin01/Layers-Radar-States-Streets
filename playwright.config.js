@@ -1,6 +1,6 @@
 /**
  * Playwright Configuration for Layers Radar States Streets
- * 
+ *
  * Multi-browser E2E testing with OpenLayers event synchronization
  */
 
@@ -53,15 +53,12 @@ export default defineConfig({
       use: { ...devices['iPhone 12'] },
     },
 
-    // Additional browsers
-    {
-      name: 'Microsoft Edge',
-      use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    },
+  // Note: Edge disabled by default; enable locally if msedge is installed
   ],
 
   webServer: {
-    command: 'npm run start:8082',
+    // Serve the public folder as the site root so /index.html resolves
+    command: 'npx http-server public -p 8082 --cors -c-1',
     port: 8082,
     reuseExistingServer: !process.env.CI,
   },

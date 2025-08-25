@@ -52,6 +52,14 @@ coverage/
 *.cover
 .pytest_cache/
 .jest/
+test-results/
+
+# Playwright reports and artifacts
+playwright-report/
+tests/reports/playwright/
+tests/reports/playwright-results.json
+tests/reports/playwright-junit.xml
+tests/screenshots/
 
 # Cache directories
 .cache/
@@ -62,6 +70,15 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# Media assets (exclude large binaries)
+*.png
+*.PNG
+*.webm
+*.WEBM
+
+# Archives
+*.zip
 
 # Data cache (keep sample data)
 data/cache/
@@ -74,3 +91,6 @@ src/js/main.js
 # Keep sample data but ignore dynamic data
 !data/sample*
 !data/README.md
+
+# Diagnostic artifacts
+error-context.md

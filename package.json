@@ -8,6 +8,7 @@
     "start": "http-server -p 8080 -c-1",
     "start:8082": "http-server -p 8082 -c-1",
     "dev": "npm run start:8082",
+  "prepare:ol": "mkdir -p public/vendor/ol && cp node_modules/ol/dist/ol.js public/vendor/ol/ol.js && cp node_modules/ol/ol.css public/vendor/ol/ol.css",
     "test": "node tests/run-all-tests.js",
     "test:unit": "vitest run --config tests/vitest.config.js",
     "test:unit:watch": "vitest --config tests/vitest.config.js",
@@ -27,8 +28,8 @@
     "lint": "echo 'Linting not configured yet'",
     "format": "echo 'Formatting not configured yet'",
     "clean": "rm -rf tests/reports/* tests/screenshots/* || true",
-    "setup": "npm install && mkdir -p tests/reports tests/screenshots",
-    "postinstall": "npm run setup"
+  "setup": "mkdir -p tests/reports tests/screenshots",
+  "postinstall": "npm run setup && npm run prepare:ol"
   },
   "keywords": [
     "openlayers",
@@ -44,9 +45,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "http-server": "^14.1.1"
+  "http-server": "^14.1.1",
+  "ol": "^8.2.0"
   },
   "devDependencies": {
+  "@playwright/test": "^1.40.0",
     "@lhci/cli": "^0.12.0",
     "@vitest/ui": "^1.0.0",
     "c8": "^8.0.1",

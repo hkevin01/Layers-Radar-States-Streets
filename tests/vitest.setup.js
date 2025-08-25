@@ -1,5 +1,5 @@
-import { vi } from 'vitest';
 import { JSDOM } from 'jsdom';
+import { vi } from 'vitest';
 
 // Mock DOM environment
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
@@ -13,6 +13,19 @@ global.document = dom.window.document;
 global.navigator = dom.window.navigator;
 global.HTMLElement = dom.window.HTMLElement;
 global.Element = dom.window.Element;
+
+// Provide a minimal Jest-compatible shim for tests using jest APIs
+if (!global.jest) {
+  global.jest = {
+    fn: vi.fn.bind(vi),
+    spyOn: (obj, method) => vi.spyOn(obj, method),
+    clearAllMocks: () => vi.clearAllMocks(),
+    useFakeTimers: vi.useFakeTimers.bind(vi),
+    useRealTimers: vi.useRealTimers.bind(vi),
+    advanceTimersByTime: vi.advanceTimersByTime.bind(vi),
+    runAllTimers: vi.runAllTimers.bind(vi)
+  };
+}
 
 // Mock OpenLayers
 global.ol = {
@@ -129,10 +142,10 @@ global.ResizeObserver = vi.fn(() => ({
 beforeEach(() => {
   // Clear all mocks before each test
   vi.clearAllMocks();
-  
+
   // Reset DOM
   document.body.innerHTML = '';
-  
+
   // Create a test container
   const testContainer = document.createElement('div');
   testContainer.id = 'test-container';

@@ -4,6 +4,34 @@
  * tile caching, lazy loading, and resource management
  */
 
+export function getVisibleBounds4326(mapLike) {
+  const DEFAULT = [-180, -85, 180, 85];
+  try {
+    const map = mapLike?.getMap?.() || mapLike;
+    const view = map && map.getView ? map.getView() : null;
+    const size = map && map.getSize ? map.getSize() : null;
+  if (!map || !view || !view.calculateExtent || !size || !isFinite(size[0]) || !isFinite(size[1])) {
+      console.warn('Bounds fallback used due to missing map/view/size');
+      return DEFAULT;
+    }
+    const extent = view.calculateExtent(size);
+  // Support both browser (window.ol) and test/node (globalThis.ol) environments
+  const olNS = (typeof window !== 'undefined' && window.ol) || (typeof globalThis !== 'undefined' && globalThis.ol) || undefined;
+  if (olNS && olNS.proj && typeof olNS.proj.transformExtent === 'function') {
+      try {
+    return olNS.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
+      } catch (e) {
+        console.warn('transformExtent failed, returning default', e);
+        return DEFAULT;
+      }
+    }
+    return DEFAULT;
+  } catch (e) {
+    console.warn('Error computing visible bounds, returning default', e);
+    return DEFAULT;
+  }
+}
+
 export class PerformanceOptimizer {
   constructor(mapComponent) {
     this.mapComponent = mapComponent;
@@ -25,8 +53,24 @@ export class PerformanceOptimizer {
     this.compressionEnabled = false;
     this.prefetchQueue = [];
     this.connectionInfo = null;
-    
+
     this.init();
+  }
+
+  // Safely get visible bounds in EPSG:4326 with guards
+  _getVisibleBounds4326() {
+    return getVisibleBounds4326(this.mapComponent);
+  }
+
+  _getZoom() {
+    try {
+      const map = this.mapComponent?.getMap?.() || this.mapComponent;
+      const view = map && map.getView ? map.getView() : null;
+      const z = view && view.getZoom ? view.getZoom() : null;
+      return typeof z === 'number' && isFinite(z) ? z : 3;
+    } catch (_) {
+      return 3;
+    }
   }
 
   /**
@@ -40,7 +84,7 @@ export class PerformanceOptimizer {
     this.setupCompressionHandling();
     this.startPerformanceMonitoring();
     this.optimizeForDevice();
-    
+
     console.log('⚡ Performance Optimizer initialized');
     console.log(`📊 WebGL Support: ${this.webGLSupported ? 'Yes' : 'No'}`);
     console.log(`📱 Device Type: ${this.getDeviceType()}`);
@@ -66,10 +110,10 @@ export class PerformanceOptimizer {
   detectConnectionQuality() {
     if ('connection' in navigator) {
       this.connectionInfo = navigator.connection;
-      
+
       // Adapt to connection quality
       const effectiveType = this.connectionInfo.effectiveType;
-      
+
       switch (effectiveType) {
         case 'slow-2g':
         case '2g':
@@ -83,7 +127,7 @@ export class PerformanceOptimizer {
           this.enableHighQualityMode();
           break;
       }
-      
+
       // Listen for connection changes
       this.connectionInfo.addEventListener('change', () => {
         this.detectConnectionQuality();
@@ -99,14 +143,14 @@ export class PerformanceOptimizer {
       console.warn('⚠️ WebGL not supported on this device');
       return false;
     }
-    
+
     this.webGLEnabled = true;
-    
+
     // Configure map for WebGL rendering
     if (this.mapComponent && this.mapComponent.enableWebGL) {
       this.mapComponent.enableWebGL();
     }
-    
+
     console.log('🚀 WebGL acceleration enabled');
     return true;
   }
@@ -116,11 +160,11 @@ export class PerformanceOptimizer {
    */
   disableWebGLAcceleration() {
     this.webGLEnabled = false;
-    
+
     if (this.mapComponent && this.mapComponent.disableWebGL) {
       this.mapComponent.disableWebGL();
     }
-    
+
     console.log('🔽 WebGL acceleration disabled');
   }
 
@@ -130,10 +174,10 @@ export class PerformanceOptimizer {
   setupTilePreloading() {
     this.tileCache = new Map();
     this.maxCacheSize = this.getOptimalCacheSize();
-    
+
     // Preload tiles based on viewport
     this.preloadVisibleTiles();
-    
+
     // Preload adjacent tiles
     this.preloadAdjacentTiles();
   }
@@ -144,7 +188,7 @@ export class PerformanceOptimizer {
   getOptimalCacheSize() {
     const deviceMemory = navigator.deviceMemory || 4; // GB
     const baseSize = 50; // Base number of tiles
-    
+
     if (deviceMemory >= 8) {
       return baseSize * 4; // 200 tiles
     } else if (deviceMemory >= 4) {
@@ -159,10 +203,10 @@ export class PerformanceOptimizer {
    */
   preloadVisibleTiles() {
     if (!this.mapComponent) return;
-    
+
     const bounds = this._getVisibleBounds4326();
     const zoom = this._getZoom();
-    
+
     this.queueTilePreload(bounds, zoom);
   }
 
@@ -171,13 +215,13 @@ export class PerformanceOptimizer {
    */
   preloadAdjacentTiles() {
     if (!this.mapComponent) return;
-    
+
     const bounds = this._getVisibleBounds4326();
     const zoom = this._getZoom();
-    
+
     // Expand bounds to include adjacent areas
     const expandedBounds = this.expandBounds(bounds, 1.5);
-    
+
     this.queueTilePreload(expandedBounds, zoom, 'low');
   }
 
@@ -186,7 +230,7 @@ export class PerformanceOptimizer {
    */
   queueTilePreload(bounds, zoom, priority = 'normal') {
     const tiles = this.generateTileList(bounds, zoom);
-    
+
     tiles.forEach(tile => {
       if (!this.tileCache.has(tile.url)) {
         this.prefetchQueue.push({
@@ -197,7 +241,7 @@ export class PerformanceOptimizer {
         });
       }
     });
-    
+
     this.processPrefetchQueue();
   }
 
@@ -206,20 +250,20 @@ export class PerformanceOptimizer {
    */
   async processPrefetchQueue() {
     if (this.prefetchQueue.length === 0) return;
-    
+
     // Sort by priority
     this.prefetchQueue.sort((a, b) => {
       const priorityOrder = { high: 3, normal: 2, low: 1 };
       return priorityOrder[b.priority] - priorityOrder[a.priority];
     });
-    
+
     // Process tiles with network-aware throttling
     const concurrency = this.getOptimalConcurrency();
     const batch = this.prefetchQueue.splice(0, concurrency);
-    
+
     const promises = batch.map(tile => this.preloadTile(tile));
     await Promise.allSettled(promises);
-    
+
     // Continue processing if queue not empty
     if (this.prefetchQueue.length > 0) {
       setTimeout(() => this.processPrefetchQueue(), 100);
@@ -231,7 +275,7 @@ export class PerformanceOptimizer {
    */
   getOptimalConcurrency() {
     if (!this.connectionInfo) return 3;
-    
+
     switch (this.connectionInfo.effectiveType) {
       case 'slow-2g':
       case '2g':
@@ -250,19 +294,19 @@ export class PerformanceOptimizer {
   async preloadTile(tile) {
     try {
       const startTime = performance.now();
-      
+
       const response = await fetch(tile.url, {
         method: 'GET',
         cache: 'force-cache'
       });
-      
+
       if (response.ok) {
         const blob = await response.blob();
         const loadTime = performance.now() - startTime;
-        
+
         // Cache the tile
         this.cacheTile(tile.url, blob, loadTime);
-        
+
         this.performanceMetrics.networkRequests.push({
           url: tile.url,
           loadTime,
@@ -270,7 +314,7 @@ export class PerformanceOptimizer {
           timestamp: Date.now()
         });
       }
-      
+
     } catch (error) {
       console.warn('Failed to preload tile:', tile.url, error);
     }
@@ -285,7 +329,7 @@ export class PerformanceOptimizer {
       const oldestKey = this.tileCache.keys().next().value;
       this.tileCache.delete(oldestKey);
     }
-    
+
     this.tileCache.set(url, {
       blob,
       loadTime,
@@ -326,7 +370,7 @@ export class PerformanceOptimizer {
         threshold: 0.1
       }
     );
-    
+
     // Observe existing lazy elements
     this.observeLazyElements();
   }
@@ -347,11 +391,11 @@ export class PerformanceOptimizer {
    */
   loadLazyElement(element) {
     const startTime = performance.now();
-    
+
     if (element.dataset.lazy) {
       // Load data-lazy attribute
       const src = element.dataset.lazy;
-      
+
       if (element.tagName === 'IMG') {
         element.onload = () => {
           const loadTime = performance.now() - startTime;
@@ -373,7 +417,7 @@ export class PerformanceOptimizer {
           });
         });
       }
-      
+
       element.removeAttribute('data-lazy');
     }
   }
@@ -384,12 +428,12 @@ export class PerformanceOptimizer {
   setupResourceCaching() {
     // Intercept fetch requests for caching
     const originalFetch = window.fetch;
-    
+
     window.fetch = async (url, options = {}) => {
       // Check cache first
       const cacheKey = this.generateCacheKey(url, options);
       const cached = this.resourceCache.get(cacheKey);
-      
+
       if (cached && !this.isCacheExpired(cached)) {
         return new Response(cached.data, {
           status: 200,
@@ -397,16 +441,16 @@ export class PerformanceOptimizer {
           headers: cached.headers
         });
       }
-      
+
       // Fetch from network
       try {
         const response = await originalFetch(url, options);
-        
+
         // Cache successful responses
         if (response.ok && this.shouldCache(url, options)) {
           const clonedResponse = response.clone();
           const data = await clonedResponse.arrayBuffer();
-          
+
           this.resourceCache.set(cacheKey, {
             data,
             headers: Object.fromEntries(response.headers.entries()),
@@ -414,7 +458,7 @@ export class PerformanceOptimizer {
             url
           });
         }
-        
+
         return response;
       } catch (error) {
         // Return cached version if network fails
@@ -454,7 +498,7 @@ export class PerformanceOptimizer {
   shouldCache(url, options) {
     // Only cache GET requests
     if (options.method && options.method !== 'GET') return false;
-    
+
     // Cache tiles, images, and static resources
     return /\.(png|jpg|jpeg|gif|svg|json|css|js)$/i.test(url) ||
            url.includes('/tile/') ||
@@ -468,7 +512,7 @@ export class PerformanceOptimizer {
   setupCompressionHandling() {
     // Check if compression is supported
     this.compressionSupported = 'CompressionStream' in window;
-    
+
     if (this.compressionSupported) {
       console.log('📦 Compression support detected');
     }
@@ -482,7 +526,7 @@ export class PerformanceOptimizer {
       console.warn('⚠️ Compression not supported on this browser');
       return false;
     }
-    
+
     this.compressionEnabled = true;
     console.log('📦 Data compression enabled');
     return true;
@@ -495,24 +539,24 @@ export class PerformanceOptimizer {
     if (!this.compressionEnabled || !this.compressionSupported) {
       return data;
     }
-    
+
     try {
       const stream = new CompressionStream('gzip');
       const writer = stream.writable.getWriter();
       const reader = stream.readable.getReader();
-      
+
       writer.write(new TextEncoder().encode(JSON.stringify(data)));
       writer.close();
-      
+
       const chunks = [];
       let done = false;
-      
+
       while (!done) {
         const { value, done: readerDone } = await reader.read();
         done = readerDone;
         if (value) chunks.push(value);
       }
-      
+
       return new Uint8Array(chunks.reduce((acc, chunk) => [...acc, ...chunk], []));
     } catch (error) {
       console.warn('Compression failed:', error);
@@ -526,16 +570,16 @@ export class PerformanceOptimizer {
   startPerformanceMonitoring() {
     this.isMonitoring = true;
     this.lastFrameTime = performance.now();
-    
+
     // Monitor frame rate
     this.monitorFrameRate();
-    
+
     // Monitor memory usage
     this.monitorMemoryUsage();
-    
+
     // Monitor network performance
     this.monitorNetworkPerformance();
-    
+
     console.log('📊 Performance monitoring started');
   }
 
@@ -545,32 +589,32 @@ export class PerformanceOptimizer {
   monitorFrameRate() {
     const measureFrame = (currentTime) => {
       if (!this.isMonitoring) return;
-      
+
       this.frameCount++;
       const deltaTime = currentTime - this.lastFrameTime;
-      
+
       if (deltaTime >= 1000) { // Calculate FPS every second
         const fps = (this.frameCount * 1000) / deltaTime;
         this.performanceMetrics.frameRate.push({
           fps,
           timestamp: Date.now()
         });
-        
+
         // Keep only last 60 samples
         if (this.performanceMetrics.frameRate.length > 60) {
           this.performanceMetrics.frameRate.shift();
         }
-        
+
         this.frameCount = 0;
         this.lastFrameTime = currentTime;
-        
+
         // Adjust quality based on FPS
         this.adjustQualityBasedOnFPS(fps);
       }
-      
+
       requestAnimationFrame(measureFrame);
     };
-    
+
     requestAnimationFrame(measureFrame);
   }
 
@@ -579,10 +623,10 @@ export class PerformanceOptimizer {
    */
   monitorMemoryUsage() {
     if (!('memory' in performance)) return;
-    
+
     setInterval(() => {
       if (!this.isMonitoring) return;
-      
+
       const memory = performance.memory;
       this.performanceMetrics.memorySamples.push({
         used: memory.usedJSHeapSize,
@@ -590,15 +634,15 @@ export class PerformanceOptimizer {
         limit: memory.jsHeapSizeLimit,
         timestamp: Date.now()
       });
-      
+
       // Keep only last 120 samples (10 minutes at 5s intervals)
       if (this.performanceMetrics.memorySamples.length > 120) {
         this.performanceMetrics.memorySamples.shift();
       }
-      
+
       // Trigger garbage collection if memory usage is high
       this.checkMemoryPressure();
-      
+
     }, 5000); // Every 5 seconds
   }
 
@@ -620,7 +664,7 @@ export class PerformanceOptimizer {
           }
         }
       });
-      
+
       observer.observe({ entryTypes: ['resource'] });
     }
   }
@@ -641,10 +685,10 @@ export class PerformanceOptimizer {
    */
   checkMemoryPressure() {
     if (!('memory' in performance)) return;
-    
+
     const memory = performance.memory;
     const usageRatio = memory.usedJSHeapSize / memory.jsHeapSizeLimit;
-    
+
     if (usageRatio > 0.85) {
       console.warn('⚠️ High memory usage detected, cleaning up...');
       this.performMemoryCleanup();
@@ -658,10 +702,10 @@ export class PerformanceOptimizer {
     // Clear old cache entries
     this.cleanupTileCache();
     this.cleanupResourceCache();
-    
+
     // Clear old performance metrics
     this.cleanupPerformanceMetrics();
-    
+
     // Suggest garbage collection (if available)
     if ('gc' in window) {
       window.gc();
@@ -674,7 +718,7 @@ export class PerformanceOptimizer {
   cleanupTileCache() {
     const now = Date.now();
     const maxAge = 1800000; // 30 minutes
-    
+
     for (const [key, value] of this.tileCache.entries()) {
       if (now - value.timestamp > maxAge) {
         this.tileCache.delete(key);
@@ -688,7 +732,7 @@ export class PerformanceOptimizer {
   cleanupResourceCache() {
     const now = Date.now();
     const maxAge = 3600000; // 1 hour
-    
+
     for (const [key, value] of this.resourceCache.entries()) {
       if (now - value.timestamp > maxAge) {
         this.resourceCache.delete(key);
@@ -702,15 +746,15 @@ export class PerformanceOptimizer {
   cleanupPerformanceMetrics() {
     // Keep only recent data
     const cutoff = Date.now() - 1800000; // 30 minutes
-    
+
     this.performanceMetrics.frameRate = this.performanceMetrics.frameRate.filter(
       sample => sample.timestamp > cutoff
     );
-    
+
     this.performanceMetrics.memorySamples = this.performanceMetrics.memorySamples.filter(
       sample => sample.timestamp > cutoff
     );
-    
+
     this.performanceMetrics.networkRequests = this.performanceMetrics.networkRequests.filter(
       request => request.timestamp > cutoff
     );
@@ -721,7 +765,7 @@ export class PerformanceOptimizer {
    */
   optimizeForDevice() {
     const deviceType = this.getDeviceType();
-    
+
     switch (deviceType) {
       case 'mobile':
         this.enableMobileOptimizations();
@@ -741,11 +785,11 @@ export class PerformanceOptimizer {
   getDeviceType() {
     const width = window.innerWidth;
     const userAgent = navigator.userAgent;
-    
+
     if (/Mobile|Android|iPhone|iPad/.test(userAgent)) {
       return width < 768 ? 'mobile' : 'tablet';
     }
-    
+
     return width < 768 ? 'mobile' : width < 1024 ? 'tablet' : 'desktop';
   }
 
@@ -810,7 +854,7 @@ export class PerformanceOptimizer {
     const height = bounds.top - bounds.bottom;
     const extraWidth = width * (factor - 1) / 2;
     const extraHeight = height * (factor - 1) / 2;
-    
+
     return {
       left: bounds.left - extraWidth,
       right: bounds.right + extraWidth,
@@ -823,16 +867,16 @@ export class PerformanceOptimizer {
     // This would generate a list of tile URLs based on bounds and zoom
     // Implementation depends on tile server format
     const tiles = [];
-    
+
     // Example tile generation (simplified)
     const tileSize = 256;
     const numTiles = Math.pow(2, zoom);
-    
+
     const leftTile = Math.floor((bounds.left + 180) / 360 * numTiles);
     const rightTile = Math.floor((bounds.right + 180) / 360 * numTiles);
     const topTile = Math.floor((1 - Math.log(Math.tan(bounds.top * Math.PI / 180) + 1 / Math.cos(bounds.top * Math.PI / 180)) / Math.PI) / 2 * numTiles);
     const bottomTile = Math.floor((1 - Math.log(Math.tan(bounds.bottom * Math.PI / 180) + 1 / Math.cos(bounds.bottom * Math.PI / 180)) / Math.PI) / 2 * numTiles);
-    
+
     for (let x = leftTile; x <= rightTile; x++) {
       for (let y = topTile; y <= bottomTile; y++) {
         tiles.push({
@@ -841,7 +885,7 @@ export class PerformanceOptimizer {
         });
       }
     }
-    
+
     return tiles;
   }
 
@@ -857,15 +901,15 @@ export class PerformanceOptimizer {
     const avgFPS = this.performanceMetrics.frameRate.length > 0
       ? this.performanceMetrics.frameRate.reduce((sum, sample) => sum + sample.fps, 0) / this.performanceMetrics.frameRate.length
       : 0;
-    
+
     const avgLoadTime = this.performanceMetrics.loadTimes.length > 0
       ? this.performanceMetrics.loadTimes.reduce((sum, sample) => sum + sample.loadTime, 0) / this.performanceMetrics.loadTimes.length
       : 0;
-    
+
     const currentMemory = this.performanceMetrics.memorySamples.length > 0
       ? this.performanceMetrics.memorySamples[this.performanceMetrics.memorySamples.length - 1]
       : null;
-    
+
     return {
       webGL: {
         supported: this.webGLSupported,
@@ -912,18 +956,19 @@ export class PerformanceOptimizer {
    */
   destroy() {
     this.stopPerformanceMonitoring();
-    
+
     if (this.lazyObserver) {
       this.lazyObserver.disconnect();
     }
-    
+
     this.tileCache.clear();
     this.resourceCache.clear();
     this.prefetchQueue = [];
-    
+
     // Restore original fetch
     if (this.originalFetch) {
       window.fetch = this.originalFetch;
     }
   }
 }
+
