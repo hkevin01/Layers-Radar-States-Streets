@@ -38,10 +38,12 @@ async function initializeApp(containerId = 'map') {
     console.log('⚡ Initializing performance optimizer...');
     performanceOptimizer = new PerformanceOptimizer({
       tileCacheSize: 500,
-      maxMemoryUsage: 0.75, // 75% of available memory
+      maxMemoryUsage: 0.75,
       preloadAdjacentTiles: true,
       enableWebGLAcceleration: true
     });
+    // Expose early for tests
+    window.performanceOptimizer = performanceOptimizer;
 
     // Initialize PWA features with offline support
     console.log('📱 Initializing PWA features...');
@@ -82,7 +84,9 @@ async function initializeApp(containerId = 'map') {
     mapComponent = weatherRadarApp.getMap();
 
     // Update performance optimizer with map instance
-    performanceOptimizer.mapComponent = mapComponent;
+    if (performanceOptimizer && mapComponent) {
+      performanceOptimizer.setMapComponent(mapComponent);
+    }
 
     // Initialize UI components
     console.log('🎛️ Initializing UI controls...');
@@ -163,19 +167,32 @@ async function initializeApp(containerId = 'map') {
 function setupComponentInteractions() {
   // Map events for UI updates
   if (mapComponent && uiControls) {
-    mapComponent.on('moveend', () => {
-      const center = mapComponent.getCenter();
-      const zoom = mapComponent.getZoom();
-      uiControls.updateCoordinates(center.lon, center.lat);
-      uiControls.updateZoom(zoom);
+    // Use ol.View for center/zoom; ol.Map doesn't expose getCenter/getZoom directly
+    const view = mapComponent.getView && mapComponent.getView();
+
+    mapComponent.on && mapComponent.on('moveend', () => {
+      try {
+        const v = mapComponent.getView && mapComponent.getView();
+        const center3857 = v && v.getCenter ? v.getCenter() : null;
+        const zoom = v && v.getZoom ? v.getZoom() : null;
+        const centerLonLat = (center3857 && window.ol?.proj?.toLonLat)
+          ? ol.proj.toLonLat(center3857)
+          : [null, null];
+        uiControls.updateCoordinates(centerLonLat[0], centerLonLat[1]);
+        if (typeof zoom === 'number') uiControls.updateZoom(zoom);
+      } catch (_) { /* noop */ }
     });
 
-    mapComponent.on('zoomend', () => {
-      const zoom = mapComponent.getZoom();
-      uiControls.updateZoom(zoom);
-      if (accessibilityHelper) {
-        accessibilityHelper.announce(`Zoom level ${zoom}`);
-      }
+    // View-specific zoom change event (resolution change correlates with zoom changes)
+    view && view.on && view.on('change:resolution', () => {
+      try {
+        const v = mapComponent.getView && mapComponent.getView();
+        const zoom = v && v.getZoom ? v.getZoom() : null;
+        if (typeof zoom === 'number') uiControls.updateZoom(zoom);
+        if (accessibilityHelper && typeof zoom === 'number') {
+          accessibilityHelper.announce(`Zoom level ${zoom}`);
+        }
+      } catch (_) { /* noop */ }
     });
   }
 
@@ -437,7 +454,26 @@ class OpenLayersEventHooks {
       return;
     }
 
-    this.map = map;
+    // Normalize possible wrappers and ensure we hold a real ol.Map with an .on method
+    let resolvedMap = map;
+    // If a wrapper with .map property
+    if (resolvedMap && !resolvedMap.on && resolvedMap.map) {
+      resolvedMap = resolvedMap.map;
+    }
+    // If global exposes exist, prefer those if they look healthier
+    if ((!resolvedMap || !resolvedMap.on) && window.map && window.map.on) {
+      resolvedMap = window.map;
+    }
+    if ((!resolvedMap || !resolvedMap.on) && window.mapComponent && window.mapComponent.map && window.mapComponent.map.on) {
+      resolvedMap = window.mapComponent.map;
+    }
+
+    this.map = resolvedMap;
+
+    if (!this.map || typeof this.map.on !== 'function') {
+      console.warn('OpenLayersEventHooks: Provided map does not support event subscription; skipping hooks');
+      return;
+    }
     this.setupMapEventListeners();
     this.setupViewEventListeners();
     this.setupLayerEventListeners();
@@ -450,28 +486,22 @@ class OpenLayersEventHooks {
    * Setup map-level event listeners
    */
   setupMapEventListeners() {
-    // Map loading events
-    this.map.on('loadstart', (event) => {
-      this.isMapReady = false;
-      this.isTilesLoaded = false;
-      this.recordEvent('map', 'loadstart', event);
-      this.notifyTestFrameworks('map:loadstart', event);
-    });
-
-    this.map.on('loadend', (event) => {
+    // Map loading/render events
+    // Some OL versions don't emit loadstart/loadend at map-level; rely on rendercomplete + tile events
+    this.map.on && this.map.on('rendercomplete', (event) => {
       this.isMapReady = true;
-      this.recordEvent('map', 'loadend', event);
-      this.notifyTestFrameworks('map:loadend', event);
+      this.recordEvent('map', 'rendercomplete', event);
+      this.notifyTestFrameworks('map:rendercomplete', event);
       this.checkAllTilesLoaded();
     });
 
     // Map interaction events
-    this.map.on('click', (event) => {
+    this.map.on && this.map.on('click', (event) => {
       this.recordEvent('map', 'click', event);
       this.notifyTestFrameworks('map:click', event);
     });
 
-    this.map.on('pointermove', (event) => {
+    this.map.on && this.map.on('pointermove', (event) => {
       this.recordEvent('map', 'pointermove', event);
     });
   }
@@ -544,6 +574,23 @@ class OpenLayersEventHooks {
       source.on('tileloaderror', (event) => {
         this.recordEvent('tile', 'loaderror', { ...event, layerIndex: index });
         this.notifyTestFrameworks('tile:error', event);
+      });
+
+      // Image (single-tile) loading events (e.g., ImageWMS)
+      // OpenLayers Image sources emit imageloadstart/imageloadend/imageloaderror
+      source.on('imageloadstart', (event) => {
+        this.isTilesLoaded = false;
+        this.recordEvent('image', 'loadstart', { ...event, layerIndex: index });
+      });
+
+      source.on('imageloadend', (event) => {
+        this.recordEvent('image', 'loadend', { ...event, layerIndex: index });
+        this.checkAllTilesLoaded();
+      });
+
+      source.on('imageloaderror', (event) => {
+        this.recordEvent('image', 'loaderror', { ...event, layerIndex: index });
+        this.notifyTestFrameworks('image:error', event);
       });
     }
   }

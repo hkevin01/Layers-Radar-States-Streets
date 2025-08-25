@@ -5,8 +5,15 @@
  */
 
 export class PerformanceOptimizer {
-  constructor(mapComponent) {
-    this.mapComponent = mapComponent;
+  constructor(optionsOrMap) {
+    // Accept either a mapComponent instance or options object
+    if (optionsOrMap && typeof optionsOrMap === 'object' && (optionsOrMap.getMap || optionsOrMap.getView || optionsOrMap.map)) {
+      this.mapComponent = optionsOrMap;
+      this.options = {};
+    } else {
+      this.mapComponent = null;
+      this.options = optionsOrMap || {};
+    }
     this.webGLSupported = this.checkWebGLSupport();
     this.webGLEnabled = false;
     this.tileCache = new Map();
@@ -26,7 +33,8 @@ export class PerformanceOptimizer {
     this.prefetchQueue = [];
     this.connectionInfo = null;
 
-    this.init();
+  this.originalFetch = window.fetch;
+  this.init();
   }
 
   /**
@@ -423,9 +431,9 @@ export class PerformanceOptimizer {
    */
   setupResourceCaching() {
     // Intercept fetch requests for caching
-    const originalFetch = window.fetch;
+  const originalFetch = window.fetch;
 
-    window.fetch = async (url, options = {}) => {
+  window.fetch = async (url, options = {}) => {
       // Check cache first
       const cacheKey = this.generateCacheKey(url, options);
       const cached = this.resourceCache.get(cacheKey);
@@ -965,6 +973,19 @@ export class PerformanceOptimizer {
     if (this.originalFetch) {
       window.fetch = this.originalFetch;
     }
+  }
+
+  set map(map) {
+    // Allow setting via setter if needed; normalize wrapper shapes
+    if (map && map.getView) {
+      this.mapComponent = map;
+    } else if (map && map.map) {
+      this.mapComponent = map.map;
+    }
+  }
+
+  setMapComponent(mc) {
+    this.mapComponent = (mc && mc.getMap) ? mc.getMap() : (mc && mc.map) ? mc.map : mc;
   }
 }
 

@@ -5,10 +5,13 @@
  */
 
 export class PWAHelper {
-  constructor() {
+  constructor(options = {}) {
     this.deferredPrompt = null;
     this.isOnline = navigator.onLine;
     this.serviceWorkerRegistration = null;
+
+    // Options
+    this.options = Object.assign({ enableServiceWorker: true }, options);
 
     this.init();
   }
@@ -45,8 +48,16 @@ export class PWAHelper {
   async registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       try {
-  // Service worker is served from /public in this project
-  this.serviceWorkerRegistration = await navigator.serviceWorker.register('/public/sw.js');
+        // Allow disabling during automated tests or via URL flag
+        const url = new URL(window.location.href);
+        const e2eDisabled = url.searchParams.has('e2e') || window.__E2E_TEST__ || navigator.webdriver;
+        if (e2eDisabled || this.options.enableServiceWorker === false) {
+          console.warn('PWAHelper: Service Worker registration skipped (test mode or disabled).');
+          return;
+        }
+
+        // Service worker served at web root for proper scope
+        this.serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js');
 
         console.log('✅ Service Worker registered successfully');
 

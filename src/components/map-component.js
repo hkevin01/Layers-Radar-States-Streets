@@ -1,146 +1,57 @@
 /**
- * Map component - handles map initialization and management
+ * Map component - modern OpenLayers v8 implementation
  */
 
-import { MAP_CONFIG } from '../config/map-config.js';
-import {
-    createHazardLayer,
-    createOSMLayer,
-    createRadarLayer,
-    createStreetsLayer
-} from '../layers/layer-factory.js';
-import {
-    enforceMinZoom,
-    handleAjaxError,
-    processMessage,
-    toggleLoading,
-    transformCoordinates
-} from '../utils/map-utils.js';
-
-/**
- * Map component class
- */
 export class MapComponent {
-  constructor(containerId) {
+  constructor(containerId = 'map', options = {}) {
     this.containerId = containerId;
     this.map = null;
     this.layers = {};
+    this.options = Object.assign({
+      center: [-98.5795, 39.8283],
+      zoom: 4,
+      minZoom: 2,
+      maxZoom: 18
+    }, options);
   }
 
-  /**
-   * Initialize the map
-   */
   initialize() {
-    // Create map instance
-    this.map = new OpenLayers.Map(this.containerId, {
-      units: 'm',
-      projection: new OpenLayers.Projection(MAP_CONFIG.projection.map),
-      displayProjection: new OpenLayers.Projection(MAP_CONFIG.projection.display)
+    // Create base layers
+    const osm = new ol.layer.Tile({
+      title: 'OpenStreetMap',
+      type: 'base',
+      visible: true,
+      source: new ol.source.OSM({ crossOrigin: 'anonymous' })
     });
 
-    // Create and add layers
-    this.setupLayers();
-    
-    // Add controls
-    this.addControls();
-    
-    // Set initial view
-    this.setInitialView();
-    
-    // Set up event handlers
-    this.setupEventHandlers();
-    
-    // Load initial data
-    this.loadInitialData();
-  }
+    // Placeholder for additional layers; radar/alerts managed by WeatherRadarCore
+    this.layers.osm = osm;
 
-  /**
-   * Set up all map layers
-   */
-  setupLayers() {
-    this.layers.streets = createStreetsLayer();
-    this.layers.osm = createOSMLayer();
-    this.layers.radar = createRadarLayer();
-    this.layers.hazard = createHazardLayer();
-    
-    // Optionally add states layer
-    // this.layers.states = createStatesLayer();
-
-    // Add layers to map
-    this.map.addLayer(this.layers.streets);
-    this.map.addLayer(this.layers.osm);
-    // this.map.addLayer(this.layers.states);
-    this.map.addLayer(this.layers.radar);
-    this.map.addLayer(this.layers.hazard);
-  }
-
-  /**
-   * Add map controls
-   */
-  addControls() {
-    this.map.addControl(new OpenLayers.Control.LayerSwitcher());
-  }
-
-  /**
-   * Set initial map view
-   */
-  setInitialView() {
-    const center = transformCoordinates(
-      MAP_CONFIG.center.longitude,
-      MAP_CONFIG.center.latitude,
-      MAP_CONFIG.projection.display,
-      MAP_CONFIG.projection.map
-    );
-    
-    this.map.setCenter(center, MAP_CONFIG.center.zoom);
-  }
-
-  /**
-   * Set up event handlers
-   */
-  setupEventHandlers() {
-    // Enforce minimum zoom level
-    this.map.events.register('zoomend', this, () => {
-      enforceMinZoom(this.map, MAP_CONFIG.minZoom);
+    // Create map
+    this.map = new ol.Map({
+      target: this.containerId,
+      view: new ol.View({
+        center: ol.proj.fromLonLat(this.options.center),
+        zoom: this.options.zoom,
+        minZoom: this.options.minZoom,
+        maxZoom: this.options.maxZoom
+      }),
+      layers: [osm],
+      controls: ol.control.defaults().extend([
+        new ol.control.ScaleLine({ units: 'imperial' })
+      ])
     });
-  }
 
-  /**
-   * Load initial observation data
-   */
-  loadInitialData() {
-    const ajaxConfig = MAP_CONFIG.ajax;
-    const baseUrl = typeof window.urlPath !== 'undefined' ? window.urlPath : '';
-    
-    $.ajax({
-      url: baseUrl + ajaxConfig.dataUrl,
-      dataType: ajaxConfig.dataType,
-      async: ajaxConfig.async,
-      data: { last: true },
-      success: (data) => {
-        toggleLoading(true);
-        if (data && data.obs && data.obs[0]) {
-          processMessage(data.obs[0].file, true);
-        }
-      },
-      error: handleAjaxError
+    // Enforce min zoom on change
+    const view = this.map.getView();
+    view.on('change:resolution', () => {
+      const z = view.getZoom();
+      if (z < this.options.minZoom) view.setZoom(this.options.minZoom);
     });
-  }
 
-  /**
-   * Get the map instance
-   * @returns {OpenLayers.Map} Map instance
-   */
-  getMap() {
     return this.map;
   }
 
-  /**
-   * Get a specific layer
-   * @param {string} layerName - Name of the layer
-   * @returns {OpenLayers.Layer} Layer instance
-   */
-  getLayer(layerName) {
-    return this.layers[layerName];
-  }
+  getMap() { return this.map; }
+  getLayer(name) { return this.layers[name]; }
 }

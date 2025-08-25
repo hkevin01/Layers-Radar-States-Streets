@@ -10,7 +10,7 @@ test.describe('Map Basic Functionality', () => {
     diagnostics = new DiagnosticsOverlay(page);
 
   // Navigate to application using configured baseURL
-  await page.goto('/index.html');
+  await page.goto('/index.html?e2e=1');
 
     // Setup test helpers
     await helper.setupEventHooks();

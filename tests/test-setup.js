@@ -31,6 +31,25 @@ export class OpenLayersTestHelper {
   }
 
   async setupEventHooks() {
+    // Ensure no stale SW/caches interfere during tests
+    await this.page.evaluate(async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+          if (navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+          }
+        }
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+        }
+      } catch (_) {}
+      // Set explicit E2E flag for runtime to skip SW registration
+      window.__E2E_TEST__ = true;
+    });
+
     // Inject OpenLayers event listeners for test synchronization
     await this.page.evaluate(() => {
       // Preserve any existing flags set by early bootstrap
@@ -68,6 +87,14 @@ export class OpenLayersTestHelper {
                 if (window.testHelper.loadingCount <= 0) window.testHelper.layersLoaded = true;
               });
               source.on('tileloaderror', () => { window.testHelper.loadingCount--; window.testHelper.errorCount++; });
+
+              // Also track single-image sources (e.g., ImageWMS)
+              source.on('imageloadstart', () => { window.testHelper.loadingCount++; });
+              source.on('imageloadend', () => {
+                window.testHelper.loadingCount--;
+                if (window.testHelper.loadingCount <= 0) window.testHelper.layersLoaded = true;
+              });
+              source.on('imageloaderror', () => { window.testHelper.loadingCount--; window.testHelper.errorCount++; });
             }
           });
         } catch (_) {}
