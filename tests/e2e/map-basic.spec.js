@@ -101,10 +101,11 @@ test.describe('Map Basic Functionality', () => {
   });
 
   test('should handle performance optimizer without errors', async ({ page }) => {
-    await helper.waitForMapReady();
+  await helper.waitForMapReady();
+  await helper.waitForPerformanceOptimizer();
 
     // Test the performance optimizer methods that were causing errors
-    const optimizerTest = await page.evaluate(() => {
+  const optimizerTest = await page.evaluate(() => {
       try {
         if (window.performanceOptimizer) {
           // Test the methods that were previously failing

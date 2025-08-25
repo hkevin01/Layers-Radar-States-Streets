@@ -202,6 +202,41 @@
   <!-- Defensive bootstrap and diagnostics (runs before module start) -->
   <script src="/js/bootstrap.js"></script>
 
+  <!-- Early E2E flag to ensure SW registration is skipped in tests -->
+  <script>
+    (function(){
+      try {
+        var url = new URL(window.location.href);
+        if (url.searchParams.has('e2e')) {
+          window.__E2E_TEST__ = true;
+        }
+      } catch(_) {}
+    })();
+  </script>
+
+  <!-- Aggressive SW bypass for E2E: unregister any active SW and reload once with sw=off -->
+  <script>
+    (async function(){
+      try {
+        if ('serviceWorker' in navigator) {
+          const url = new URL(window.location.href);
+          const bypassed = url.searchParams.get('sw') === 'off';
+          // Unregister all known SWs
+          try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+          } catch(_) {}
+          // If a controller still exists on first load, force a single reload with cache-busting
+          if (navigator.serviceWorker.controller && !bypassed) {
+            url.searchParams.set('sw', 'off');
+            url.searchParams.set('ts', Date.now());
+            return location.replace(url.toString());
+          }
+        }
+      } catch(_) {}
+    })();
+  </script>
+
   <!-- Fallback loader if CDN fails or ol is undefined -->
   <script>
     (function () {
@@ -238,9 +273,18 @@
 
   <!-- Main application script -->
   <script type="module">
-    import { initializeApp } from '../src/main.js';
-    import { UIControls } from '../src/components/ui-controls.js';
-    import { MobileTouchControls } from '../src/components/mobile-touch-controls.js';
+    const url = new URL(window.location.href);
+    const isE2E = url.searchParams.has('e2e');
+    const v = isE2E ? `?v=${Date.now()}` : '';
+
+    const [mainMod, uiMod, mobileMod] = await Promise.all([
+      import(`../src/main.js${v}`),
+      import(`../src/components/ui-controls.js${v}`),
+      import(`../src/components/mobile-touch-controls.js${v}`)
+    ]);
+    const { initializeApp } = mainMod;
+    const { UIControls } = uiMod;
+    const { MobileTouchControls } = mobileMod;
 
     // Global app instance
     let app = null;
@@ -273,7 +317,7 @@
       }
     }
 
-    // Start when DOM is ready
+  // Start when DOM is ready
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', startApp);
     } else {

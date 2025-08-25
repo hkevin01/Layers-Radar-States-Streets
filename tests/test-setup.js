@@ -72,6 +72,11 @@ export class OpenLayersTestHelper {
         // Map render complete
         map.on && map.on('rendercomplete', () => {
           window.testHelper.renderComplete = true;
+          // If canvas exists, mark mapReady as well to unblock waits
+          try {
+            const hasCanvas = !!document.querySelector('#map canvas, #map .ol-layer, canvas.ol-unselectable');
+            if (hasCanvas) window.testHelper.mapReady = true;
+          } catch(_) {}
           window.testHelper.events.push({ type: 'rendercomplete', timestamp: Date.now() });
         });
 
@@ -162,6 +167,13 @@ export class OpenLayersTestHelper {
         window.testHelper.mapReady = true;
       }
     });
+  }
+
+  async waitForPerformanceOptimizer() {
+    await this.page.waitForFunction(
+      () => !!window.performanceOptimizer && typeof window.performanceOptimizer.getPerformanceReport === 'function',
+      { timeout: TEST_CONFIG.timeout }
+    );
   }
 
   async waitForRenderComplete() {

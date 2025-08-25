@@ -470,10 +470,11 @@ class OpenLayersEventHooks {
 
     this.map = resolvedMap;
 
-    if (!this.map || typeof this.map.on !== 'function') {
+  if (!this.map || typeof this.map.on !== 'function') {
       console.warn('OpenLayersEventHooks: Provided map does not support event subscription; skipping hooks');
       return;
     }
+  console.debug('OpenLayersEventHooks: attaching map-level listeners (rendercomplete/click/pointermove)');
     this.setupMapEventListeners();
     this.setupViewEventListeners();
     this.setupLayerEventListeners();
