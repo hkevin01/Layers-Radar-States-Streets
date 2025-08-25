@@ -4,34 +4,6 @@
  * tile caching, lazy loading, and resource management
  */
 
-export function getVisibleBounds4326(mapLike) {
-  const DEFAULT = [-180, -85, 180, 85];
-  try {
-    const map = mapLike?.getMap?.() || mapLike;
-    const view = map && map.getView ? map.getView() : null;
-    const size = map && map.getSize ? map.getSize() : null;
-  if (!map || !view || !view.calculateExtent || !size || !isFinite(size[0]) || !isFinite(size[1])) {
-      console.warn('Bounds fallback used due to missing map/view/size');
-      return DEFAULT;
-    }
-    const extent = view.calculateExtent(size);
-  // Support both browser (window.ol) and test/node (globalThis.ol) environments
-  const olNS = (typeof window !== 'undefined' && window.ol) || (typeof globalThis !== 'undefined' && globalThis.ol) || undefined;
-  if (olNS && olNS.proj && typeof olNS.proj.transformExtent === 'function') {
-      try {
-    return olNS.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
-      } catch (e) {
-        console.warn('transformExtent failed, returning default', e);
-        return DEFAULT;
-      }
-    }
-    return DEFAULT;
-  } catch (e) {
-    console.warn('Error computing visible bounds, returning default', e);
-    return DEFAULT;
-  }
-}
-
 export class PerformanceOptimizer {
   constructor(mapComponent) {
     this.mapComponent = mapComponent;
@@ -57,9 +29,33 @@ export class PerformanceOptimizer {
     this.init();
   }
 
-  // Safely get visible bounds in EPSG:4326 with guards
+  /**
+   * Safely get visible bounds in EPSG:4326 with guards for nulls
+   */
   _getVisibleBounds4326() {
-    return getVisibleBounds4326(this.mapComponent);
+    const DEFAULT = [-180, -85, 180, 85];
+    try {
+      const map = this.mapComponent?.getMap?.() || this.mapComponent;
+      const view = map && map.getView ? map.getView() : null;
+      const size = map && map.getSize ? map.getSize() : null;
+      if (!map || !view || !view.calculateExtent || !size || !isFinite(size[0]) || !isFinite(size[1])) {
+        console.warn('Bounds fallback used due to missing map/view/size');
+        return DEFAULT;
+      }
+      const extent = view.calculateExtent(size);
+      if (window.ol && ol.proj && typeof ol.proj.transformExtent === 'function') {
+        try {
+          return ol.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
+        } catch (e) {
+          console.warn('transformExtent failed, returning default', e);
+          return DEFAULT;
+        }
+      }
+      return DEFAULT;
+    } catch (e) {
+      console.warn('Error computing visible bounds, returning default', e);
+      return DEFAULT;
+    }
   }
 
   _getZoom() {
@@ -972,3 +968,4 @@ export class PerformanceOptimizer {
   }
 }
 
+// Intentionally no duplicate exported helper here; public build should import from src if needed.
