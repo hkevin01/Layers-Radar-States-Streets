@@ -5,8 +5,8 @@
   "main": "script.js",
   "type": "module",
   "scripts": {
-    "start": "http-server -p 8080 -c-1",
-    "start:8082": "http-server -p 8082 -c-1",
+  "start": "http-server public -p 8080 -c-1 --cors",
+  "start:8082": "http-server public -p 8082 -c-1 --cors",
     "dev": "npm run start:8082",
   "prepare:ol": "mkdir -p public/vendor/ol && cp node_modules/ol/dist/ol.js public/vendor/ol/ol.js && cp node_modules/ol/ol.css public/vendor/ol/ol.css",
     "test": "node tests/run-all-tests.js",

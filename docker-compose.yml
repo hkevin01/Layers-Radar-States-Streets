@@ -17,3 +17,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  backend:
+    container_name: layers-backend
+    build:
+      context: .
+      dockerfile: spring-backend/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75 -Dserver.port=8081
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/api/weather/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

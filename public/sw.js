@@ -13,7 +13,7 @@ const STATIC_FILES = [
   "/public/weather-radar.html",
   "/public/radar-diagnostics.html",
   "/public/radar-simple.html",
-  "/public/index.html",
+  "/index.html",
   "/public/manifest.json",
   "/public/js/script.js",
   "/icons/radar-icon-192.png",

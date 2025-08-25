@@ -7,7 +7,7 @@ console.log('🧪 Starting quick test suite...');
 // Test 1: Check if server is running
 function testServer() {
   return new Promise((resolve) => {
-    const req = http.get('http://localhost:8082/public/index.html', (res) => {
+  const req = http.get('http://localhost:8082/index.html', (res) => {
       console.log(`✅ Server responding: ${res.statusCode}`);
       resolve(true);
     });
@@ -44,7 +44,7 @@ async function runTests() {
   const serverOk = await ensureServer();
   if (serverOk) {
     console.log('✅ All basic tests passed!');
-    console.log('🌐 Test the map at: http://localhost:8082/public/index.html');
+  console.log('🌐 Test the map at: http://localhost:8082/index.html');
   } else {
     console.log('❌ Basic tests failed!');
     process.exit(1);

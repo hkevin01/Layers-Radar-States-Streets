@@ -15,6 +15,7 @@ set -euo pipefail
 #   ./run.sh health          # check service health
 #   ./run.sh open            # open browser
 #   ./run.sh api             # test API endpoints
+#   ./run.sh docker          # start backend via Docker, frontend locally
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -59,10 +60,10 @@ start_backend() {
     echo "Backend already running on port $BACKEND_PORT"
     return 0
   fi
-  
+
   echo "Starting Spring Boot backend on port $BACKEND_PORT..."
   cd "$SCRIPT_DIR/spring-backend"
-  
+
   if [[ ! -f "./mvnw" ]]; then
     echo "Maven wrapper not found. Generating..."
     mvn wrapper:wrapper || {
@@ -70,11 +71,11 @@ start_backend() {
       exit 1
     }
   fi
-  
+
   nohup ./mvnw spring-boot:run > "$SCRIPT_DIR/backend.log" 2>&1 &
   echo $! > "$BACKEND_PID_FILE"
   cd "$SCRIPT_DIR"
-  
+
   echo "Waiting for backend to start..."
   for i in {1..30}; do
     if is_backend_running; then
@@ -83,7 +84,7 @@ start_backend() {
     fi
     sleep 2
   done
-  
+
   echo "❌ Backend failed to start within 60 seconds"
   return 1
 }
@@ -99,7 +100,7 @@ stop_backend() {
       rm -f "$BACKEND_PID_FILE"
     fi
   fi
-  
+
   # Fallback: kill by port
   local backend_pid=$(lsof -ti :$BACKEND_PORT 2>/dev/null || true)
   if [[ -n "$backend_pid" ]]; then
@@ -122,13 +123,13 @@ start_frontend() {
     echo "Frontend already running on port $FRONTEND_PORT"
     return 0
   fi
-  
+
   echo "Starting frontend server on port $FRONTEND_PORT..."
   cd "$SCRIPT_DIR"
-  
+
   nohup python3 -m http.server "$FRONTEND_PORT" --directory public > "$SCRIPT_DIR/frontend.log" 2>&1 &
   echo $! > "$FRONTEND_PID_FILE"
-  
+
   echo "Waiting for frontend to start..."
   for i in {1..10}; do
     if is_frontend_running; then
@@ -137,7 +138,7 @@ start_frontend() {
     fi
     sleep 1
   done
-  
+
   echo "❌ Frontend failed to start within 10 seconds"
   return 1
 }
@@ -153,7 +154,7 @@ stop_frontend() {
       rm -f "$FRONTEND_PID_FILE"
     fi
   fi
-  
+
   # Fallback: kill by port
   local frontend_pid=$(lsof -ti :$FRONTEND_PORT 2>/dev/null || true)
   if [[ -n "$frontend_pid" ]]; then
@@ -170,7 +171,7 @@ is_frontend_running() {
 check_health() {
   echo "🔍 Checking service health..."
   echo
-  
+
   # Backend health
   if is_backend_running; then
     echo "✅ Backend: Running on port $BACKEND_PORT"
@@ -185,14 +186,14 @@ check_health() {
   else
     echo "❌ Backend: Not running"
   fi
-  
+
   # Frontend health
   if is_frontend_running; then
     echo "✅ Frontend: Running on port $FRONTEND_PORT"
   else
     echo "❌ Frontend: Not running"
   fi
-  
+
   echo
   echo "🌐 Service URLs:"
   if is_frontend_running; then
@@ -236,6 +237,29 @@ case "$CMD" in
     echo "  • Weather: http://localhost:$BACKEND_PORT/api/weather/stations"
     ;;
 
+  docker)
+    echo "🐳 Starting backend in Docker and frontend locally..."
+    if [[ ! -f "docker-compose.yml" ]]; then
+      echo "ERROR: docker-compose.yml not found" >&2
+      exit 1
+    fi
+    $DC build backend
+    $DC up -d backend
+    echo "Waiting for backend container health..."
+    for i in {1..40}; do
+      if curl -fsS "http://localhost:$BACKEND_PORT/api/weather/health" >/dev/null 2>&1; then
+        echo "✅ Backend responded healthy"
+        break
+      fi
+      sleep 3
+    done
+    start_frontend
+    echo "\nService URLs:"
+    echo "  • Frontend: http://localhost:$FRONTEND_PORT/index.html"
+    echo "  • API Health: http://localhost:$BACKEND_PORT/api/weather/health"
+    echo "  • Weather Data: http://localhost:$BACKEND_PORT/api/weather/stations"
+    ;;
+
   down|stop)
     echo "🛑 Stopping all services..."
     stop_backend
@@ -259,7 +283,7 @@ case "$CMD" in
   status|ps)
     echo "📊 Service Status:"
     echo
-    
+
     # Process status
     if [[ -f "$BACKEND_PID_FILE" ]]; then
       local backend_pid=$(cat "$BACKEND_PID_FILE")
@@ -271,7 +295,7 @@ case "$CMD" in
     else
       echo "Backend: Stopped"
     fi
-    
+
     if [[ -f "$FRONTEND_PID_FILE" ]]; then
       local frontend_pid=$(cat "$FRONTEND_PID_FILE")
       if kill -0 "$frontend_pid" 2>/dev/null; then
@@ -282,7 +306,7 @@ case "$CMD" in
     else
       echo "Frontend: Stopped"
     fi
-    
+
     # Port status
     echo
     echo "Port Status:"
@@ -291,13 +315,13 @@ case "$CMD" in
     else
       echo "  Port $BACKEND_PORT (Backend): Available"
     fi
-    
+
     if is_port_in_use "$FRONTEND_PORT"; then
       echo "  Port $FRONTEND_PORT (Frontend): In use"
     else
       echo "  Port $FRONTEND_PORT (Frontend): Available"
     fi
-    
+
     # Docker status if available
     if [[ -f "docker-compose.yml" ]]; then
       echo
@@ -319,6 +343,7 @@ case "$CMD" in
     echo "  up, start     Start full stack (backend + frontend)" >&2
     echo "  frontend      Start only frontend server" >&2
     echo "  backend       Start only backend server" >&2
+  echo "  docker        Start backend in Docker and frontend locally" >&2
     echo "  down, stop    Stop all services" >&2
     echo "  restart       Restart all services" >&2
     echo "  status, ps    Show service status" >&2
@@ -337,18 +362,18 @@ esac
 run_all_tests() {
     echo "🧪 Running comprehensive test suite..."
     echo ""
-    
+
     local start_time=$(date +%s)
     local failed_tests=0
     local total_tests=0
-    
+
     # Start dev server if not running
     if ! curl -s http://localhost:8082/ > /dev/null 2>&1; then
         echo "🚀 Starting development server..."
         npm run start:8082 &
         sleep 3
     fi
-    
+
     # Run unit tests
     echo "1️⃣ Running unit tests..."
     if npm run test:unit; then
@@ -359,7 +384,7 @@ run_all_tests() {
     fi
     ((total_tests++))
     echo ""
-    
+
     # Run integration tests
     echo "2️⃣ Running integration tests..."
     if npm run test:integration; then
@@ -370,17 +395,17 @@ run_all_tests() {
     fi
     ((total_tests++))
     echo ""
-    
+
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
-    
+
     echo "📊 Test Summary:"
     echo "  Total test suites: $total_tests"
     echo "  Passed: $((total_tests - failed_tests))"
     echo "  Failed: $failed_tests"
     echo "  Duration: ${duration}s"
     echo ""
-    
+
     if [ $failed_tests -eq 0 ]; then
         echo "🎉 All tests passed!"
         return 0
@@ -403,12 +428,12 @@ run_integration_tests() {
 show_diagnostics() {
     echo "🔍 System Diagnostics:"
     echo ""
-    
+
     echo "📋 Environment:"
     echo "  Node.js: $(node --version 2>/dev/null || echo 'Not installed')"
     echo "  NPM: $(npm --version 2>/dev/null || echo 'Not installed')"
     echo ""
-    
+
     echo "🌐 Server Status:"
     if curl -s http://localhost:8082/ > /dev/null 2>&1; then
         echo "  Dev Server (8082): ✅ Running"
@@ -416,13 +441,13 @@ show_diagnostics() {
         echo "  Dev Server (8082): ❌ Not running"
     fi
     echo ""
-    
+
     echo "🧪 Testing Infrastructure:"
     echo "  Vitest config: $([ -f 'tests/vitest.config.js' ] && echo '✅ Found' || echo '❌ Missing')"
     echo "  Cypress config: $([ -f 'cypress.config.js' ] && echo '✅ Found' || echo '❌ Missing')"
     echo "  Selenium tests: $([ -f 'tests/selenium/selenium-test.js' ] && echo '✅ Found' || echo '❌ Missing')"
     echo ""
-    
+
     echo "📁 Project Structure:"
     echo "  Source files: $(find src/ -name '*.js' 2>/dev/null | wc -l || echo '0') JS files"
     echo "  Test files: $(find tests/ -name '*.test.js' 2>/dev/null | wc -l || echo '0') test files"

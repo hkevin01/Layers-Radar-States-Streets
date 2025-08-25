@@ -297,10 +297,10 @@
 						const layers = (window.mapComponent.map.getLayers && window.mapComponent.map.getLayers())?.getArray?.() || [];
 						layers.forEach(l => {
 							const src = (l.getSource && l.getSource()) || null;
-					const urls = src?.getUrls?.() || (src?.getUrl ? [src.getUrl()] : []);
-					urls.forEach(u => { if (typeof u === 'string' && u.startsWith('http:')) console.warn('Mixed-content tile URL over http on https page:', u); });
-					if (src?.setCrossOrigin) try { src.setCrossOrigin('anonymous'); } catch (_) {}
-				});
+							const urls = src?.getUrls?.() || (src?.getUrl ? [src.getUrl()] : []);
+							urls.forEach(u => { if (typeof u === 'string' && u.startsWith('http:')) console.warn('Mixed-content tile URL over http on https page:', u); });
+							if (src?.setCrossOrigin) try { src.setCrossOrigin('anonymous'); } catch (_) {}
+						});
 			}
 		} catch (_) {}
 	});
@@ -309,4 +309,3 @@
 	window.addEventListener('error', (e) => { try { window.testHelper.errors.push(String(e.error || e.message || e)); } catch(_){} });
 	window.addEventListener('unhandledrejection', (e) => { try { window.testHelper.errors.push(String(e.reason || e)); } catch(_){} });
 })();
-

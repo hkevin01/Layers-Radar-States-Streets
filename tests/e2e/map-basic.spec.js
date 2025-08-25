@@ -9,13 +9,8 @@ test.describe('Map Basic Functionality', () => {
     helper = new OpenLayersTestHelper(page);
     diagnostics = new DiagnosticsOverlay(page);
 
-    // Navigate to application (support both root and public/ as server root)
-    try {
-      await page.goto('/index.html');
-    } catch (_) {
-      // Fallback for servers serving project root
-    await page.goto('/index.html');
-    }
+  // Navigate to application using configured baseURL
+  await page.goto('/index.html');
 
     // Setup test helpers
     await helper.setupEventHooks();

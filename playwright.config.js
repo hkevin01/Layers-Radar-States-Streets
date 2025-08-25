@@ -18,7 +18,7 @@ export default defineConfig({
     ['junit', { outputFile: 'tests/reports/playwright-junit.xml' }]
   ],
   use: {
-    baseURL: 'http://127.0.0.1:8082',
+    baseURL: 'http://127.0.0.1:8089',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -58,8 +58,8 @@ export default defineConfig({
 
   webServer: {
     // Serve the public folder as the site root so /index.html resolves
-    command: 'npx http-server public -p 8082 --cors -c-1',
-    port: 8082,
+    command: 'npx http-server public -p 8089 --cors -c-1',
+    port: 8089,
     reuseExistingServer: !process.env.CI,
   },
 });

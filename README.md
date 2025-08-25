@@ -12,8 +12,8 @@ npm install
 npm run dev
 
 # Visit the application
-open http://127.0.0.1:8082/public/index.html
-```
+open http://127.0.0.1:8082/index.html
+```bash
 
 ## 🗺️ Features
 
@@ -86,7 +86,40 @@ tests/
 └── run-all-tests.js         # Comprehensive test runner
 ```
 
-## 🔧 Configuration Files
+## � Run Spring Boot backend in Docker
+
+You can run the backend REST API in a container and the frontend locally.
+
+Quick start:
+
+```bash
+# Build and start backend container
+docker compose build backend
+docker compose up -d backend
+
+# Or via helper
+./scripts/start-backend-docker.sh
+
+# Run frontend locally on 8089 and wait for backend health
+./run.sh docker
+
+# Verify API health
+curl -fsS http://localhost:8081/api/weather/health
+```
+
+Notes:
+
+- Container exposes port 8081 → host 8081.
+- Healthcheck endpoint: /api/weather/health
+- Stop containers:
+
+```bash
+docker compose down
+# Or helper
+./scripts/stop-backend-docker.sh
+```
+
+## �🔧 Configuration Files
 
 - **`playwright.config.js`** - Multi-browser Playwright configuration
 - **`cypress.config.js`** - Cypress interactive testing setup
@@ -206,7 +239,7 @@ npm run test:cypress:open        # Open Cypress interactively
 npm run test:unit:ui             # Visual unit test interface
 
 # Check server status
-curl http://127.0.0.1:8082/public/index.html
+curl http://127.0.0.1:8082/index.html
 
 - Toggle diagnostics overlay with the D key. It shows current size, zoom, center, and visible extent in EPSG:4326. The overlay state persists across reloads.
 - Use `window.__getMapDiagnostics()` in DevTools console to retrieve the same info programmatically.
