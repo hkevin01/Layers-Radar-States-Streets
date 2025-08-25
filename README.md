@@ -1,371 +1,230 @@
-# 🌦️ Weather Radar Application
+# Layers Radar States Streets
 
-> A modern, reorganized Progressive Web Application for visualizing NEXRAD radar data, state boundaries, and street maps using OpenLayers.
-
-[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](CHANGELOG.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
-[![Status](https://img.shields.io/badge/Status-Fixed%20%26%20Working-brightgreen.svg)](#recent-fixes)
-
-## 🎉 Recent Fixes (January 2025)
-
-**All major issues have been resolved!** ✅
-
-- ✅ **Fixed layer rendering** - Maps and radar tiles now display correctly
-- ✅ **Resolved loading issues** - Both apps load without hanging
-- ✅ **Cleaned duplicate code** - Removed redundant script blocks
-- ✅ **Fixed manifest paths** - PWA installation now works
-- ✅ **Improved error handling** - Better debugging and fallback options
-- ✅ **Updated Docker setup** - Container health checks and auto-port selection
-- ✅ **Comprehensive testing** - Automated test suite validates functionality
+Interactive map application built with OpenLayers featuring comprehensive testing infrastructure and performance optimization.
 
 ## 🚀 Quick Start
 
-### Using Docker (Recommended)
-
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd Layers-Radar-States-Streets
-
-# Start with auto-port selection (finds available port)
-./run.sh
-
-# Or specify a port
-HOST_PORT=8082 ./run.sh
-```
-
-### Using npm
-
-```bash
+# Install dependencies
 npm install
-npm start
+
+# Start development server
+npm run dev
+
+# Visit the application
+open http://127.0.0.1:8082/public/index.html
 ```
 
-### Testing Your Installation
+## 🗺️ Features
+
+- **OpenLayers v8.2.0** integration with OSM tiles
+- **Performance Optimization** with tile preloading and view state management
+- **Responsive Design** with mobile-friendly interactions
+- **Error Handling** with defensive programming patterns
+- **Comprehensive Testing** across multiple frameworks
+
+## 🧪 Testing Infrastructure
+
+This project features a comprehensive testing setup with multiple frameworks:
+
+### Test Frameworks
+
+1. **Vitest** - Unit testing with JSDOM
+2. **Playwright** - Multi-browser E2E testing
+3. **Cypress** - Interactive testing with real browser
+4. **Selenium** - Cross-browser compatibility testing
+5. **Lighthouse CI** - Performance and accessibility audits
+
+### Running Tests
 
 ```bash
-# Run automated tests
-./test-weather-radar.sh
-
-# Or visit the diagnostic page
-# http://localhost:8082/public/diagnostic-complete.html
-```
-
-## 📱 Applications
-
-### Main Application
-- **URL:** `http://localhost:8082/public/weather-radar.html`
-- **Features:** Full weather radar with auto-refresh, multiple base layers, radar controls
-- **Architecture:** ES modules + CDN OpenLayers
-
-### Modern Edition
-- **URL:** `http://localhost:8082/public/apps/modern-weather-radar.html`  
-- **Features:** Sleek dark UI, sidebar controls, modern design
-- **Target:** Touch devices and modern browsers
-
-## ✨ Key Features
-
-### 🌦️ Real-time Weather Radar
-- **NEXRAD radar visualization** with live weather data
-- **Multiple radar types** (reflectivity, velocity, precipitation)
-- **Interactive layer controls** with opacity adjustment
-- **Weather alerts integration** with real-time warnings
-
-### 🏗️ Reorganized Architecture
-- **Consolidated codebase** - Eliminated duplicate implementations
-- **Modular design** - Clean separation of concerns
-- **ES Module support** - Modern JavaScript architecture
-- **Global compatibility** - Works with CDN-loaded libraries
-
-### 📱 Modern Interface
-- **Responsive design** - Works on desktop, tablet, and mobile
-- **Dark theme** - Optimized for weather monitoring
-- **Accessibility features** - WCAG 2.1 AA compliant
-- **Touch-optimized controls** for mobile devices
-
-### 🎯 Enhanced Functionality
-- **Geolocation services** - Automatic location detection
-- **Base layer switching** - Street maps and satellite imagery
-- **Navigation controls** - Zoom, pan, and reset functionality
-- **Error handling** - Graceful degradation and user feedback
-
-## 🏗️ Project Structure (Reorganized)
-
-```text
-src/
-├── core/
-│   └── weather-radar-core.js       # Core weather radar functionality
-├── apps/
-│   └── weather-radar-app.js        # Main application wrapper
-├── modules/                         # Specialized modules
-│   ├── geolocation-service.js
-│   ├── layer-manager.js
-│   ├── radar-controller.js
-│   ├── settings-manager.js
-│   ├── timeline-controller.js
-│   ├── ui-controller.js
-│   └── weather-alerts.js
-├── shared/
-│   └── global-weather-radar.js     # Global compatibility layer
-└── components/                      # UI components
-    └── [existing component files]
-
-public/
-├── apps/
-│   └── modern-weather-radar.html   # New streamlined application
-├── weather-radar.html              # Updated main application
-└── [other HTML files]
-
-archive/                             # Old/duplicate files (safely archived)
-├── main-weather-radar.js
-├── working-weather-radar.js
-├── simple-weather-radar.js
-└── [other archived files]
-```
-## 🌟 New Features (v3.0.0)
-
-### 📦 Progressive Web App Features
-- **Offline Support** - Cache maps and radar data
-- **Service Worker** - Enhanced performance and caching
-- **Background Sync** - Auto-update when back online
-- **Push Notifications** - Alerts for severe weather
-
-### 🚀 Performance Enhancements
-- **Tile Preloading** - Smoother map navigation
-- **WebGL Acceleration** - Optimized rendering
-- **Memory Management** - Smart tile caching
-- **Network Strategy** - Network-first with offline fallback
-
-### 🔌 Installation Options
-- **Zero Config** - Works out of the box
-- **NPM Package** - For development integration
-- **CDN Support** - For quick prototypes
-- **Custom Build** - For advanced deployments
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-Choose one of the following options:
-
-#### Option 1: Docker (Recommended)
-- Docker
-- Docker Compose (included in Docker Desktop)
-
-#### Option 2: Local Development
-- Node.js >= 16.0.0 and npm >= 8.0.0
-- Modern web browser with ES6 and Service Worker support
-
-### Installation
-
-1. **Clone the repository:**
-
-   ```bash
-   git clone https://github.com/hkevin01/Layers-Radar-States-Streets.git
-   cd Layers-Radar-States-Streets
-   ```
-
-2. **Choose your installation method:**
-
-   #### Using Docker (Recommended):
-   ```bash
-   # Build and start the container
-   docker-compose up -d
-   
-   # View logs (optional)
-   docker-compose logs -f
-   ```
-
-   #### Using Local Development:
-   ```bash
-   # Using npm
-   npm install
-   npm start
-   
-   # Or using Python
-   python3 -m http.server 8000
-   ```
-
-3. **Open your browser to:**
-   - Main Application: `http://localhost:8080/public/weather-radar.html`
-   - Modern Application: `http://localhost:8080/public/apps/modern-weather-radar.html`
-   - Welcome Page: `http://localhost:8080/` (auto-redirects to main app)
-
-### Development with Docker
-
-#### Hot Reloading
-The Docker setup includes volume mounting for hot reloading. Any changes you make to the source files will be immediately reflected in the running container.
-
-#### Useful Commands
-```bash
-# Stop the container
-docker-compose down
-
-# Rebuild and restart (after dependency changes)
-docker-compose up -d --build
-
-# View logs
-docker-compose logs -f
-
-# Shell into container
-docker-compose exec weather-radar sh
-```
-
-### Alternative: Direct File Access
-
-Some browsers support opening HTML files directly, but a local server is recommended for full functionality.
-
-## 🎯 Recent Reorganization
-
-This project has been **completely reorganized** to improve maintainability and functionality:
-
-### ✅ What Was Fixed
-- **Initialization Issues**: Resolved "Loading Weather Data Initializing NEXRAD radar... never loads"
-- **Duplicate Code**: Consolidated 5+ duplicate implementations into a single core
-- **ES Module Conflicts**: Created compatibility layer for both ES modules and global scripts
-- **File Organization**: Moved files to logical directory structure
-
-### ✅ What Was Improved
-- **Performance**: ~40% faster load times with consolidated code
-- **Reliability**: Better error handling and dependency verification
-- **Accessibility**: WCAG 2.1 AA compliant interface improvements
-- **Mobile Support**: Responsive design with touch-optimized controls
-
-See [REORGANIZATION-SUMMARY.md](REORGANIZATION-SUMMARY.md) for complete details.
-
-## 🛠️ Development
-
-### Available Scripts
-
-- `npm start` - Start development server
-- `npm test` - Run test suite
-- `npm run lint` - Run ESLint
-- `npm run format` - Format code with Prettier
-- `npm run build` - Run full build pipeline
-
-### Architecture Overview
-
-The application now follows a clean modular architecture:
-
-- **`src/core/`** - Core weather radar functionality
-- **`src/apps/`** - Application wrappers and entry points
-- **`src/modules/`** - Specialized feature modules
-- **`src/shared/`** - Shared utilities and compatibility layers
-- **`public/`** - Static files and HTML applications
-
-### Key Classes
-
-#### WeatherRadarCore
-
-```javascript
-import { WeatherRadarCore } from '../src/core/weather-radar-core.js';
-
-const radar = new WeatherRadarCore({
-  target: 'map-container',
-  center: [-98.5795, 39.8283],
-  zoom: 5
-});
-await radar.init();
-```
-
-#### WeatherRadarApp
-
-```javascript
-import { WeatherRadarApp } from '../src/apps/weather-radar-app.js';
-
-const app = new WeatherRadarApp();
-await app.init();
-```
-
-## 🧪 Testing
-
-Run the test suite:
-```bash
+# Run all tests (comprehensive suite)
 npm test
+
+# Quick test suite (unit + integration)
+npm run test:quick
+
+# Individual test frameworks
+npm run test:unit          # Vitest unit tests
+npm run test:playwright    # Playwright E2E tests
+npm run test:cypress       # Cypress interactive tests
+npm run test:selenium      # Selenium cross-browser tests
+npm run test:performance   # Lighthouse performance audits
+
+# Interactive modes
+npm run test:unit:watch    # Watch mode for unit tests
+npm run test:unit:ui       # Vitest UI interface
+npm run test:playwright:ui # Playwright UI mode
+npm run test:cypress:open  # Cypress interactive mode
+
+# Coverage and reporting
+npm run test:coverage      # Generate coverage reports
+npm run test:report        # View test reports
 ```
 
-Watch mode for development:
+### Test Structure
+
+```
+tests/
+├── unit/                     # Unit tests (Vitest)
+│   └── performance-optimizer.test.js
+├── e2e/                      # E2E tests (Playwright)
+│   └── map-basic.spec.js
+├── cypress/                  # Cypress tests
+│   ├── e2e/
+│   │   └── map-interactions.cy.js
+│   └── support/
+│       ├── commands.js
+│       └── e2e.js
+├── selenium/                 # Selenium tests
+│   └── selenium-test.js
+├── reports/                  # Test reports and artifacts
+├── screenshots/              # Test screenshots
+├── test-setup.js            # OpenLayers testing utilities
+├── vitest.config.js         # Vitest configuration
+├── vitest.setup.js          # Test environment setup
+└── run-all-tests.js         # Comprehensive test runner
+```
+
+## 🔧 Configuration Files
+
+- **`playwright.config.js`** - Multi-browser Playwright configuration
+- **`cypress.config.js`** - Cypress interactive testing setup
+- **`vitest.config.js`** - Unit testing with coverage
+- **`.lighthouserc.js`** - Performance testing configuration
+- **`.github/workflows/test-suite.yml`** - CI/CD pipeline
+
+## 🎯 OpenLayers Integration
+
+### Map Initialization
+
+```javascript
+// Basic map setup with OpenLayers v8
+const map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.Tile({
+            source: new ol.source.OSM()
+        })
+    ],
+    view: new ol.View({
+        center: ol.proj.fromLonLat([-98.5795, 39.8283]),
+        zoom: 4
+    })
+});
+```
+
+### Performance Optimization
+
+The `PerformanceOptimizer` class provides:
+
+- **Tile Preloading** - Preloads tiles for better user experience
+- **View State Management** - Optimizes map rendering based on zoom/pan
+- **Error Handling** - Defensive programming with fallback values
+- **OpenLayers API Integration** - Proper coordinate transformations
+
+### Fixed Issues
+
+The original `TypeError: this.mapComponent.getVisibleBounds is not a function` has been resolved by implementing proper OpenLayers API wrapper methods:
+
+```javascript
+// Fixed implementation in PerformanceOptimizer
+_getVisibleBounds4326() {
+    const map = this._getMap();
+    const view = map.getView();
+    const size = map.getSize();
+    const extent = view.calculateExtent(size);
+    return ol.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
+}
+```
+
+## 🚦 CI/CD Pipeline
+
+GitHub Actions workflow includes:
+
+- **Multi-Node Testing** (Node.js 18.x, 20.x)
+- **Cross-Browser Testing** (Chrome, Firefox, Safari, Edge)
+- **Performance Audits** with Lighthouse CI
+- **Test Artifacts** collection and storage
+- **Coverage Reports** with Codecov integration
+
+## 📊 Test Reports
+
+Test results are automatically generated in multiple formats:
+
+- **HTML Reports** - Interactive test results viewer
+- **JSON Reports** - Machine-readable test data
+- **Coverage Reports** - Code coverage analysis
+- **Screenshots** - Visual test artifacts
+- **Performance Reports** - Lighthouse audit results
+
+## 🛠️ Development Scripts
+
 ```bash
-npm run test:watch
+# Development
+npm run dev              # Start development server on port 8082
+npm run start           # Start server on port 8080
+
+# Testing
+npm test                # Run comprehensive test suite
+npm run test:quick      # Run quick test subset
+npm run clean           # Clean test artifacts
+
+# Utilities
+npm run setup           # Setup test directories
+npm run build           # No-op for static site
 ```
 
-## 📚 Documentation
+## 📁 Project Structure
 
-Our comprehensive documentation includes:
+```
+├── public/
+│   └── index.html          # Main HTML file with OpenLayers
+├── src/
+│   └── components/
+│       └── performance-optimizer.js  # Performance optimization
+├── tests/                  # Comprehensive testing infrastructure
+├── script.js              # Main application logic
+├── quick-test.js          # Integration test utilities
+└── package.json           # Dependencies and scripts
+```
 
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| **[README.md](README.md)** | Project overview and quick start | All users |
-| **[REORGANIZATION-SUMMARY.md](REORGANIZATION-SUMMARY.md)** | Complete reorganization details | Developers |
-| **[REQUIREMENTS.md](docs/REQUIREMENTS.md)** | Functional and technical requirements | Developers, PMs |
-| **[DESIGN.md](docs/DESIGN.md)** | System architecture and design decisions | Developers, Architects |
-| **[API.md](docs/API.md)** | Complete API documentation | Developers, Integrators |
-| **[INSTALLATION.md](docs/INSTALLATION.md)** | Setup and deployment guide | DevOps, Developers |
-| **[CONTRIBUTING.md](docs/CONTRIBUTING.md)** | Contribution guidelines | Contributors |
-| **[TESTING.md](docs/TESTING.md)** | Testing strategies and procedures | QA, Developers |
-| **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Common issues and solutions | All users |
-| **[CHANGELOG.md](CHANGELOG.md)** | Version history and changes | All users |
+## 🐛 Debugging
 
-### Quick Links
+### Common Issues
 
-- **🚀 [Quick Start Guide](docs/INSTALLATION.md#quick-start)** - Get up and running in 5 minutes
-- **🏗️ [Architecture Overview](docs/DESIGN.md#system-architecture)** - Understand the system design
-- **🔧 [API Reference](docs/API.md)** - Complete API documentation
-- **📋 [Reorganization Summary](REORGANIZATION-SUMMARY.md)** - Complete details of recent changes
-- **🤝 [Contributing](docs/CONTRIBUTING.md)** - How to contribute to the project
-- **❓ [Getting Help](docs/TROUBLESHOOTING.md)** - Solutions to common problems
+1. **Map not loading**: Check console for OpenLayers CDN connectivity
+2. **TypeError in PerformanceOptimizer**: Ensure proper OpenLayers API usage
+3. **Test failures**: Verify server is running on port 8082
 
-## 🌟 Applications
+### Debug Commands
 
-### Main Application (Enhanced)
+```bash
+# Debug specific test frameworks
+npm run test:playwright:debug    # Debug Playwright tests
+npm run test:cypress:open        # Open Cypress interactively
+npm run test:unit:ui             # Visual unit test interface
 
-- **URL**: `http://localhost:8000/public/weather-radar.html`
-- **Features**: Full-featured interface with all original functionality
-- **Status**: ✅ Working - Updated with consolidated backend
+# Check server status
+curl http://127.0.0.1:8082/public/index.html
+```
 
-### Modern Application (New)
+## 📝 Contributing
 
-- **URL**: `http://localhost:8000/public/apps/modern-weather-radar.html`
-- **Features**: Streamlined UI, better accessibility, mobile-responsive
-- **Status**: ✅ Working - Clean, modern interface
-
-### Welcome Page (New)
-
-- **URL**: `http://localhost:8000/`
-- **Features**: Application launcher with feature overview
-- **Status**: ✅ Working - Auto-redirects to main application
-
-## 🤝 Contributing
-
-We welcome contributions from developers of all skill levels! Whether you're fixing bugs, adding features, improving documentation, or helping with testing, your contributions make this project better.
-
-### Quick Contribution Steps
-
-1. **Fork the repository** and clone your fork
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Follow our coding standards** and write tests
-4. **Submit a pull request** with clear description
-
-For detailed guidelines, see our [Contributing Guide](docs/CONTRIBUTING.md).
+1. Fork the repository
+2. Create a feature branch
+3. Run the test suite: `npm test`
+4. Ensure all tests pass
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see LICENSE file for details.
 
-## 🔄 Version History
+## 🔗 Resources
 
-See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
-
-## � Support & Community
-
-- **📧 Issues**: [GitHub Issues](https://github.com/hkevin01/Layers-Radar-States-Streets/issues)
-- **💬 Discussions**: [GitHub Discussions](https://github.com/hkevin01/Layers-Radar-States-Streets/discussions)
-- **📖 Documentation**: [docs/](docs/) directory
-- **🛠️ Troubleshooting**: [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
-
----
-
-### Built with ❤️ by the open source community
-
-*For meteorologists, emergency management professionals, GIS developers, and weather enthusiasts worldwide.*
+- [OpenLayers Documentation](https://openlayers.org/doc/)
+- [Playwright Testing](https://playwright.dev/)
+- [Cypress Testing](https://docs.cypress.io/)
+- [Vitest Documentation](https://vitest.dev/)
+- [Selenium WebDriver](https://selenium-python.readthedocs.io/)

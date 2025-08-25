@@ -406,3 +406,596 @@ window.cleanup = cleanup;
 //     initializeApp();
 //   }
 // });
+
+/**
+ * OpenLayers Event Hooks for Testing Infrastructure
+ * Provides event synchronization and monitoring for test frameworks
+ */
+class OpenLayersEventHooks {
+  constructor() {
+    this.listeners = new Map();
+    this.eventQueue = [];
+    this.isMapReady = false;
+    this.isTilesLoaded = false;
+    this.diagnosticData = {
+      mapEvents: [],
+      tileEvents: [],
+      viewEvents: [],
+      performance: {}
+    };
+  }
+
+  /**
+   * Initialize event hooks for a map instance
+   * @param {ol.Map} map - OpenLayers map instance
+   */
+  initialize(map) {
+    if (!map) {
+      console.warn('OpenLayersEventHooks: No map instance provided');
+      return;
+    }
+
+    this.map = map;
+    this.setupMapEventListeners();
+    this.setupViewEventListeners();
+    this.setupLayerEventListeners();
+    this.setupPerformanceMonitoring();
+    
+    console.log('✅ OpenLayers Event Hooks initialized');
+  }
+
+  /**
+   * Setup map-level event listeners
+   */
+  setupMapEventListeners() {
+    // Map loading events
+    this.map.on('loadstart', (event) => {
+      this.isMapReady = false;
+      this.isTilesLoaded = false;
+      this.recordEvent('map', 'loadstart', event);
+      this.notifyTestFrameworks('map:loadstart', event);
+    });
+
+    this.map.on('loadend', (event) => {
+      this.isMapReady = true;
+      this.recordEvent('map', 'loadend', event);
+      this.notifyTestFrameworks('map:loadend', event);
+      this.checkAllTilesLoaded();
+    });
+
+    // Map interaction events
+    this.map.on('click', (event) => {
+      this.recordEvent('map', 'click', event);
+      this.notifyTestFrameworks('map:click', event);
+    });
+
+    this.map.on('pointermove', (event) => {
+      this.recordEvent('map', 'pointermove', event);
+    });
+  }
+
+  /**
+   * Setup view-level event listeners
+   */
+  setupViewEventListeners() {
+    const view = this.map.getView();
+    if (!view) return;
+
+    // View change events
+    view.on('change:center', (event) => {
+      this.recordEvent('view', 'change:center', event);
+      this.notifyTestFrameworks('view:center-changed', event);
+    });
+
+    view.on('change:zoom', (event) => {
+      this.recordEvent('view', 'change:zoom', event);
+      this.notifyTestFrameworks('view:zoom-changed', event);
+    });
+
+    view.on('change:rotation', (event) => {
+      this.recordEvent('view', 'change:rotation', event);
+      this.notifyTestFrameworks('view:rotation-changed', event);
+    });
+  }
+
+  /**
+   * Setup layer-level event listeners
+   */
+  setupLayerEventListeners() {
+    this.map.getLayers().forEach((layer, index) => {
+      this.setupSingleLayerListeners(layer, index);
+    });
+
+    // Listen for layer additions/removals
+    this.map.getLayers().on('add', (event) => {
+      const layer = event.element;
+      this.setupSingleLayerListeners(layer, this.map.getLayers().getLength() - 1);
+      this.recordEvent('layers', 'add', event);
+    });
+
+    this.map.getLayers().on('remove', (event) => {
+      this.recordEvent('layers', 'remove', event);
+    });
+  }
+
+  /**
+   * Setup listeners for a single layer
+   */
+  setupSingleLayerListeners(layer, index) {
+    if (!layer) return;
+
+    const source = layer.getSource();
+    if (!source) return;
+
+    // Tile loading events
+    if (source.on) {
+      source.on('tileloadstart', (event) => {
+        this.isTilesLoaded = false;
+        this.recordEvent('tile', 'loadstart', { ...event, layerIndex: index });
+      });
+
+      source.on('tileloadend', (event) => {
+        this.recordEvent('tile', 'loadend', { ...event, layerIndex: index });
+        this.checkAllTilesLoaded();
+      });
+
+      source.on('tileloaderror', (event) => {
+        this.recordEvent('tile', 'loaderror', { ...event, layerIndex: index });
+        this.notifyTestFrameworks('tile:error', event);
+      });
+    }
+  }
+
+  /**
+   * Setup performance monitoring
+   */
+  setupPerformanceMonitoring() {
+    // Memory usage monitoring
+    setInterval(() => {
+      if (performance.memory) {
+        this.diagnosticData.performance = {
+          memoryUsed: performance.memory.usedJSHeapSize,
+          memoryTotal: performance.memory.totalJSHeapSize,
+          memoryLimit: performance.memory.jsHeapSizeLimit,
+          timestamp: Date.now()
+        };
+      }
+    }, 5000);
+
+    // Frame rate monitoring
+    let lastTime = Date.now();
+    let frameCount = 0;
+    
+    const measureFPS = () => {
+      frameCount++;
+      const currentTime = Date.now();
+      
+      if (currentTime - lastTime >= 1000) {
+        this.diagnosticData.performance.fps = frameCount;
+        frameCount = 0;
+        lastTime = currentTime;
+      }
+      
+      requestAnimationFrame(measureFPS);
+    };
+    
+    requestAnimationFrame(measureFPS);
+  }
+
+  /**
+   * Check if all tiles are loaded
+   */
+  checkAllTilesLoaded() {
+    // Simple heuristic: wait a bit after last tile event
+    clearTimeout(this.tileCheckTimeout);
+    this.tileCheckTimeout = setTimeout(() => {
+      this.isTilesLoaded = true;
+      this.notifyTestFrameworks('tiles:all-loaded', {
+        mapReady: this.isMapReady,
+        tilesLoaded: this.isTilesLoaded
+      });
+    }, 500);
+  }
+
+  /**
+   * Record an event for diagnostic purposes
+   */
+  recordEvent(category, type, data) {
+    const event = {
+      category,
+      type,
+      timestamp: Date.now(),
+      data: this.sanitizeEventData(data)
+    };
+
+    if (category === 'map') {
+      this.diagnosticData.mapEvents.push(event);
+    } else if (category === 'tile') {
+      this.diagnosticData.tileEvents.push(event);
+    } else if (category === 'view') {
+      this.diagnosticData.viewEvents.push(event);
+    }
+
+    // Keep only last 100 events per category
+    Object.keys(this.diagnosticData).forEach(key => {
+      if (Array.isArray(this.diagnosticData[key]) && this.diagnosticData[key].length > 100) {
+        this.diagnosticData[key] = this.diagnosticData[key].slice(-100);
+      }
+    });
+  }
+
+  /**
+   * Sanitize event data for storage
+   */
+  sanitizeEventData(data) {
+    if (!data) return null;
+    
+    // Remove circular references and large objects
+    const sanitized = {};
+    Object.keys(data).forEach(key => {
+      const value = data[key];
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        sanitized[key] = value;
+      } else if (Array.isArray(value) && value.length < 10) {
+        sanitized[key] = value;
+      } else if (key === 'coordinate' && Array.isArray(value)) {
+        sanitized[key] = value;
+      }
+    });
+    
+    return sanitized;
+  }
+
+  /**
+   * Notify test frameworks of events
+   */
+  notifyTestFrameworks(eventType, data) {
+    // For Cypress
+    if (window.Cypress) {
+      window.dispatchEvent(new CustomEvent(`ol:${eventType}`, { detail: data }));
+    }
+
+    // For Selenium (global state)
+    if (!window.olTestEvents) {
+      window.olTestEvents = [];
+    }
+    window.olTestEvents.push({ type: eventType, data, timestamp: Date.now() });
+
+    // Keep only last 50 events for Selenium
+    if (window.olTestEvents.length > 50) {
+      window.olTestEvents = window.olTestEvents.slice(-50);
+    }
+  }
+
+  /**
+   * Wait for map to be ready
+   * @param {number} timeout - Timeout in milliseconds
+   * @returns {Promise<boolean>}
+   */
+  waitForMapReady(timeout = 10000) {
+    return new Promise((resolve) => {
+      if (this.isMapReady) {
+        resolve(true);
+        return;
+      }
+
+      const checkReady = () => {
+        if (this.isMapReady) {
+          resolve(true);
+        } else {
+          setTimeout(checkReady, 100);
+        }
+      };
+
+      setTimeout(() => resolve(false), timeout);
+      checkReady();
+    });
+  }
+
+  /**
+   * Wait for all tiles to load
+   * @param {number} timeout - Timeout in milliseconds
+   * @returns {Promise<boolean>}
+   */
+  waitForTilesLoaded(timeout = 15000) {
+    return new Promise((resolve) => {
+      if (this.isTilesLoaded) {
+        resolve(true);
+        return;
+      }
+
+      const checkLoaded = () => {
+        if (this.isTilesLoaded) {
+          resolve(true);
+        } else {
+          setTimeout(checkLoaded, 100);
+        }
+      };
+
+      setTimeout(() => resolve(false), timeout);
+      checkLoaded();
+    });
+  }
+
+  /**
+   * Get diagnostic data
+   */
+  getDiagnosticData() {
+    return {
+      ...this.diagnosticData,
+      status: {
+        mapReady: this.isMapReady,
+        tilesLoaded: this.isTilesLoaded,
+        timestamp: Date.now()
+      }
+    };
+  }
+}
+
+/**
+ * Diagnostic Overlay for Visual Debugging
+ */
+class DiagnosticOverlay {
+  constructor(mapContainer) {
+    this.mapContainer = mapContainer;
+    this.overlay = null;
+    this.isVisible = false;
+    this.eventHooks = null;
+    this.updateInterval = null;
+  }
+
+  /**
+   * Initialize the diagnostic overlay
+   */
+  initialize(eventHooks) {
+    this.eventHooks = eventHooks;
+    this.createOverlay();
+    this.attachKeyboardShortcuts();
+    console.log('✅ Diagnostic Overlay initialized (Press Ctrl+D to toggle)');
+  }
+
+  /**
+   * Create the overlay DOM elements
+   */
+  createOverlay() {
+    this.overlay = document.createElement('div');
+    this.overlay.id = 'ol-diagnostic-overlay';
+    this.overlay.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: 300px;
+      max-height: 400px;
+      background: rgba(0, 0, 0, 0.9);
+      color: #00ff00;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 10000;
+      overflow-y: auto;
+      display: none;
+      border: 1px solid #333;
+    `;
+
+    document.body.appendChild(this.overlay);
+  }
+
+  /**
+   * Attach keyboard shortcuts
+   */
+  attachKeyboardShortcuts() {
+    document.addEventListener('keydown', (event) => {
+      // Ctrl+D to toggle overlay
+      if (event.ctrlKey && event.key === 'd') {
+        event.preventDefault();
+        this.toggle();
+      }
+      
+      // Ctrl+Shift+D to clear diagnostic data
+      if (event.ctrlKey && event.shiftKey && event.key === 'D') {
+        event.preventDefault();
+        this.clearData();
+      }
+    });
+  }
+
+  /**
+   * Toggle overlay visibility
+   */
+  toggle() {
+    this.isVisible = !this.isVisible;
+    this.overlay.style.display = this.isVisible ? 'block' : 'none';
+    
+    if (this.isVisible) {
+      this.startUpdating();
+    } else {
+      this.stopUpdating();
+    }
+  }
+
+  /**
+   * Start updating the overlay
+   */
+  startUpdating() {
+    this.updateInterval = setInterval(() => {
+      this.updateContent();
+    }, 1000);
+    this.updateContent();
+  }
+
+  /**
+   * Stop updating the overlay
+   */
+  stopUpdating() {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+    }
+  }
+
+  /**
+   * Update overlay content
+   */
+  updateContent() {
+    if (!this.eventHooks) {
+      this.overlay.innerHTML = '<div style="color: #ff0000;">Event hooks not initialized</div>';
+      return;
+    }
+
+    const data = this.eventHooks.getDiagnosticData();
+    const html = this.formatDiagnosticData(data);
+    this.overlay.innerHTML = html;
+  }
+
+  /**
+   * Format diagnostic data as HTML
+   */
+  formatDiagnosticData(data) {
+    const performance = data.performance || {};
+    const status = data.status || {};
+    
+    const memoryMB = performance.memoryUsed ? 
+      Math.round(performance.memoryUsed / 1024 / 1024) : 'N/A';
+    const memoryTotalMB = performance.memoryTotal ? 
+      Math.round(performance.memoryTotal / 1024 / 1024) : 'N/A';
+
+    return `
+      <div style="border-bottom: 1px solid #333; margin-bottom: 10px; padding-bottom: 5px;">
+        <strong>🔍 OpenLayers Diagnostics</strong>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <strong>Status:</strong><br>
+        Map Ready: <span style="color: ${status.mapReady ? '#00ff00' : '#ff0000'}">${status.mapReady ? 'YES' : 'NO'}</span><br>
+        Tiles Loaded: <span style="color: ${status.tilesLoaded ? '#00ff00' : '#ff0000'}">${status.tilesLoaded ? 'YES' : 'NO'}</span><br>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <strong>Performance:</strong><br>
+        Memory: ${memoryMB}MB / ${memoryTotalMB}MB<br>
+        FPS: ${performance.fps || 'N/A'}<br>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <strong>Event Counts:</strong><br>
+        Map Events: ${data.mapEvents ? data.mapEvents.length : 0}<br>
+        Tile Events: ${data.tileEvents ? data.tileEvents.length : 0}<br>
+        View Events: ${data.viewEvents ? data.viewEvents.length : 0}<br>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <strong>Recent Events:</strong><br>
+        ${this.formatRecentEvents(data)}
+      </div>
+      
+      <div style="font-size: 10px; color: #666; border-top: 1px solid #333; margin-top: 10px; padding-top: 5px;">
+        Ctrl+D: Toggle | Ctrl+Shift+D: Clear Data
+      </div>
+    `;
+  }
+
+  /**
+   * Format recent events for display
+   */
+  formatRecentEvents(data) {
+    const allEvents = [
+      ...(data.mapEvents || []).slice(-3),
+      ...(data.tileEvents || []).slice(-3),
+      ...(data.viewEvents || []).slice(-3)
+    ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
+
+    if (allEvents.length === 0) {
+      return '<em>No recent events</em>';
+    }
+
+    return allEvents.map(event => {
+      const time = new Date(event.timestamp).toLocaleTimeString();
+      return `<div style="font-size: 10px; color: #ccc;">${time} - ${event.category}:${event.type}</div>`;
+    }).join('');
+  }
+
+  /**
+   * Clear diagnostic data
+   */
+  clearData() {
+    if (this.eventHooks) {
+      this.eventHooks.diagnosticData = {
+        mapEvents: [],
+        tileEvents: [],
+        viewEvents: [],
+        performance: {}
+      };
+      this.updateContent();
+    }
+  }
+
+  /**
+   * Destroy the overlay
+   */
+  destroy() {
+    this.stopUpdating();
+    if (this.overlay && this.overlay.parentNode) {
+      this.overlay.parentNode.removeChild(this.overlay);
+    }
+  }
+}
+
+// Initialize testing infrastructure when map is available
+let testingInfrastructure = null;
+
+/**
+ * Initialize testing infrastructure
+ * @param {ol.Map} map - OpenLayers map instance
+ */
+function initializeTestingInfrastructure(map) {
+  if (!map) {
+    console.warn('Cannot initialize testing infrastructure: No map instance');
+    return;
+  }
+
+  // Initialize event hooks
+  const eventHooks = new OpenLayersEventHooks();
+  eventHooks.initialize(map);
+
+  // Initialize diagnostic overlay
+  const mapContainer = map.getTarget();
+  const diagnosticOverlay = new DiagnosticOverlay(mapContainer);
+  diagnosticOverlay.initialize(eventHooks);
+
+  // Expose to global scope for test frameworks
+  window.olEventHooks = eventHooks;
+  window.olDiagnosticOverlay = diagnosticOverlay;
+
+  testingInfrastructure = {
+    eventHooks,
+    diagnosticOverlay
+  };
+
+  console.log('🧪 Testing infrastructure initialized');
+  return testingInfrastructure;
+}
+
+// Auto-initialize testing infrastructure when map becomes available
+if (typeof window !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    const checkForMap = () => {
+      if (window.map || (window.mapComponent && window.mapComponent.map)) {
+        const map = window.map || window.mapComponent.map;
+        initializeTestingInfrastructure(map);
+      } else {
+        setTimeout(checkForMap, 1000);
+      }
+    };
+    setTimeout(checkForMap, 2000);
+  });
+}
+
+// Export for testing frameworks
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    OpenLayersEventHooks,
+    DiagnosticOverlay,
+    initializeTestingInfrastructure
+  };
+}

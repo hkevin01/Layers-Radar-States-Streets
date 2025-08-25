@@ -41,11 +41,14 @@ export const actHook = async (callback) => {
  * @returns {Function} Wrapper component
  */
 export const createContextWrapper = (Provider, value) => {
-  return ({ children }) => (
-    <Provider value={value}>
-      {children}
-    </Provider>
-  );
+  return ({ children }) => {
+    // Create element using createElement to avoid JSX syntax
+    const React = window.React || {};
+    if (React.createElement) {
+      return React.createElement(Provider, { value }, children);
+    }
+    return null;
+  };
 };
 
 /**

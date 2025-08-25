@@ -160,8 +160,8 @@ export class PerformanceOptimizer {
   preloadVisibleTiles() {
     if (!this.mapComponent) return;
     
-    const bounds = this._getVisibleBounds4326();
-    const zoom = this._getZoom();
+    const bounds = this.mapComponent.getVisibleBounds();
+    const zoom = this.mapComponent.getZoom();
     
     this.queueTilePreload(bounds, zoom);
   }
@@ -172,8 +172,8 @@ export class PerformanceOptimizer {
   preloadAdjacentTiles() {
     if (!this.mapComponent) return;
     
-    const bounds = this._getVisibleBounds4326();
-    const zoom = this._getZoom();
+    const bounds = this.mapComponent.getVisibleBounds();
+    const zoom = this.mapComponent.getZoom();
     
     // Expand bounds to include adjacent areas
     const expandedBounds = this.expandBounds(bounds, 1.5);
