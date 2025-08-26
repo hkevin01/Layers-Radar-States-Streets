@@ -96,6 +96,13 @@ class WeatherRadarApp {
     }
 
     /**
+     * Get the layers registry
+     */
+    getLayers() {
+        return this.core ? this.core.layers : {};
+    }
+
+    /**
      * Get application state
      */
     getState() {

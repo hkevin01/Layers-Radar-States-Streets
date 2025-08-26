@@ -31,7 +31,7 @@ export class LayerManager extends EventTarget {
     initializeBaseLayers() {
         // Add street map layer (OSM)
         const streetLayer = new ol.layer.Tile({
-            source: new ol.source.OSM(),
+            source: new ol.source.OSM({ crossOrigin: 'anonymous' }),
             visible: true,
             zIndex: 0
         });
@@ -42,7 +42,8 @@ export class LayerManager extends EventTarget {
         const satelliteLayer = new ol.layer.Tile({
             source: new ol.source.XYZ({
                 url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attributions: 'Source: Esri, DigitalGlobe, GeoEye, Earthstar Geographics'
+                attributions: 'Source: Esri, DigitalGlobe, GeoEye, Earthstar Geographics',
+                crossOrigin: 'anonymous'
             }),
             visible: false,
             zIndex: 0
@@ -65,6 +66,12 @@ export class LayerManager extends EventTarget {
                 tileLoadFunction: (tile, src) => this.handleTileLoad(tile, src)
             });
 
+            // Add tile error logging
+            primarySource.on('tileloaderror', (e) => {
+                const tile = e.tile;
+                console.warn('[tiles] Primary radar load error', tile && tile.getKey ? tile.getKey() : e);
+            });
+
             // Fallback source - NOAA nowCOAST
             const fallbackSource = new ol.source.TileWMS({
                 url: 'https://nowcoast.noaa.gov/arcgis/services/nowcoast/radar_meteo_imagery_nexrad_time/MapServer/WMSServer',
@@ -75,6 +82,12 @@ export class LayerManager extends EventTarget {
                 },
                 crossOrigin: 'anonymous',
                 tileLoadFunction: (tile, src) => this.handleTileLoad(tile, src)
+            });
+
+            // Add tile error logging
+            fallbackSource.on('tileloaderror', (e) => {
+                const tile = e.tile;
+                console.warn('[tiles] Fallback radar load error', tile && tile.getKey ? tile.getKey() : e);
             });
 
             // Create radar layer with primary source

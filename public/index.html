@@ -5,9 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>🗺️ Layers Radar States Streets Demo</title>
 
-  <!-- OpenLayers CSS and JS (v8) -->
+  <!-- Import map for OpenLayers ESM modules -->
+  <script type="importmap">
+  {
+    "imports": {
+      "ol/": "https://cdn.jsdelivr.net/npm/ol@8.2.0/"
+    }
+  }
+  </script>
+
+  <!-- OpenLayers CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
-  <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js" onerror="window.__olCdnFailed = true;"></script>
 
   <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -70,7 +78,7 @@
     #map {
       width: 100%;
       height: 100vh;
-      min-height: 320px;
+      min-height: 360px;
       border: none;
       box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
       position: relative;

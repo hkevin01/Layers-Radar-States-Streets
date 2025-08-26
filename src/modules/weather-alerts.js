@@ -5,9 +5,9 @@
  * @version 2.0.0
  */
 
-import { Feature } from 'https://cdn.skypack.dev/ol';
-import GeoJSON from 'https://cdn.skypack.dev/ol/format/GeoJSON';
-import { transform } from 'https://cdn.skypack.dev/ol/proj';
+import GeoJSON from 'ol/format/GeoJSON.js';
+import { Feature } from 'ol/index.js';
+import { transform } from 'ol/proj.js';
 
 /**
  * Weather Alerts Manager Class
@@ -19,12 +19,12 @@ export class WeatherAlertsManager extends EventTarget {
         this.map = map;
         this.layerManager = layerManager;
         this.config = config;
-        
+
         this.alerts = new Map();
         this.activeAlerts = [];
         this.lastUpdateTime = null;
         this.updateTimer = null;
-        
+
         // NWS API configuration
         this.nwsConfig = {
             baseUrl: 'https://api.weather.gov',
@@ -38,7 +38,7 @@ export class WeatherAlertsManager extends EventTarget {
                     icon: 'warning'
                 },
                 watch: {
-                    color: '#FFA500', 
+                    color: '#FFA500',
                     priority: 2,
                     icon: 'watch'
                 },
@@ -61,7 +61,7 @@ export class WeatherAlertsManager extends EventTarget {
                 unknown: { priority: 5, color: '#808080' }
             }
         };
-        
+
         this.isInitialized = false;
     }
 
@@ -71,18 +71,18 @@ export class WeatherAlertsManager extends EventTarget {
     async init() {
         try {
             console.log('Initializing Weather Alerts Manager...');
-            
+
             // Load initial alerts data
             await this.loadAlertsData();
-            
+
             // Setup automatic updates
             this.setupAutoUpdate();
-            
+
             this.isInitialized = true;
             console.log('Weather Alerts Manager initialized successfully');
-            
+
             this.dispatchEvent(new CustomEvent('alerts:initialized'));
-            
+
         } catch (error) {
             console.error('Failed to initialize Weather Alerts Manager:', error);
             throw error;
@@ -95,30 +95,30 @@ export class WeatherAlertsManager extends EventTarget {
     async loadAlertsData() {
         try {
             console.log('Loading weather alerts data...');
-            
+
             // Get current map extent for filtering alerts
             const extent = this.map.getView().calculateExtent();
-            
+
             // Build NWS API URL
             const url = this.buildAlertsUrl(extent);
-            
+
             // Fetch alerts data
             const response = await fetch(url);
-            
+
             if (!response.ok) {
                 throw new Error(`NWS API request failed: ${response.status} ${response.statusText}`);
             }
-            
+
             const data = await response.json();
-            
+
             // Process alerts data
             this.processAlertsData(data);
-            
+
             // Update map layers
             this.updateAlertLayers();
-            
+
             this.lastUpdateTime = new Date();
-            
+
             this.dispatchEvent(new CustomEvent('alerts:updated', {
                 detail: {
                     alertCount: this.activeAlerts.length,
@@ -126,12 +126,12 @@ export class WeatherAlertsManager extends EventTarget {
                     alerts: this.getAlertsSummary()
                 }
             }));
-            
+
             console.log(`Loaded ${this.activeAlerts.length} active weather alerts`);
-            
+
         } catch (error) {
             console.error('Failed to load weather alerts:', error);
-            
+
             // Try to load fallback/cached data
             this.loadFallbackAlerts();
         }
@@ -142,27 +142,27 @@ export class WeatherAlertsManager extends EventTarget {
      */
     buildAlertsUrl(extent) {
         const baseUrl = `${this.nwsConfig.baseUrl}${this.nwsConfig.alertsEndpoint}`;
-        
+
         // Convert extent to geographic coordinates
         const [minX, minY, maxX, maxY] = extent;
         const sw = transform([minX, minY], 'EPSG:3857', 'EPSG:4326');
         const ne = transform([maxX, maxY], 'EPSG:3857', 'EPSG:4326');
-        
+
         // Build query parameters
         const params = new URLSearchParams({
             status: 'actual',
             message_type: 'alert',
             limit: this.nwsConfig.maxAlerts.toString()
         });
-        
+
         // Add spatial filtering if extent is reasonable
         const extentWidth = ne[0] - sw[0];
         const extentHeight = ne[1] - sw[1];
-        
+
         if (extentWidth < 50 && extentHeight < 50) { // Don't filter if too zoomed out
             params.append('point', `${(sw[1] + ne[1]) / 2},${(sw[0] + ne[0]) / 2}`);
         }
-        
+
         return `${baseUrl}?${params.toString()}`;
     }
 
@@ -172,12 +172,12 @@ export class WeatherAlertsManager extends EventTarget {
     processAlertsData(data) {
         this.alerts.clear();
         this.activeAlerts = [];
-        
+
         if (!data.features || !Array.isArray(data.features)) {
             console.warn('Invalid alerts data format');
             return;
         }
-        
+
         data.features.forEach((feature, index) => {
             try {
                 const alert = this.parseAlertFeature(feature, index);
@@ -189,7 +189,7 @@ export class WeatherAlertsManager extends EventTarget {
                 console.warn('Failed to parse alert feature:', error);
             }
         });
-        
+
         // Sort alerts by priority and severity
         this.activeAlerts.sort((a, b) => {
             if (a.priority !== b.priority) {
@@ -204,16 +204,16 @@ export class WeatherAlertsManager extends EventTarget {
      */
     parseAlertFeature(feature, index) {
         const props = feature.properties;
-        
+
         if (!props) {
             return null;
         }
-        
+
         // Determine alert type and severity
         const event = props.event || '';
         const alertType = this.determineAlertType(event);
         const severity = this.determineSeverity(props.severity);
-        
+
         // Parse geometry
         let geometry = null;
         if (feature.geometry) {
@@ -227,7 +227,7 @@ export class WeatherAlertsManager extends EventTarget {
                 console.warn('Failed to parse alert geometry:', error);
             }
         }
-        
+
         return {
             id: props.id || `alert_${index}`,
             event: event,
@@ -256,7 +256,7 @@ export class WeatherAlertsManager extends EventTarget {
      */
     determineAlertType(event) {
         const eventLower = event.toLowerCase();
-        
+
         if (eventLower.includes('warning')) {
             return 'warning';
         } else if (eventLower.includes('watch')) {
@@ -281,12 +281,12 @@ export class WeatherAlertsManager extends EventTarget {
      */
     isAlertActive(alert) {
         const now = new Date();
-        
+
         // Check if alert has expired
         if (alert.expires && now > alert.expires) {
             return false;
         }
-        
+
         // Check if alert is effective yet
         return !(alert.effective && now < alert.effective);
     }
@@ -297,14 +297,14 @@ export class WeatherAlertsManager extends EventTarget {
     updateAlertLayers() {
         const warningFeatures = [];
         const watchFeatures = [];
-        
+
         this.activeAlerts.forEach(alert => {
             if (!alert.geometry) return;
-            
+
             const feature = new Feature({
                 geometry: alert.geometry
             });
-            
+
             // Set feature properties
             feature.setProperties({
                 alertId: alert.id,
@@ -316,7 +316,7 @@ export class WeatherAlertsManager extends EventTarget {
                 alertType: alert.alertType,
                 color: alert.color
             });
-            
+
             // Add to appropriate layer
             if (alert.alertType === 'warning') {
                 warningFeatures.push(feature);
@@ -324,7 +324,7 @@ export class WeatherAlertsManager extends EventTarget {
                 watchFeatures.push(feature);
             }
         });
-        
+
         // Update layer features
         this.layerManager.addWeatherFeatures('warnings', warningFeatures);
         this.layerManager.addWeatherFeatures('watches', watchFeatures);
@@ -340,15 +340,15 @@ export class WeatherAlertsManager extends EventTarget {
             bySeverity: {},
             urgent: []
         };
-        
+
         this.activeAlerts.forEach(alert => {
             // Count by type
             summary.byType[alert.alertType] = (summary.byType[alert.alertType] || 0) + 1;
-            
+
             // Count by severity
             const severityKey = alert.severity.priority;
             summary.bySeverity[severityKey] = (summary.bySeverity[severityKey] || 0) + 1;
-            
+
             // Collect urgent alerts
             if (alert.severity.priority <= 2 || alert.urgency === 'immediate') {
                 summary.urgent.push({
@@ -360,7 +360,7 @@ export class WeatherAlertsManager extends EventTarget {
                 });
             }
         });
-        
+
         return summary;
     }
 
@@ -382,7 +382,7 @@ export class WeatherAlertsManager extends EventTarget {
      * Get alerts for specific area
      */
     getAlertsForArea(areaName) {
-        return this.activeAlerts.filter(alert => 
+        return this.activeAlerts.filter(alert =>
             alert.areas.toLowerCase().includes(areaName.toLowerCase())
         );
     }
@@ -394,11 +394,11 @@ export class WeatherAlertsManager extends EventTarget {
         // Increase opacity of alert layers
         this.layerManager.setLayerOpacity('weather_warnings', 0.8);
         this.layerManager.setLayerOpacity('weather_watches', 0.7);
-        
+
         // Ensure alert layers are visible
         this.layerManager.setLayerVisibility('weather_warnings', true);
         this.layerManager.setLayerVisibility('weather_watches', true);
-        
+
         this.dispatchEvent(new CustomEvent('alerts:highlighted'));
     }
 
@@ -418,7 +418,7 @@ export class WeatherAlertsManager extends EventTarget {
      */
     loadFallbackAlerts() {
         console.log('Loading fallback alerts data...');
-        
+
         // Create a basic fallback alert for testing
         const fallbackAlert = {
             id: 'fallback_1',
@@ -436,10 +436,10 @@ export class WeatherAlertsManager extends EventTarget {
             expires: null,
             geometry: null
         };
-        
+
         this.alerts.set(fallbackAlert.id, fallbackAlert);
         this.activeAlerts = [fallbackAlert];
-        
+
         this.dispatchEvent(new CustomEvent('alerts:fallback:loaded', {
             detail: { alert: fallbackAlert }
         }));
@@ -452,7 +452,7 @@ export class WeatherAlertsManager extends EventTarget {
         this.updateTimer = setInterval(() => {
             this.updateAlerts();
         }, this.nwsConfig.updateInterval);
-        
+
         console.log('Automatic alerts updates enabled');
     }
 
@@ -492,10 +492,10 @@ export class WeatherAlertsManager extends EventTarget {
         if (this.updateTimer) {
             clearInterval(this.updateTimer);
         }
-        
+
         this.alerts.clear();
         this.activeAlerts = [];
-        
+
         console.log('Weather Alerts Manager cleanup completed');
     }
 }

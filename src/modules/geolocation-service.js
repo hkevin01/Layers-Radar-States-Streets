@@ -5,12 +5,12 @@
  * @version 2.0.0
  */
 
-import { Feature } from 'https://cdn.skypack.dev/ol';
-import { Point } from 'https://cdn.skypack.dev/ol/geom';
-import { Vector as VectorLayer } from 'https://cdn.skypack.dev/ol/layer';
-import { fromLonLat } from 'https://cdn.skypack.dev/ol/proj';
-import { Vector as VectorSource } from 'https://cdn.skypack.dev/ol/source';
-import { Circle, Fill, Stroke, Style } from 'https://cdn.skypack.dev/ol/style';
+import { Point } from 'ol/geom.js';
+import { Feature } from 'ol/index.js';
+import { Vector as VectorLayer } from 'ol/layer.js';
+import { fromLonLat } from 'ol/proj.js';
+import { Vector as VectorSource } from 'ol/source.js';
+import { Circle, Fill, Stroke, Style } from 'ol/style.js';
 
 /**
  * Geolocation Service Class
@@ -20,20 +20,20 @@ export class GeolocationService extends EventTarget {
     constructor(map) {
         super();
         this.map = map;
-        
+
         this.currentPosition = null;
         this.isTracking = false;
         this.watchId = null;
         this.locationLayer = null;
         this.accuracy = null;
-        
+
         // Geolocation options
         this.options = {
             enableHighAccuracy: true,
             timeout: 10000,
             maximumAge: 300000 // 5 minutes
         };
-        
+
         this.isInitialized = false;
     }
 
@@ -43,20 +43,20 @@ export class GeolocationService extends EventTarget {
     async init() {
         try {
             console.log('Initializing Geolocation Service...');
-            
+
             // Check if geolocation is available
             if (!this.isGeolocationAvailable()) {
                 throw new Error('Geolocation is not available in this browser');
             }
-            
+
             // Create location layer
             this.createLocationLayer();
-            
+
             this.isInitialized = true;
             console.log('Geolocation Service initialized successfully');
-            
+
             this.dispatchEvent(new CustomEvent('geolocation:initialized'));
-            
+
         } catch (error) {
             console.error('Failed to initialize Geolocation Service:', error);
             throw error;
@@ -75,16 +75,16 @@ export class GeolocationService extends EventTarget {
      */
     createLocationLayer() {
         const vectorSource = new VectorSource();
-        
+
         this.locationLayer = new VectorLayer({
             source: vectorSource,
             style: this.getLocationStyle(),
             zIndex: 100
         });
-        
+
         this.locationLayer.set('name', 'User Location');
         this.locationLayer.set('type', 'location');
-        
+
         this.map.addLayer(this.locationLayer);
         console.log('Location layer created');
     }
@@ -98,9 +98,9 @@ export class GeolocationService extends EventTarget {
                 reject(new Error('Geolocation not available'));
                 return;
             }
-            
+
             console.log('Getting current location...');
-            
+
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     this.handlePositionSuccess(position);
@@ -122,9 +122,9 @@ export class GeolocationService extends EventTarget {
         if (!this.isGeolocationAvailable() || this.isTracking) {
             return;
         }
-        
+
         console.log('Starting location tracking...');
-        
+
         this.watchId = navigator.geolocation.watchPosition(
             (position) => {
                 this.handlePositionSuccess(position);
@@ -134,9 +134,9 @@ export class GeolocationService extends EventTarget {
             },
             this.options
         );
-        
+
         this.isTracking = true;
-        
+
         this.dispatchEvent(new CustomEvent('geolocation:tracking:started'));
     }
 
@@ -147,13 +147,13 @@ export class GeolocationService extends EventTarget {
         if (!this.isTracking || this.watchId === null) {
             return;
         }
-        
+
         console.log('Stopping location tracking...');
-        
+
         navigator.geolocation.clearWatch(this.watchId);
         this.watchId = null;
         this.isTracking = false;
-        
+
         this.dispatchEvent(new CustomEvent('geolocation:tracking:stopped'));
     }
 
@@ -162,7 +162,7 @@ export class GeolocationService extends EventTarget {
      */
     handlePositionSuccess(position) {
         const coords = position.coords;
-        
+
         this.currentPosition = {
             longitude: coords.longitude,
             latitude: coords.latitude,
@@ -172,19 +172,19 @@ export class GeolocationService extends EventTarget {
             speed: coords.speed,
             timestamp: new Date(position.timestamp)
         };
-        
+
         this.accuracy = coords.accuracy;
-        
+
         // Update location display
         this.updateLocationDisplay();
-        
+
         this.dispatchEvent(new CustomEvent('geolocation:position:updated', {
             detail: {
                 position: this.currentPosition,
                 accuracy: this.accuracy
             }
         }));
-        
+
         console.log(`Location updated: ${coords.latitude}, ${coords.longitude} (±${coords.accuracy}m)`);
     }
 
@@ -193,7 +193,7 @@ export class GeolocationService extends EventTarget {
      */
     handlePositionError(error) {
         let errorMessage = 'Unknown geolocation error';
-        
+
         switch (error.code) {
             case error.PERMISSION_DENIED:
                 errorMessage = 'Location access denied by user';
@@ -205,9 +205,9 @@ export class GeolocationService extends EventTarget {
                 errorMessage = 'Location request timed out';
                 break;
         }
-        
+
         console.error('Geolocation error:', errorMessage);
-        
+
         this.dispatchEvent(new CustomEvent('geolocation:error', {
             detail: {
                 error: error,
@@ -223,25 +223,25 @@ export class GeolocationService extends EventTarget {
         if (!this.currentPosition || !this.locationLayer) {
             return;
         }
-        
+
         const source = this.locationLayer.getSource();
         source.clear();
-        
+
         // Create location point feature
         const locationCoord = fromLonLat([
             this.currentPosition.longitude,
             this.currentPosition.latitude
         ]);
-        
+
         const locationFeature = new Feature({
             geometry: new Point(locationCoord),
             type: 'user-location',
             accuracy: this.accuracy,
             timestamp: this.currentPosition.timestamp
         });
-        
+
         source.addFeature(locationFeature);
-        
+
         // Create accuracy circle if accuracy is available and reasonable
         if (this.accuracy && this.accuracy < 10000) { // Max 10km accuracy
             const accuracyFeature = new Feature({
@@ -249,7 +249,7 @@ export class GeolocationService extends EventTarget {
                 type: 'location-accuracy',
                 radius: this.accuracy
             });
-            
+
             source.addFeature(accuracyFeature);
         }
     }
@@ -262,13 +262,13 @@ export class GeolocationService extends EventTarget {
             console.warn('No current location available');
             return;
         }
-        
+
         const view = this.map.getView();
         const center = fromLonLat([
             this.currentPosition.longitude,
             this.currentPosition.latitude
         ]);
-        
+
         // Determine appropriate zoom level based on accuracy
         let zoom = 12; // Default zoom
         if (this.accuracy) {
@@ -282,13 +282,13 @@ export class GeolocationService extends EventTarget {
                 zoom = 9; // Poor accuracy
             }
         }
-        
+
         view.animate({
             center: center,
             zoom: zoom,
             duration: 1000
         });
-        
+
         this.dispatchEvent(new CustomEvent('geolocation:centered'));
         console.log('Map centered on user location');
     }
@@ -299,7 +299,7 @@ export class GeolocationService extends EventTarget {
     getLocationStyle() {
         return (feature) => {
             const type = feature.get('type');
-            
+
             if (type === 'user-location') {
                 return new Style({
                     image: new Circle({
@@ -318,7 +318,7 @@ export class GeolocationService extends EventTarget {
                 const mapView = this.map.getView();
                 const resolution = mapView.getResolution();
                 const pixelRadius = radius / resolution;
-                
+
                 return new Style({
                     image: new Circle({
                         radius: pixelRadius,
@@ -332,7 +332,7 @@ export class GeolocationService extends EventTarget {
                     })
                 });
             }
-            
+
             return null;
         };
     }
@@ -344,7 +344,7 @@ export class GeolocationService extends EventTarget {
         if (!this.isGeolocationAvailable()) {
             throw new Error('Geolocation not available');
         }
-        
+
         try {
             // Try to get current position to trigger permission request
             await this.getCurrentLocation();
@@ -377,7 +377,7 @@ export class GeolocationService extends EventTarget {
         if (!this.currentPosition) {
             return null;
         }
-        
+
         return this.calculateDistance(
             this.currentPosition.latitude,
             this.currentPosition.longitude,
@@ -393,14 +393,14 @@ export class GeolocationService extends EventTarget {
         const R = 6371; // Earth's radius in kilometers
         const dLat = this.toRadians(lat2 - lat1);
         const dLon = this.toRadians(lon2 - lon1);
-        
+
         const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
                   Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        
+
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const distance = R * c;
-        
+
         return {
             kilometers: distance,
             miles: distance * 0.621371,
@@ -422,7 +422,7 @@ export class GeolocationService extends EventTarget {
         if (!this.currentPosition) {
             return null;
         }
-        
+
         return {
             coordinates: {
                 latitude: this.currentPosition.latitude,
@@ -444,7 +444,7 @@ export class GeolocationService extends EventTarget {
     formatCoordinates(lat, lon) {
         const latDir = lat >= 0 ? 'N' : 'S';
         const lonDir = lon >= 0 ? 'E' : 'W';
-        
+
         return {
             decimal: `${lat.toFixed(6)}°, ${lon.toFixed(6)}°`,
             dms: `${this.toDMS(Math.abs(lat))}${latDir}, ${this.toDMS(Math.abs(lon))}${lonDir}`
@@ -459,7 +459,7 @@ export class GeolocationService extends EventTarget {
         const minutesFloat = (decimal - degrees) * 60;
         const minutes = Math.floor(minutesFloat);
         const seconds = (minutesFloat - minutes) * 60;
-        
+
         return `${degrees}° ${minutes}' ${seconds.toFixed(2)}"`;
     }
 
@@ -479,10 +479,10 @@ export class GeolocationService extends EventTarget {
         if (this.locationLayer) {
             this.locationLayer.getSource().clear();
         }
-        
+
         this.currentPosition = null;
         this.accuracy = null;
-        
+
         this.dispatchEvent(new CustomEvent('geolocation:cleared'));
     }
 
@@ -492,11 +492,11 @@ export class GeolocationService extends EventTarget {
     cleanup() {
         this.stopTracking();
         this.clearLocation();
-        
+
         if (this.locationLayer) {
             this.map.removeLayer(this.locationLayer);
         }
-        
+
         console.log('Geolocation Service cleanup completed');
     }
 }

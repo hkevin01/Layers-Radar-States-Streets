@@ -1,18 +1,30 @@
-/**
- * UI Controls Component - Enhanced map controls and interface elements
- */
+// ui-controls.js (OL v8 compatible)
+
+import { toLonLat } from 'ol/proj.js';
 
 export class UIControls {
-  constructor(mapComponent) {
-    this.mapComponent = mapComponent;
-    this.map = mapComponent.getMap();
+  // Accept either { map } or { mapComponent } or both
+  constructor(opts = {}) {
+    const mapFromComponent = opts.mapComponent && typeof opts.mapComponent.getMap === 'function'
+      ? opts.mapComponent.getMap()
+      : null;
+
+    this.map = opts.map || mapFromComponent;
+    if (!this.map || typeof this.map.getView !== 'function') {
+      throw new TypeError('UIControls requires an OpenLayers v8 map or a mapComponent with getMap()');
+    }
+
+    // Optional: for layer lookup and other app-specific methods
+    this.mapComponent = opts.mapComponent || null;
+
+    // Layers registry (if provided by mapComponent)
+    // Expect mapComponent.layers to be a dictionary of ol/layer/Layer
+    this.layers = (this.mapComponent && this.mapComponent.layers) || {};
+
     this.controlsContainer = null;
     this.isVisible = true;
   }
 
-  /**
-   * Initialize all UI controls
-   */
   initialize() {
     this.createControlsContainer();
     this.createLayerTogglePanel();
@@ -23,9 +35,6 @@ export class UIControls {
     this.setupEventHandlers();
   }
 
-  /**
-   * Create the main controls container
-   */
   createControlsContainer() {
     this.controlsContainer = document.createElement('div');
     this.controlsContainer.className = 'map-ui-controls';
@@ -40,23 +49,21 @@ export class UIControls {
         <div id="info-panel"></div>
       </div>
     `;
-    
     document.body.appendChild(this.controlsContainer);
   }
 
-  /**
-   * Create enhanced layer toggle panel
-   */
   createLayerTogglePanel() {
-    const layerControls = document.getElementById('layer-controls');
-    const layers = this.mapComponent.layers;
-    
+    const layerControls = this.controlsContainer.querySelector('#layer-controls');
+    const layers = this.layers || {};
+
+    const radarVisible = layers.radar ? layers.radar.getVisible?.() === true || layers.radar.visibility === true : false;
+
     layerControls.innerHTML = `
       <div class="layer-section">
         <h4>🌩️ Weather Layers</h4>
         <div class="layer-control">
           <label class="layer-toggle">
-            <input type="checkbox" id="radar-toggle" ${layers.radar?.visibility ? 'checked' : ''}>
+            <input type="checkbox" id="radar-toggle" ${radarVisible ? 'checked' : ''}>
             <span class="slider"></span>
             NEXRAD Radar
           </label>
@@ -65,7 +72,7 @@ export class UIControls {
           </div>
         </div>
       </div>
-      
+
       <div class="layer-section">
         <h4>🗺️ Base Layers</h4>
         <div class="layer-control">
@@ -81,7 +88,7 @@ export class UIControls {
           </label>
         </div>
       </div>
-      
+
       <div class="layer-section">
         <h4>📍 Overlay Layers</h4>
         <div class="layer-control">
@@ -102,12 +109,8 @@ export class UIControls {
     `;
   }
 
-  /**
-   * Create map tools panel
-   */
   createMapControls() {
-    const mapTools = document.getElementById('map-tools');
-    
+    const mapTools = this.controlsContainer.querySelector('#map-tools');
     mapTools.innerHTML = `
       <div class="tools-section">
         <h4>🛠️ Map Tools</h4>
@@ -118,12 +121,12 @@ export class UIControls {
           <button class="tool-btn" id="refresh-data" title="Refresh Data">🔄</button>
           <button class="tool-btn" id="screenshot" title="Take Screenshot">📸</button>
         </div>
-        
+
         <div class="coordinate-display">
           <label>📍 Mouse Position:</label>
           <div id="mouse-coords">--, --</div>
         </div>
-        
+
         <div class="zoom-display">
           <label>🔍 Zoom Level:</label>
           <div id="zoom-level">4</div>
@@ -132,9 +135,6 @@ export class UIControls {
     `;
   }
 
-  /**
-   * Create loading indicator
-   */
   createLoadingIndicator() {
     const loader = document.createElement('div');
     loader.id = 'enhanced-loading';
@@ -151,9 +151,6 @@ export class UIControls {
     document.body.appendChild(loader);
   }
 
-  /**
-   * Create error display
-   */
   createErrorDisplay() {
     const errorDisplay = document.createElement('div');
     errorDisplay.id = 'enhanced-error';
@@ -171,12 +168,8 @@ export class UIControls {
     document.body.appendChild(errorDisplay);
   }
 
-  /**
-   * Create info panel
-   */
   createInfoPanel() {
-    const infoPanel = document.getElementById('info-panel');
-    
+    const infoPanel = this.controlsContainer.querySelector('#info-panel');
     infoPanel.innerHTML = `
       <div class="info-section">
         <h4>ℹ️ Information</h4>
@@ -196,62 +189,47 @@ export class UIControls {
     `;
   }
 
-  /**
-   * Setup event handlers for UI controls
-   */
   setupEventHandlers() {
-    // Toggle controls visibility
     const toggleBtn = this.controlsContainer.querySelector('.toggle-controls');
     const content = this.controlsContainer.querySelector('.controls-content');
-    
+
     toggleBtn.addEventListener('click', () => {
       this.isVisible = !this.isVisible;
       content.style.display = this.isVisible ? 'block' : 'none';
       toggleBtn.textContent = this.isVisible ? '▼' : '▶';
     });
 
-    // Layer toggles
     this.setupLayerToggles();
-    
-    // Map tools
     this.setupMapTools();
-    
-    // Mouse position tracking
     this.setupMouseTracking();
-    
-    // Zoom level tracking
     this.setupZoomTracking();
   }
 
-  /**
-   * Setup layer toggle functionality
-   */
   setupLayerToggles() {
-    const radarToggle = document.getElementById('radar-toggle');
-    const radarOpacity = document.getElementById('radar-opacity');
-    const statesToggle = document.getElementById('states-toggle');
-    const hazardToggle = document.getElementById('hazard-toggle');
+    const radarToggle = this.controlsContainer.querySelector('#radar-toggle');
+    const radarOpacity = this.controlsContainer.querySelector('#radar-opacity');
+    const statesToggle = this.controlsContainer.querySelector('#states-toggle');
+    const hazardToggle = this.controlsContainer.querySelector('#hazard-toggle');
 
     if (radarToggle) {
       radarToggle.addEventListener('change', (e) => {
-        const layer = this.mapComponent.getLayer('radar');
-        if (layer) {
-          layer.setVisibility(e.target.checked);
+        const layer = this.getLayer('radar');
+        if (layer && typeof layer.setVisible === 'function') {
+          layer.setVisible(e.target.checked);
         }
       });
     }
 
     if (radarOpacity) {
       radarOpacity.addEventListener('input', (e) => {
-        const layer = this.mapComponent.getLayer('radar');
-        if (layer) {
-          layer.setOpacity(e.target.value / 100);
+        const layer = this.getLayer('radar');
+        if (layer && typeof layer.setOpacity === 'function') {
+          layer.setOpacity(Number(e.target.value) / 100);
         }
       });
     }
 
-    // Base layer radio buttons
-    const baseLayerRadios = document.querySelectorAll('input[name="baselayer"]');
+    const baseLayerRadios = this.controlsContainer.querySelectorAll('input[name="baselayer"]');
     baseLayerRadios.forEach(radio => {
       radio.addEventListener('change', (e) => {
         if (e.target.checked) {
@@ -259,144 +237,162 @@ export class UIControls {
         }
       });
     });
+
+    if (statesToggle) {
+      statesToggle.addEventListener('change', (e) => {
+        const layer = this.getLayer('states');
+        if (layer?.setVisible) layer.setVisible(e.target.checked);
+      });
+    }
+
+    if (hazardToggle) {
+      hazardToggle.addEventListener('change', (e) => {
+        const layer = this.getLayer('hazards');
+        if (layer?.setVisible) layer.setVisible(e.target.checked);
+      });
+    }
   }
 
-  /**
-   * Setup map tools functionality
-   */
   setupMapTools() {
-    document.getElementById('zoom-extent')?.addEventListener('click', () => {
-      this.map.zoomToMaxExtent();
+    const view = this.map.getView();
+
+    this.controlsContainer.querySelector('#zoom-extent')?.addEventListener('click', () => {
+      // Fit the view to world extent in web mercator, leaving some padding
+      const worldExtent3857 = [-20037508.34, -20037508.34, 20037508.34, 20037508.34];
+      view.fit(worldExtent3857, { size: this.map.getSize(), padding: [20, 20, 20, 20], duration: 250 });
     });
 
-    document.getElementById('zoom-in')?.addEventListener('click', () => {
-      this.map.zoomIn();
+    this.controlsContainer.querySelector('#zoom-in')?.addEventListener('click', () => {
+      const z = view.getZoom() ?? 0;
+      view.setZoom(z + 1);
     });
 
-    document.getElementById('zoom-out')?.addEventListener('click', () => {
-      this.map.zoomOut();
+    this.controlsContainer.querySelector('#zoom-out')?.addEventListener('click', () => {
+      const z = view.getZoom() ?? 0;
+      view.setZoom(z - 1);
     });
 
-    document.getElementById('refresh-data')?.addEventListener('click', () => {
+    this.controlsContainer.querySelector('#refresh-data')?.addEventListener('click', () => {
       this.refreshMapData();
     });
 
-    document.getElementById('screenshot')?.addEventListener('click', () => {
+    this.controlsContainer.querySelector('#screenshot')?.addEventListener('click', () => {
       this.takeScreenshot();
     });
   }
 
-  /**
-   * Setup mouse position tracking
-   */
   setupMouseTracking() {
-    const coordsDisplay = document.getElementById('mouse-coords');
-    
-    this.map.events.register('mousemove', this, (e) => {
-      const position = this.map.getLonLatFromPixel(e.xy);
-      if (position) {
-        const transformed = position.transform(
-          this.map.getProjectionObject(),
-          new OpenLayers.Projection('EPSG:4326')
-        );
-        coordsDisplay.textContent = `${transformed.lon.toFixed(3)}°, ${transformed.lat.toFixed(3)}°`;
+    const coordsDisplay = this.controlsContainer.querySelector('#mouse-coords');
+    if (!coordsDisplay) return;
+
+    this.map.on('pointermove', (evt) => {
+      if (!evt.coordinate) {
+        coordsDisplay.textContent = '--, --';
+        return;
       }
+      const lonLat = toLonLat(evt.coordinate);
+      coordsDisplay.textContent = `${lonLat[0].toFixed(3)}°, ${lonLat[1].toFixed(3)}°`;
     });
   }
 
-  /**
-   * Setup zoom level tracking
-   */
   setupZoomTracking() {
-    const zoomDisplay = document.getElementById('zoom-level');
-    
-    this.map.events.register('zoomend', this, () => {
-      zoomDisplay.textContent = this.map.getZoom();
-    });
+    const zoomDisplay = this.controlsContainer.querySelector('#zoom-level');
+    if (!zoomDisplay) return;
+    const view = this.map.getView();
+
+    const update = () => {
+      const z = view.getZoom();
+      zoomDisplay.textContent = Number.isFinite(z) ? String(z) : '--';
+    };
+    update();
+
+    view.on('change:resolution', update);
+    view.on('change:zoom', update);
   }
 
-  /**
-   * Switch base layer
-   */
-  switchBaseLayer(layerType) {
-    const layers = this.mapComponent.layers;
-    
-    // Hide all base layers
-    Object.values(layers).forEach(layer => {
-      if (layer && layer.isBaseLayer) {
-        layer.setVisibility(false);
-      }
+  switchBaseLayer(layerKey) {
+    // Expect base layers keyed in this.layers, e.g. { osm: TileLayer, streets: TileLayer }
+    const layers = this.layers || {};
+
+    // Hide all known base layers
+    Object.entries(layers).forEach(([key, layer]) => {
+      if (!layer || typeof layer.setVisible !== 'function') return;
+      // either check metadata isBaseLayer or use a whitelist of keys
+      const isBase = layer.get('isBaseLayer') || ['osm', 'streets', 'satellite'].includes(key);
+      if (isBase) layer.setVisible(false);
     });
-    
-    // Show selected layer
-    if (layers[layerType]) {
-      layers[layerType].setVisibility(true);
+
+    // Show selected base layer
+    const target = layers[layerKey];
+    if (target?.setVisible) {
+      target.setVisible(true);
     }
   }
 
-  /**
-   * Refresh map data
-   */
   refreshMapData() {
     this.showLoading('Refreshing data...');
-    this.mapComponent.loadInitialData();
-    setTimeout(() => this.hideLoading(), 2000);
+    try {
+      if (this.mapComponent && typeof this.mapComponent.loadInitialData === 'function') {
+        this.mapComponent.loadInitialData();
+      }
+    } finally {
+      setTimeout(() => this.hideLoading(), 1200);
+    }
   }
 
-  /**
-   * Take screenshot of map
-   */
   takeScreenshot() {
-    // Implementation would depend on available libraries
     console.log('Screenshot functionality to be implemented');
   }
 
-  /**
-   * Show loading indicator
-   */
   showLoading(message = 'Loading...') {
     const loader = document.getElementById('enhanced-loading');
+    if (!loader) return;
     const text = loader.querySelector('.loading-text');
-    text.textContent = message;
+    if (text) text.textContent = message;
     loader.classList.remove('hidden');
   }
 
-  /**
-   * Hide loading indicator
-   */
   hideLoading() {
     const loader = document.getElementById('enhanced-loading');
+    if (!loader) return;
     loader.classList.add('hidden');
   }
 
-  /**
-   * Show error message
-   */
   showError(message, canRetry = true) {
     const errorDisplay = document.getElementById('enhanced-error');
+    if (!errorDisplay) return;
     const messageEl = errorDisplay.querySelector('.error-message');
     const retryBtn = errorDisplay.querySelector('.retry-btn');
-    
-    messageEl.textContent = message;
-    retryBtn.style.display = canRetry ? 'block' : 'none';
+
+    if (messageEl) messageEl.textContent = message;
+    if (retryBtn) retryBtn.style.display = canRetry ? 'block' : 'none';
     errorDisplay.classList.remove('hidden');
-    
-    // Auto-hide after 5 seconds
+
     setTimeout(() => {
       errorDisplay.classList.add('hidden');
     }, 5000);
   }
 
-  /**
-   * Update info panel
-   */
   updateInfo(info) {
+    if (!info) return;
     if (info.lastUpdate) {
-      document.getElementById('last-update').textContent = info.lastUpdate;
+      const el = document.getElementById('last-update');
+      if (el) el.textContent = info.lastUpdate;
     }
-    if (info.center) {
-      document.getElementById('map-center').textContent = 
-        `${info.center.lon.toFixed(1)}°, ${info.center.lat.toFixed(1)}°`;
+    if (info.center && Array.isArray(info.center)) {
+      const el = document.getElementById('map-center');
+      if (el) el.textContent = `${info.center[0].toFixed(1)}°, ${info.center[1].toFixed(1)}°`;
     }
+  }
+
+  // Helper to retrieve a layer by key from mapComponent.layers registry
+  getLayer(key) {
+    if (this.layers && this.layers[key]) return this.layers[key];
+    // Fallback: search by custom property 'key'
+    const groups = this.map.getLayers().getArray();
+    for (const layer of groups) {
+      if (layer && layer.get && layer.get('key') === key) return layer;
+    }
+    return null;
   }
 }

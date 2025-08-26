@@ -56,7 +56,25 @@ export class PWAHelper {
           return;
         }
 
-        // Service worker served at web root for proper scope
+        // Only register service worker in production or when sw.js exists
+        const isLocalhost = ['localhost', '127.0.0.1'].includes(location.hostname);
+        if (isLocalhost) {
+          console.log('🚫 Service Worker registration skipped in development');
+          return;
+        }
+
+        // Check if sw.js exists before registering
+        try {
+          const swResponse = await fetch('/sw.js', { method: 'HEAD' });
+          if (!swResponse.ok) {
+            console.log('🚫 Service Worker file not found, skipping registration');
+            return;
+          }
+        } catch (fetchError) {
+          console.log('🚫 Service Worker file check failed, skipping registration');
+          return;
+        }
+
         this.serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js');
 
         console.log('✅ Service Worker registered successfully');

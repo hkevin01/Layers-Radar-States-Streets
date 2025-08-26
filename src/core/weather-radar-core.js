@@ -182,7 +182,7 @@ export class WeatherRadarCore extends EventTarget {
                 title: "OpenStreetMap",
                 type: "base",
                 visible: true,
-                source: new ol.source.OSM()
+                source: new ol.source.OSM({ crossOrigin: 'anonymous' })
             });
 
             this.map.addLayer(osmLayer);
@@ -196,7 +196,8 @@ export class WeatherRadarCore extends EventTarget {
                 visible: false,
                 source: new ol.source.XYZ({
                     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                    attributions: "© Esri"
+                    attributions: "© Esri",
+                    crossOrigin: 'anonymous'
                 })
             });
 

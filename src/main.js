@@ -11,6 +11,13 @@ import { PerformanceOptimizer } from './components/performance-optimizer.js';
 import { PWAHelper } from './components/pwa-helper.js';
 import { UIControls } from './components/ui-controls.js';
 
+// Build/version banner to verify the served asset in tests and detect staleness
+try {
+  const stamp = `main.js build @ ${new Date().toISOString()}`;
+  console.info('[MAIN] Loaded', stamp, window.location && window.location.href);
+  window.__MAIN_BUILD_ID__ = stamp;
+} catch (_) {}
+
 // Global instances for backward compatibility and enhanced features
 let mapComponent = null;
 let uiControls = null;
@@ -45,18 +52,22 @@ async function initializeApp(containerId = 'map') {
     // Expose early for tests
     window.performanceOptimizer = performanceOptimizer;
 
-    // Initialize PWA features with offline support
-    console.log('📱 Initializing PWA features...');
-    pwaHelper = new PWAHelper({
-      enableServiceWorker: true,
-      enableOfflineSupport: true,
-      cacheStrategy: 'network-first',
-      precacheAssets: [
-        '/index.html',
-        '/styles/main.css',
-        '/src/main.js'
-      ]
-    });
+    // Initialize PWA features with offline support (skip during E2E to avoid SW/cache interference)
+    if (!window.__E2E_TEST__) {
+      console.log('📱 Initializing PWA features...');
+      pwaHelper = new PWAHelper({
+        enableServiceWorker: true,
+        enableOfflineSupport: true,
+        cacheStrategy: 'network-first',
+        precacheAssets: [
+          '/index.html',
+          '/styles/main.css',
+          '/src/main.js'
+        ]
+      });
+    } else {
+      console.warn('PWA disabled in E2E mode');
+    }
 
     // Initialize weather radar app
     console.log('🗺️ Initializing weather radar component...');
@@ -77,7 +88,9 @@ async function initializeApp(containerId = 'map') {
       }
     };
 
-    const { WeatherRadarApp } = await import('./apps/weather-radar-app.js');
+  // Cache-bust the dynamic import in E2E runs to avoid stale modules
+  const v = (new URL(window.location.href)).searchParams.has('e2e') ? `?v=${Date.now()}` : '';
+  const { WeatherRadarApp } = await import(`./apps/weather-radar-app.js${v}`);
     const weatherRadarApp = new WeatherRadarApp(weatherRadarConfig);
     await weatherRadarApp.init();
 
@@ -91,11 +104,18 @@ async function initializeApp(containerId = 'map') {
     // Initialize UI components
     console.log('🎛️ Initializing UI controls...');
     const mapContainer = document.getElementById(containerId);
-    uiControls = new UIControls(mapComponent, mapContainer);
+    const mapComponentWrapper = {
+      map: mapComponent,
+      getMap: () => mapComponent,
+      layers: weatherRadarApp.getLayers ? weatherRadarApp.getLayers() : {}
+    };
+    uiControls = new UIControls({ mapComponent: mapComponentWrapper });
+    uiControls.initialize();
 
     // Initialize mobile controls
     console.log('📱 Initializing mobile controls...');
-    mobileControls = new MobileTouchControls(mapComponent, mapContainer);
+    mobileControls = new MobileTouchControls(mapComponentWrapper);
+    mobileControls.initialize();
 
     // Initialize data visualization
     console.log('📊 Initializing data visualization...');
@@ -103,10 +123,13 @@ async function initializeApp(containerId = 'map') {
 
     // Initialize accessibility features
     console.log('♿ Initializing accessibility features...');
-    accessibilityHelper = new AccessibilityHelper(mapComponent);
-
-    // Load saved accessibility settings
-    accessibilityHelper.loadAccessibilitySettings();
+    try {
+      accessibilityHelper = new AccessibilityHelper(mapComponent);
+      // Load saved accessibility settings
+      accessibilityHelper.loadAccessibilitySettings();
+    } catch (e) {
+      console.warn('[MAIN] Accessibility init skipped:', e);
+    }
 
   // Expose instances globally for backward compatibility
   // weatherRadarApp.getMap() returns an ol.Map instance, which does not have getMap().
@@ -198,10 +221,12 @@ function setupComponentInteractions() {
 
   // Performance monitoring integration
   if (performanceOptimizer && mapComponent) {
-    mapComponent.on('layerload', () => {
+      if (typeof mapComponent.on === 'function') {
+        mapComponent.on('layerload', () => {
       // Trigger tile preloading for adjacent areas
       performanceOptimizer.preloadAdjacentTiles();
     });
+      }
   }
 
   // Accessibility integration with UI controls
@@ -489,7 +514,7 @@ class OpenLayersEventHooks {
   setupMapEventListeners() {
     // Map loading/render events
     // Some OL versions don't emit loadstart/loadend at map-level; rely on rendercomplete + tile events
-    this.map.on && this.map.on('rendercomplete', (event) => {
+  if (this.map && typeof this.map.on === 'function') this.map.on('rendercomplete', (event) => {
       this.isMapReady = true;
       this.recordEvent('map', 'rendercomplete', event);
       this.notifyTestFrameworks('map:rendercomplete', event);
@@ -497,12 +522,12 @@ class OpenLayersEventHooks {
     });
 
     // Map interaction events
-    this.map.on && this.map.on('click', (event) => {
+  if (this.map && typeof this.map.on === 'function') this.map.on('click', (event) => {
       this.recordEvent('map', 'click', event);
       this.notifyTestFrameworks('map:click', event);
     });
 
-    this.map.on && this.map.on('pointermove', (event) => {
+  if (this.map && typeof this.map.on === 'function') this.map.on('pointermove', (event) => {
       this.recordEvent('map', 'pointermove', event);
     });
   }
@@ -511,6 +536,7 @@ class OpenLayersEventHooks {
    * Setup view-level event listeners
    */
   setupViewEventListeners() {
+    if (!this.map || typeof this.map.getView !== 'function') return;
     const view = this.map.getView();
     if (!view) return;
 
@@ -535,6 +561,8 @@ class OpenLayersEventHooks {
    * Setup layer-level event listeners
    */
   setupLayerEventListeners() {
+    if (!this.map || typeof this.map.getLayers !== 'function') return;
+
     this.map.getLayers().forEach((layer, index) => {
       this.setupSingleLayerListeners(layer, index);
     });

@@ -14,7 +14,7 @@ export class AccessibilityHelper {
     this.colorBlindnessMode = null;
     this.announcements = [];
     this.skipLinks = [];
-    
+
     this.init();
   }
 
@@ -22,17 +22,22 @@ export class AccessibilityHelper {
    * Initialize accessibility features
    */
   init() {
-    this.createScreenReaderAnnouncer();
-    this.createSkipLinks();
-    this.setupKeyboardNavigation();
-    this.setupFocusManagement();
-    this.setupColorBlindnessSupport();
-    this.setupScreenReaderSupport();
-    this.setupReducedMotionSupport();
-    this.setupAccessibilityMenu();
-    this.addARIALabels();
-    
-    console.log('♿ Accessibility Helper initialized');
+    try {
+      this.createScreenReaderAnnouncer();
+      this.createSkipLinks();
+      this.setupKeyboardNavigation();
+      this.setupFocusManagement();
+      this.setupColorBlindnessSupport();
+      this.setupScreenReaderSupport();
+      this.setupReducedMotionSupport();
+      this.setupAccessibilityMenu();
+      this.addARIALabels();
+
+      console.log('♿ Accessibility Helper initialized');
+    } catch (e) {
+      console.warn('[a11y] Non-fatal accessibility init error:', e);
+      // Do not throw; keep app running
+    }
   }
 
   /**
@@ -52,7 +57,7 @@ export class AccessibilityHelper {
       clip: rect(1px, 1px, 1px, 1px) !important;
       clip-path: inset(50%) !important;
     `;
-    
+
     document.body.appendChild(this.announcer);
   }
 
@@ -63,14 +68,14 @@ export class AccessibilityHelper {
     const skipLinksContainer = document.createElement('nav');
     skipLinksContainer.className = 'skip-links';
     skipLinksContainer.setAttribute('aria-label', 'Skip navigation links');
-    
+
     const skipLinks = [
       { href: '#main-content', text: 'Skip to main content' },
       { href: '#map', text: 'Skip to map' },
       { href: '#ui-controls', text: 'Skip to map controls' },
       { href: '#accessibility-menu', text: 'Skip to accessibility menu' }
     ];
-    
+
     skipLinks.forEach(link => {
       const skipLink = document.createElement('a');
       skipLink.href = link.href;
@@ -79,7 +84,7 @@ export class AccessibilityHelper {
       skipLinksContainer.appendChild(skipLink);
       this.skipLinks.push(skipLink);
     });
-    
+
     document.body.insertBefore(skipLinksContainer, document.body.firstChild);
   }
 
@@ -90,14 +95,14 @@ export class AccessibilityHelper {
     document.addEventListener('keydown', (event) => {
       this.handleGlobalKeyboard(event);
     });
-    
+
     // Focus trap for modals
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Tab') {
         this.handleTabTrapping(event);
       }
     });
-    
+
     // Escape key handling
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
@@ -111,46 +116,46 @@ export class AccessibilityHelper {
    */
   handleGlobalKeyboard(event) {
     const { key, ctrlKey, altKey, shiftKey } = event;
-    
+
     // Alt + M: Focus map
     if (altKey && key === 'm') {
       event.preventDefault();
       this.focusMap();
       this.announce('Map focused');
     }
-    
+
     // Alt + C: Focus controls
     if (altKey && key === 'c') {
       event.preventDefault();
       this.focusControls();
       this.announce('Map controls focused');
     }
-    
+
     // Alt + A: Open accessibility menu
     if (altKey && key === 'a') {
       event.preventDefault();
       this.toggleAccessibilityMenu();
     }
-    
+
     // Alt + H: Show keyboard shortcuts help
     if (altKey && key === 'h') {
       event.preventDefault();
       this.showKeyboardHelp();
     }
-    
+
     // Ctrl + Plus/Minus: Zoom in/out
     if (ctrlKey && (key === '+' || key === '=')) {
       event.preventDefault();
       this.zoomIn();
       this.announce('Map zoomed in');
     }
-    
+
     if (ctrlKey && key === '-') {
       event.preventDefault();
       this.zoomOut();
       this.announce('Map zoomed out');
     }
-    
+
     // Arrow keys: Pan map when focused
     if (document.activeElement?.id === 'map') {
       this.handleMapArrowKeys(event);
@@ -163,7 +168,7 @@ export class AccessibilityHelper {
   handleMapArrowKeys(event) {
     const { key } = event;
     const panDistance = 50; // pixels
-    
+
     switch (key) {
       case 'ArrowUp':
         event.preventDefault();
@@ -197,14 +202,14 @@ export class AccessibilityHelper {
       this.lastFocusedElement = event.target;
       this.announceFocusChange(event.target);
     });
-    
+
     // Ensure visible focus indicators
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Tab') {
         document.body.classList.add('keyboard-navigation');
       }
     });
-    
+
     document.addEventListener('mousedown', () => {
       document.body.classList.remove('keyboard-navigation');
     });
@@ -215,10 +220,10 @@ export class AccessibilityHelper {
    */
   announceFocusChange(element) {
     if (!element) return;
-    
+
     const label = this.getElementLabel(element);
     const role = element.getAttribute('role') || element.tagName.toLowerCase();
-    
+
     if (label && role !== 'generic') {
       // Debounce announcements
       clearTimeout(this.focusAnnounceTimer);
@@ -259,7 +264,7 @@ export class AccessibilityHelper {
       }
     `;
     document.head.appendChild(style);
-    
+
     // Create SVG filters
     this.createColorBlindnessFilters();
   }
@@ -272,7 +277,7 @@ export class AccessibilityHelper {
     svg.style.position = 'absolute';
     svg.style.width = '0';
     svg.style.height = '0';
-    
+
     svg.innerHTML = `
       <defs>
         <filter id="deuteranopia">
@@ -295,7 +300,7 @@ export class AccessibilityHelper {
         </filter>
       </defs>
     `;
-    
+
     document.body.appendChild(svg);
   }
 
@@ -305,12 +310,17 @@ export class AccessibilityHelper {
   setupScreenReaderSupport() {
     // Add live regions for dynamic content updates
     this.createLiveRegions();
-    
+
     // Add descriptions for complex elements
     this.addComplexElementDescriptions();
-    
-    // Setup table headers and captions
-    this.enhanceTablesAccessibility();
+
+    // Setup table headers and captions (safe call with optional chaining)
+    this.enhanceTablesAccessibility?.();
+
+    // Call optional enhancements if present, otherwise no-op
+    this.enhanceFormsAccessibility?.();
+    this.announceMapChanges?.();
+    this.addRoleDescriptions?.();
   }
 
   /**
@@ -323,14 +333,14 @@ export class AccessibilityHelper {
     politeRegion.setAttribute('aria-live', 'polite');
     politeRegion.setAttribute('aria-atomic', 'true');
     politeRegion.className = 'sr-only';
-    
+
     // Assertive announcements (interrupting)
     const assertiveRegion = document.createElement('div');
     assertiveRegion.id = 'assertive-announcements';
     assertiveRegion.setAttribute('aria-live', 'assertive');
     assertiveRegion.setAttribute('aria-atomic', 'true');
     assertiveRegion.className = 'sr-only';
-    
+
     document.body.appendChild(politeRegion);
     document.body.appendChild(assertiveRegion);
   }
@@ -346,7 +356,7 @@ export class AccessibilityHelper {
       mapElement.setAttribute('aria-label', 'Interactive weather radar map');
       mapElement.setAttribute('aria-describedby', 'map-instructions');
       mapElement.setAttribute('tabindex', '0');
-      
+
       // Add instructions
       const instructions = document.createElement('div');
       instructions.id = 'map-instructions';
@@ -366,7 +376,7 @@ export class AccessibilityHelper {
     menu.setAttribute('role', 'dialog');
     menu.setAttribute('aria-labelledby', 'accessibility-menu-title');
     menu.setAttribute('aria-hidden', 'true');
-    
+
     menu.innerHTML = `
       <div class="accessibility-menu-content">
         <div class="accessibility-menu-header">
@@ -377,26 +387,26 @@ export class AccessibilityHelper {
             </svg>
           </button>
         </div>
-        
+
         <div class="accessibility-options">
           <fieldset>
             <legend>Visual Settings</legend>
-            
+
             <label>
               <input type="checkbox" id="high-contrast-toggle">
               <span>High Contrast Mode</span>
             </label>
-            
+
             <label>
               <input type="checkbox" id="large-text-toggle">
               <span>Large Text</span>
             </label>
-            
+
             <label>
               <input type="checkbox" id="reduced-motion-toggle" ${this.reducedMotion ? 'checked' : ''}>
               <span>Reduce Motion</span>
             </label>
-            
+
             <div class="color-blindness-options">
               <label>Color Blindness Simulation:</label>
               <select id="color-blindness-select">
@@ -407,45 +417,45 @@ export class AccessibilityHelper {
               </select>
             </div>
           </fieldset>
-          
+
           <fieldset>
             <legend>Navigation</legend>
-            
+
             <label>
               <input type="checkbox" id="keyboard-shortcuts-toggle" checked>
               <span>Enable Keyboard Shortcuts</span>
             </label>
-            
+
             <label>
               <input type="checkbox" id="focus-indicators-toggle" checked>
               <span>Enhanced Focus Indicators</span>
             </label>
-            
+
             <button type="button" id="show-shortcuts-btn">Show Keyboard Shortcuts</button>
           </fieldset>
-          
+
           <fieldset>
             <legend>Audio</legend>
-            
+
             <label>
               <input type="checkbox" id="audio-cues-toggle">
               <span>Audio Cues</span>
             </label>
-            
+
             <label>
               <input type="range" id="announcement-volume" min="0" max="100" value="70">
               <span>Announcement Volume</span>
             </label>
           </fieldset>
         </div>
-        
+
         <div class="accessibility-menu-footer">
           <button type="button" id="reset-accessibility-btn">Reset to Defaults</button>
           <button type="button" id="save-accessibility-btn">Save Settings</button>
         </div>
       </div>
     `;
-    
+
     document.body.appendChild(menu);
     this.attachAccessibilityMenuListeners();
   }
@@ -457,43 +467,43 @@ export class AccessibilityHelper {
     // Close menu
     const closeBtn = document.querySelector('.close-accessibility-menu');
     closeBtn?.addEventListener('click', () => this.toggleAccessibilityMenu());
-    
+
     // High contrast toggle
     const highContrastToggle = document.getElementById('high-contrast-toggle');
     highContrastToggle?.addEventListener('change', (e) => {
       this.toggleHighContrast(e.target.checked);
     });
-    
+
     // Large text toggle
     const largeTextToggle = document.getElementById('large-text-toggle');
     largeTextToggle?.addEventListener('change', (e) => {
       this.toggleLargeText(e.target.checked);
     });
-    
+
     // Reduced motion toggle
     const reducedMotionToggle = document.getElementById('reduced-motion-toggle');
     reducedMotionToggle?.addEventListener('change', (e) => {
       this.toggleReducedMotion(e.target.checked);
     });
-    
+
     // Color blindness select
     const colorBlindnessSelect = document.getElementById('color-blindness-select');
     colorBlindnessSelect?.addEventListener('change', (e) => {
       this.setColorBlindnessMode(e.target.value);
     });
-    
+
     // Show shortcuts button
     const showShortcutsBtn = document.getElementById('show-shortcuts-btn');
     showShortcutsBtn?.addEventListener('click', () => {
       this.showKeyboardHelp();
     });
-    
+
     // Reset button
     const resetBtn = document.getElementById('reset-accessibility-btn');
     resetBtn?.addEventListener('click', () => {
       this.resetAccessibilitySettings();
     });
-    
+
     // Save button
     const saveBtn = document.getElementById('save-accessibility-btn');
     saveBtn?.addEventListener('click', () => {
@@ -513,10 +523,10 @@ export class AccessibilityHelper {
         button.setAttribute('aria-label', text);
       }
     });
-    
+
     // Add landmarks
     this.addLandmarks();
-    
+
     // Add headings hierarchy
     this.enforceHeadingHierarchy();
   }
@@ -529,7 +539,7 @@ export class AccessibilityHelper {
     if (!main.getAttribute('role')) {
       main.setAttribute('role', 'main');
     }
-    
+
     // Add navigation landmark to controls
     const controls = document.querySelector('.ui-controls');
     if (controls) {
@@ -547,11 +557,11 @@ export class AccessibilityHelper {
     helpDialog.setAttribute('role', 'dialog');
     helpDialog.setAttribute('aria-labelledby', 'keyboard-help-title');
     helpDialog.setAttribute('aria-modal', 'true');
-    
+
     helpDialog.innerHTML = `
       <div class="keyboard-help-content">
         <h2 id="keyboard-help-title">Keyboard Shortcuts</h2>
-        
+
         <div class="shortcuts-grid">
           <div class="shortcut-category">
             <h3>Navigation</h3>
@@ -562,7 +572,7 @@ export class AccessibilityHelper {
               <dt>Escape</dt><dd>Close dialog or menu</dd>
             </dl>
           </div>
-          
+
           <div class="shortcut-category">
             <h3>Map Controls</h3>
             <dl>
@@ -572,7 +582,7 @@ export class AccessibilityHelper {
               <dt>Ctrl + Minus</dt><dd>Zoom out</dd>
             </dl>
           </div>
-          
+
           <div class="shortcut-category">
             <h3>Quick Access</h3>
             <dl>
@@ -582,23 +592,23 @@ export class AccessibilityHelper {
             </dl>
           </div>
         </div>
-        
+
         <button class="close-help-dialog">Close</button>
       </div>
     `;
-    
+
     document.body.appendChild(helpDialog);
-    
+
     // Focus the dialog
     helpDialog.focus();
-    
+
     // Add close functionality
     const closeBtn = helpDialog.querySelector('.close-help-dialog');
     closeBtn.addEventListener('click', () => {
       helpDialog.remove();
       this.restoreFocus();
     });
-    
+
     // Close on escape
     helpDialog.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -606,7 +616,7 @@ export class AccessibilityHelper {
         this.restoreFocus();
       }
     });
-    
+
     this.announce('Keyboard shortcuts help opened');
   }
 
@@ -615,7 +625,7 @@ export class AccessibilityHelper {
   toggleAccessibilityMenu() {
     const menu = document.getElementById('accessibility-menu');
     const isOpen = menu.getAttribute('aria-hidden') === 'false';
-    
+
     if (isOpen) {
       menu.setAttribute('aria-hidden', 'true');
       menu.classList.remove('open');
@@ -647,14 +657,14 @@ export class AccessibilityHelper {
   setColorBlindnessMode(mode) {
     // Remove existing filters
     document.body.classList.remove('deuteranopia-filter', 'protanopia-filter', 'tritanopia-filter');
-    
+
     if (mode) {
       document.body.classList.add(`${mode}-filter`);
       this.announce(`Color blindness simulation: ${mode}`);
     } else {
       this.announce('Color blindness simulation disabled');
     }
-    
+
     this.colorBlindnessMode = mode;
   }
 
@@ -662,18 +672,18 @@ export class AccessibilityHelper {
 
   announce(message, priority = 'polite') {
     if (!message) return;
-    
+
     const regionId = priority === 'assertive' ? 'assertive-announcements' : 'polite-announcements';
     const region = document.getElementById(regionId) || this.announcer;
-    
+
     // Clear previous announcement
     region.textContent = '';
-    
+
     // Add new announcement after a brief delay
     setTimeout(() => {
       region.textContent = message;
     }, 50);
-    
+
     // Log announcements for debugging
     this.announcements.push({
       message,
@@ -730,17 +740,17 @@ export class AccessibilityHelper {
 
   handleTabTrapping(event) {
     if (this.keyboardTrapStack.length === 0) return;
-    
+
     const currentTrap = this.keyboardTrapStack[this.keyboardTrapStack.length - 1];
     const focusableElements = currentTrap.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
-    
+
     if (focusableElements.length === 0) return;
-    
+
     const firstElement = focusableElements[0];
     const lastElement = focusableElements[focusableElements.length - 1];
-    
+
     if (event.shiftKey && document.activeElement === firstElement) {
       event.preventDefault();
       lastElement.focus();
@@ -757,7 +767,7 @@ export class AccessibilityHelper {
       this.toggleAccessibilityMenu();
       return;
     }
-    
+
     // Close keyboard help
     const keyboardHelp = document.querySelector('.keyboard-help-dialog');
     if (keyboardHelp) {
@@ -765,7 +775,7 @@ export class AccessibilityHelper {
       this.restoreFocus();
       return;
     }
-    
+
     // Remove focus traps
     if (this.keyboardTrapStack.length > 0) {
       this.removeFocusTrap();
@@ -779,7 +789,7 @@ export class AccessibilityHelper {
       reducedMotion: this.reducedMotion,
       colorBlindnessMode: this.colorBlindnessMode
     };
-    
+
     localStorage.setItem('accessibility-settings', JSON.stringify(settings));
     this.announce('Accessibility settings saved');
   }
@@ -787,12 +797,12 @@ export class AccessibilityHelper {
   loadAccessibilitySettings() {
     try {
       const settings = JSON.parse(localStorage.getItem('accessibility-settings') || '{}');
-      
+
       if (settings.highContrast) this.toggleHighContrast(true);
       if (settings.largeText) this.toggleLargeText(true);
       if (settings.reducedMotion) this.toggleReducedMotion(true);
       if (settings.colorBlindnessMode) this.setColorBlindnessMode(settings.colorBlindnessMode);
-      
+
     } catch (error) {
       console.error('Failed to load accessibility settings:', error);
     }
@@ -803,7 +813,7 @@ export class AccessibilityHelper {
     this.toggleLargeText(false);
     this.toggleReducedMotion(false);
     this.setColorBlindnessMode('');
-    
+
     // Reset form values
     const menu = document.getElementById('accessibility-menu');
     if (menu) {
@@ -812,7 +822,7 @@ export class AccessibilityHelper {
         form.reset();
       }
     }
-    
+
     localStorage.removeItem('accessibility-settings');
     this.announce('Accessibility settings reset to defaults');
   }
@@ -823,22 +833,84 @@ export class AccessibilityHelper {
   destroy() {
     // Remove event listeners
     document.removeEventListener('keydown', this.handleGlobalKeyboard);
-    
+
     // Remove accessibility menu
     const menu = document.getElementById('accessibility-menu');
     if (menu) {
       menu.remove();
     }
-    
+
     // Remove announcer
     if (this.announcer) {
       this.announcer.remove();
     }
-    
+
     // Remove skip links
     const skipLinks = document.querySelector('.skip-links');
     if (skipLinks) {
       skipLinks.remove();
+    }
+  }
+
+  /**
+   * Safe no-op stubs to satisfy method references
+   * These methods are called by setupScreenReaderSupport but may not be implemented
+   */
+  enhanceTablesAccessibility() {
+    // Find all tables and enhance accessibility
+    const tables = document.querySelectorAll('table');
+    tables.forEach(table => {
+      if (!table.getAttribute('role')) {
+        table.setAttribute('role', 'table');
+      }
+
+      // Add table caption if missing
+      if (!table.querySelector('caption') && !table.getAttribute('aria-label')) {
+        table.setAttribute('aria-label', 'Data table');
+      }
+
+      // Enhance header cells
+      const headers = table.querySelectorAll('th');
+      headers.forEach((header, index) => {
+        if (!header.getAttribute('scope')) {
+          header.setAttribute('scope', index === 0 ? 'row' : 'col');
+        }
+      });
+    });
+  }
+
+  enhanceFormsAccessibility() {
+    // Find all forms and enhance accessibility
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+      const inputs = form.querySelectorAll('input, select, textarea');
+      inputs.forEach(input => {
+        const label = form.querySelector(`label[for="${input.id}"]`);
+        if (!label && !input.getAttribute('aria-label')) {
+          input.setAttribute('aria-label', input.placeholder || input.name || 'Form field');
+        }
+      });
+    });
+  }
+
+  announceMapChanges() {
+    // Setup map change announcements
+    if (this.mapComponent && this.mapComponent.map) {
+      const map = this.mapComponent.map;
+      if (map.on) {
+        map.on('moveend', () => {
+          this.announce('Map view changed');
+        });
+      }
+    }
+  }
+
+  addRoleDescriptions() {
+    // Add role descriptions for complex widgets
+    const mapContainer = document.getElementById('map');
+    if (mapContainer && !mapContainer.getAttribute('role')) {
+      mapContainer.setAttribute('role', 'application');
+      mapContainer.setAttribute('aria-label', 'Interactive map');
     }
   }
 }
