@@ -15,19 +15,19 @@
     --text-primary: #f8fafc;
     --text-secondary: #cbd5e1;
     --text-muted: #64748b;
-    
+
     /* Weather-specific Colors */
     --radar-light: rgba(64, 224, 208, 0.3);
     --radar-moderate: rgba(255, 255, 0, 0.5);
     --radar-heavy: rgba(255, 165, 0, 0.7);
     --radar-severe: rgba(255, 0, 0, 0.8);
-    
+
     /* Glass Morphism Effects */
     --glass-bg: rgba(30, 41, 59, 0.7);
     --glass-border: rgba(148, 163, 184, 0.2);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     --glass-backdrop: blur(16px);
-    
+
     /* Spacing and Layout */
     --sidebar-width: 320px;
     --header-height: 60px;
@@ -38,7 +38,7 @@
     --spacing-md: 16px;
     --spacing-lg: 24px;
     --spacing-xl: 32px;
-    
+
     /* Typography */
     --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-size-xs: 0.75rem;
@@ -47,7 +47,7 @@
     --font-size-lg: 1.125rem;
     --font-size-xl: 1.25rem;
     --font-size-2xl: 1.5rem;
-    
+
     /* Animation and Transitions */
     --transition-fast: 0.15s ease-in-out;
     --transition-normal: 0.3s ease-in-out;
@@ -214,6 +214,44 @@ body {
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
+}
+
+/* Ensure proper layout for header, map, and footer */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+header {
+    flex: 0 0 auto;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-backdrop);
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+}
+
+#map {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+footer {
+    flex: 0 0 auto;
+    z-index: 1000;
 }
 
 /* Header Styles */
@@ -1138,7 +1176,7 @@ body {
     .radar-controls {
         min-width: 350px;
     }
-    
+
     .weather-info {
         min-width: 200px;
     }
@@ -1150,11 +1188,11 @@ body {
         --header-height: 50px;
         --spacing-lg: 16px;
     }
-    
+
     .app-title h1 {
         font-size: var(--font-size-lg);
     }
-    
+
     .sidebar {
         position: absolute;
         top: 0;
@@ -1162,17 +1200,17 @@ body {
         height: 100%;
         z-index: 100;
     }
-    
+
     .mobile-controls {
         display: block;
     }
-    
+
     .navigation-controls {
         top: auto;
         bottom: var(--spacing-lg);
         right: var(--spacing-lg);
     }
-    
+
     .weather-info {
         position: relative;
         top: auto;
@@ -1181,7 +1219,7 @@ body {
         margin-bottom: var(--spacing-lg);
         display: none;
     }
-    
+
     .radar-controls {
         position: relative;
         bottom: auto;
@@ -1190,7 +1228,7 @@ body {
         min-width: auto;
         margin: var(--spacing-lg);
     }
-    
+
     .modal-content {
         width: 95%;
         margin: var(--spacing-sm);
@@ -1201,20 +1239,20 @@ body {
     .header-content {
         padding: 0 var(--spacing-md);
     }
-    
+
     .weather-alerts {
         display: none;
     }
-    
+
     .radar-controls {
         margin: var(--spacing-sm);
         padding: var(--spacing-md);
     }
-    
+
     .animation-controls {
         gap: var(--spacing-xs);
     }
-    
+
     .animation-btn {
         width: 40px;
         height: 40px;
@@ -1232,11 +1270,11 @@ body {
     .toast-container {
         display: none !important;
     }
-    
+
     .main-content {
         display: block;
     }
-    
+
     .map-container {
         width: 100%;
         height: 100vh;
@@ -1277,6 +1315,121 @@ input:focus {
 
 .rotating {
     animation: rotate 1s linear infinite;
+}
+
+/* Enhanced Loading and Error Overlays */
+.loading-overlay,
+.error-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+    transition: opacity var(--transition-normal);
+}
+
+.loading-overlay.hidden,
+.error-overlay.hidden {
+    display: none !important;
+}
+
+.loading-content,
+.error-content {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-backdrop);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: var(--glass-shadow);
+}
+
+.loading-content .spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--glass-border);
+    border-top: 4px solid var(--accent-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto var(--spacing-md);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    color: var(--text-primary);
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--spacing-md);
+}
+
+.loading-progress {
+    width: 100%;
+    height: 4px;
+    background: var(--tertiary-bg);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-color), var(--success-color));
+    border-radius: 2px;
+    width: 0%;
+    animation: loadProgress 2s ease-in-out infinite;
+}
+
+@keyframes loadProgress {
+    0% { width: 0%; }
+    50% { width: 70%; }
+    100% { width: 100%; }
+}
+
+.error-icon {
+    font-size: 3rem;
+    color: var(--danger-color);
+    margin-bottom: var(--spacing-md);
+}
+
+.error-message {
+    color: var(--text-primary);
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.error-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: center;
+}
+
+.retry-btn,
+.dismiss-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-base);
+}
+
+.retry-btn:hover {
+    background: var(--accent-color);
+    color: white;
+}
+
+.dismiss-btn:hover {
+    background: var(--danger-color);
+    color: white;
 }
 
 /* Utility Classes */

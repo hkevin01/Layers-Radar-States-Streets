@@ -189,6 +189,136 @@
   .toast { position: fixed; left: 8px; bottom: 8px; background:#222; color:#fff; padding:8px 12px; border-radius:6px; z-index:9999; font:12px/1.3 system-ui; }
   .error-banner { position:fixed; top:0; left:0; right:0; background:#b00020; color:#fff; padding:10px 14px; z-index:10000; display:none; }
   .error-banner button { margin-left: 12px; background: #fff; color: #b00020; border: 0; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+
+  /* New Layout System */
+  #app-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px; /* map | sidebar */
+    height: calc(100vh - 80px - 40px); /* subtract header and footer height */
+    max-width: 100%;
+  }
+
+  #map-area {
+    min-width: 0; /* prevent overflow */
+    position: relative;
+  }
+
+  #map {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Sidebar (panel) */
+  #sidebar {
+    background: #0f1115;
+    color: #eaeef2;
+    border-left: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: width 200ms ease;
+  }
+
+  /* Expand/collapse behavior */
+  #sidebar.collapsed {
+    width: 48px;
+  }
+
+  #sidebar .collapse-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    user-select: none;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+  }
+
+  #sidebar .collapse-toggle button {
+    background: none;
+    border: 0;
+    color: #cfd7df;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  /* Override UIControls to fit panel layout */
+  .map-ui-controls {
+    position: static !important; /* important: no fixed/absolute */
+    inset: auto !important;      /* reset */
+    z-index: auto !important;    /* reset */
+    width: auto !important;
+    height: auto !important;
+    max-height: calc(100vh - 124px); /* account for header+footer+toggle */
+    overflow: auto;
+    padding: 12px;
+    box-sizing: border-box;
+    background: transparent !important; /* the panel background is #sidebar */
+    backdrop-filter: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .map-ui-controls .controls-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border-radius: 8px !important;
+    margin-bottom: 12px;
+  }
+
+  /* Loading and error overlays positioned over map only */
+  .loading, .error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+  }
+
+  /* Mobile: panel becomes slide-over */
+  @media (max-width: 900px) {
+    #app-layout {
+      grid-template-columns: 1fr; /* only map visible */
+      height: calc(100vh - 120px); /* adjust for mobile header/footer */
+    }
+
+    #sidebar {
+      position: fixed;
+      right: 0;
+      top: 80px; /* below header */
+      height: calc(100vh - 120px);
+      width: min(90vw, 360px);
+      transform: translateX(100%); /* hidden offscreen */
+      transition: transform 200ms ease;
+      box-shadow: -12px 0 24px rgba(0,0,0,0.4);
+      z-index: 9000;
+    }
+
+    #sidebar.open {
+      transform: translateX(0);
+    }
+
+    /* Mobile toggle button */
+    .mobile-sidebar-toggle {
+      position: fixed;
+      top: 90px;
+      right: 10px;
+      background: #0f1115;
+      color: #eaeef2;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 8px 12px;
+      z-index: 9001;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  }
+
+  /* Ensure hidden overlays stay hidden */
+  .hidden {
+    display: none !important;
+  }
   </style>
 </head>
 <body>
@@ -197,10 +327,16 @@
     <p>Interactive NEXRAD radar, state boundaries, and street map visualization</p>
   </header>
 
-  <div id="map" role="region" aria-label="Weather map"></div>
-
-  <div class="loading" id="loading" aria-live="polite">Loading map data...</div>
-  <div class="error" id="error" role="alert"></div>
+  <div id="app-layout">
+    <div id="map-area">
+      <div id="map" role="region" aria-label="Weather map"></div>
+      <div class="loading" id="loading" aria-live="polite">Loading map data...</div>
+      <div class="error" id="error" role="alert"></div>
+    </div>
+    <aside id="sidebar">
+      <!-- UIControls will append here -->
+    </aside>
+  </div>
 
   <footer>
     &copy; 2025 Layers Radar States Streets | Built with OpenLayers |
@@ -425,6 +561,62 @@
         // Future: Register service worker for offline support
         console.log('Service Worker support detected');
       });
+    }
+
+    // Helper: Responsive panel behavior
+    function handleResponsivePanel() {
+      const sidebar = document.getElementById('sidebar');
+      const appLayout = document.getElementById('app-layout');
+
+      if (!sidebar || !appLayout) return;
+
+      function updateLayout() {
+        const isMobile = window.innerWidth <= 900;
+
+        if (isMobile) {
+          // On mobile, ensure panel starts closed
+          sidebar.classList.remove('collapsed');
+          sidebar.classList.remove('open');
+          appLayout.style.gridTemplateColumns = '1fr';
+        } else {
+          // On desktop, restore grid layout
+          sidebar.classList.remove('open');
+          if (!sidebar.classList.contains('collapsed')) {
+            appLayout.style.gridTemplateColumns = '1fr 340px';
+          } else {
+            appLayout.style.gridTemplateColumns = '1fr 48px';
+          }
+        }
+      }
+
+      // Initial setup
+      updateLayout();
+
+      // Handle resize
+      window.addEventListener('resize', updateLayout);
+
+      // Update grid when panel is collapsed/expanded on desktop
+      const observer = new MutationObserver(() => {
+        if (window.innerWidth > 900) {
+          if (sidebar.classList.contains('collapsed')) {
+            appLayout.style.gridTemplateColumns = '1fr 48px';
+          } else {
+            appLayout.style.gridTemplateColumns = '1fr 340px';
+          }
+        }
+      });
+
+      observer.observe(sidebar, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+    }
+
+    // Initialize responsive behavior once DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', handleResponsivePanel);
+    } else {
+      handleResponsivePanel();
     }
   </script>
 </body>

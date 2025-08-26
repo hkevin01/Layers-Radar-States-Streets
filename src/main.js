@@ -122,6 +122,28 @@ async function initializeApp(containerId = 'map') {
 
     mapComponent = weatherRadarApp.getMap();
 
+    // Add safety mechanism for stuck loading overlays
+    // 1. Hide after map renders (primary)
+    if (mapComponent && mapComponent.once) {
+      mapComponent.once('rendercomplete', () => {
+        // Hide any loading overlays that might be stuck
+        const enhancedLoader = document.getElementById('enhanced-loading');
+        if (enhancedLoader && !enhancedLoader.classList.contains('hidden')) {
+          console.warn('[MAIN] Auto-hiding stuck loading overlay after first render');
+          enhancedLoader.classList.add('hidden');
+        }
+      });
+    }
+
+    // 2. Fallback timeout safety mechanism
+    setTimeout(() => {
+      const enhancedLoader = document.getElementById('enhanced-loading');
+      if (enhancedLoader && !enhancedLoader.classList.contains('hidden')) {
+        console.warn('[MAIN] Safety timeout: auto-hiding stuck loading overlay after 5s');
+        enhancedLoader.classList.add('hidden');
+      }
+    }, 5000);
+
     // Update performance optimizer with map instance
     if (performanceOptimizer && mapComponent) {
       performanceOptimizer.setMapComponent(mapComponent);
@@ -137,6 +159,15 @@ async function initializeApp(containerId = 'map') {
     };
     uiControls = new UIControls({ mapComponent: mapComponentWrapper });
     uiControls.initialize();
+
+    // Safety mechanism: ensure loading overlay is hidden after initialization
+    setTimeout(() => {
+      const enhancedLoader = document.getElementById('enhanced-loading');
+      if (enhancedLoader && !enhancedLoader.classList.contains('hidden')) {
+        console.warn('[MAIN] Safety: hiding loading overlay after UI initialization');
+        enhancedLoader.classList.add('hidden');
+      }
+    }, 100);
 
     // Initialize mobile controls
     console.log('📱 Initializing mobile controls...');
@@ -175,6 +206,16 @@ async function initializeApp(containerId = 'map') {
     // Hide loading state
     if (typeof window.loading === 'function') {
       window.loading(false);
+    }
+
+    // Safety: Ensure enhanced loading overlays are hidden
+    const enhancedLoader = document.getElementById('enhanced-loading');
+    if (enhancedLoader) {
+      enhancedLoader.classList.add('hidden');
+    }
+    const enhancedError = document.getElementById('enhanced-error');
+    if (enhancedError) {
+      enhancedError.classList.add('hidden');
     }
 
     // Announce success

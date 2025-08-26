@@ -49,7 +49,48 @@ export class UIControls {
         <div id="info-panel"></div>
       </div>
     `;
-    document.body.appendChild(this.controlsContainer);
+
+    // Append to sidebar instead of document.body
+    const target = document.getElementById('sidebar') || document.body;
+
+    // Create collapse toggle only once
+    if (!target.querySelector('.collapse-toggle')) {
+      const toggleBar = document.createElement('div');
+      toggleBar.className = 'collapse-toggle';
+      toggleBar.innerHTML = `<button id="sidebar-toggle" title="Toggle panel">☰ Controls</button>`;
+      target.prepend(toggleBar);
+
+      // Add toggle functionality
+      toggleBar.addEventListener('click', () => {
+        if (window.innerWidth <= 900) {
+          // Mobile: toggle slide-over
+          target.classList.toggle('open');
+        } else {
+          // Desktop: toggle collapse
+          target.classList.toggle('collapsed');
+          // Trigger map resize after panel animation
+          setTimeout(() => {
+            if (this.map && this.map.updateSize) {
+              this.map.updateSize();
+            }
+          }, 250);
+        }
+      });
+    }
+
+    target.appendChild(this.controlsContainer);
+
+    // Add mobile toggle button if on mobile
+    if (window.innerWidth <= 900 && !document.querySelector('.mobile-sidebar-toggle')) {
+      const mobileToggle = document.createElement('button');
+      mobileToggle.className = 'mobile-sidebar-toggle';
+      mobileToggle.innerHTML = '☰';
+      mobileToggle.title = 'Toggle Controls';
+      mobileToggle.addEventListener('click', () => {
+        target.classList.toggle('open');
+      });
+      document.body.appendChild(mobileToggle);
+    }
   }
 
   createLayerTogglePanel() {
@@ -203,6 +244,38 @@ export class UIControls {
     this.setupMapTools();
     this.setupMouseTracking();
     this.setupZoomTracking();
+
+    // Setup ResizeObserver to handle map resize when sidebar changes
+    this.setupMapResizeHandler();
+  }
+
+  setupMapResizeHandler() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && this.map && typeof ResizeObserver !== 'undefined') {
+      // Ensure map is fully initialized before setting up observer
+      setTimeout(() => {
+        const resizeObserver = new ResizeObserver(() => {
+          // Debounce the resize to avoid excessive calls
+          if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
+          this.resizeTimeout = setTimeout(() => {
+            if (this.map && this.map.updateSize) {
+              this.map.updateSize();
+            }
+          }, 100);
+        });
+        resizeObserver.observe(sidebar);
+      }, 100);
+    }
+
+    // Also handle window resize
+    window.addEventListener('resize', () => {
+      if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = setTimeout(() => {
+        if (this.map && this.map.updateSize) {
+          this.map.updateSize();
+        }
+      }, 100);
+    });
   }
 
   setupLayerToggles() {
