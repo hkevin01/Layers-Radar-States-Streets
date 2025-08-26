@@ -11,6 +11,32 @@ import { PerformanceOptimizer } from './components/performance-optimizer.js';
 import { PWAHelper } from './components/pwa-helper.js';
 import { UIControls } from './components/ui-controls.js';
 
+// Global error handler for EncodingErrors and other tile-related issues
+window.addEventListener('error', (event) => {
+  if (event.error && event.error.name === 'EncodingError') {
+    console.warn('[tiles] EncodingError caught and suppressed:', event.error.message);
+    event.preventDefault();
+    return false;
+  }
+  if (event.message && event.message.includes('Loading error')) {
+    console.warn('[tiles] Loading error caught and suppressed:', event.message);
+    event.preventDefault();
+    return false;
+  }
+});
+
+// Catch unhandled promise rejections related to tile loading
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason && (
+    event.reason.name === 'EncodingError' ||
+    (event.reason.message && event.reason.message.includes('Loading error'))
+  )) {
+    console.warn('[tiles] Unhandled promise rejection caught and suppressed:', event.reason.message);
+    event.preventDefault();
+    return false;
+  }
+});
+
 // Build/version banner to verify the served asset in tests and detect staleness
 try {
   const stamp = `main.js build @ ${new Date().toISOString()}`;

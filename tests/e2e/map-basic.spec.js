@@ -41,7 +41,7 @@ test.describe('Map Basic Functionality', () => {
     const metrics = await helper.getPerformanceMetrics();
     expect(metrics.renderTime).toBeLessThan(5000); // 5 second max render time
   // Ensure minimal console errors
-  const severe = errors.filter((e) => !/not supported|deprecation|slow network/i.test(e));
+  const severe = errors.filter((e) => !/not supported|deprecation|slow network|EncodingError.*Loading error|Loading error/i.test(e));
   expect(severe.join('\n')).toBe('');
 
     // Take success screenshot

@@ -124,6 +124,24 @@
 						} catch(_) {}
 					}, 0);
 				}
+
+				// Additional early readiness check: canvas + finite zoom/center
+				if (!window.testHelper.mapReady) {
+					const checkEarlyReadiness = () => {
+						const canvas = document.querySelector('#map canvas, .ol-layer canvas');
+						const view = map.getView();
+						const zoom = view && view.getZoom();
+						const center = view && view.getCenter();
+						if (canvas && Number.isFinite(zoom) && Array.isArray(center) && center.every(Number.isFinite)) {
+							console.log('[bootstrap] Early readiness detected: canvas + finite view');
+							window.testHelper.mapReady = true;
+						}
+					};
+					checkEarlyReadiness();
+					// Also try again after a brief delay for dynamic canvas creation
+					setTimeout(checkEarlyReadiness, 50);
+				}
+
 				window.testHelper.renderComplete = true;
 			} catch(_) {}
 		});
@@ -183,41 +201,59 @@
 
 	// Guarded OpenLayers presence logging with proper fallback handling
 	async function verifyOlAvailable() {
+		// Immediate check first
 		if (typeof window.ol !== 'undefined') {
 			return true;
 		}
 
-		// Wait for potential fallback loading before logging errors
+		// If not available immediately, wait for potential fallback loading
 		console.warn('[bootstrap] OpenLayers not immediately available, checking fallback...');
 
 		// Give fallback loader time to complete
-		const fallbackPromise = new Promise((resolve) => {
-			let attempts = 0;
-			const maxAttempts = 10; // 2 seconds total
-			const checkInterval = 200;
+		try {
+			const fallbackPromise = new Promise((resolve) => {
+				let attempts = 0;
+				const maxAttempts = 10; // 2 seconds total
+				const checkInterval = 200;
 
-			const checkOl = () => {
-				attempts++;
-				if (typeof window.ol !== 'undefined') {
-					console.log('[bootstrap] OpenLayers loaded via fallback');
-					resolve(true);
-				} else if (attempts >= maxAttempts) {
-					console.error('[bootstrap] OpenLayers fallback loading failed after 2s');
-					showErrorBanner('OpenLayers failed to load. Trying fallback...', { onRetry: () => location.reload() });
-					resolve(false);
-				} else {
-					setTimeout(checkOl, checkInterval);
-				}
-			};
+				const checkOl = () => {
+					attempts++;
+					if (typeof window.ol !== 'undefined') {
+						console.log('[bootstrap] OpenLayers loaded via fallback');
+						resolve(true);
+					} else if (attempts >= maxAttempts) {
+						console.error('[bootstrap] OpenLayers fallback loading failed after 2s');
+						showErrorBanner('OpenLayers failed to load. Trying fallback...', { onRetry: () => location.reload() });
+						resolve(false);
+					} else {
+						setTimeout(checkOl, checkInterval);
+					}
+				};
 
-			setTimeout(checkOl, checkInterval);
-		});
+				setTimeout(checkOl, checkInterval);
+			});
 
-		return await fallbackPromise;
+			return await fallbackPromise;
+		} catch (error) {
+			// Fallback for environments that don't support async/await properly
+			console.error('[bootstrap] Async fallback check failed:', error);
+			console.error('[bootstrap] OpenLayers global `ol` is undefined. CDN may have failed.');
+			showErrorBanner('OpenLayers failed to load. Trying fallback...', { onRetry: () => location.reload() });
+			return false;
+		}
+	}	// Non-async version for immediate checking
+	function verifyOlAvailableSync() {
+		if (typeof window.ol !== 'undefined') {
+			return true;
+		}
+
+		// For sync calls, just warn but don't show error banner immediately
+		console.warn('[bootstrap] OpenLayers not immediately available (sync check)');
+		return false;
 	}
 
 	// Hook window for tests and other modules
-	window.__mapBootstrap = { validateMapContainer, attachDiagnostics, verifyOlAvailable };
+	window.__mapBootstrap = { validateMapContainer, attachDiagnostics, verifyOlAvailable, verifyOlAvailableSync };
 
 	// If a global map instance appears later, attach diagnostics automatically
 	const obs = new MutationObserver(() => {
@@ -278,6 +314,24 @@
 								} catch(_) {}
 							}, 0);
 						}
+
+						// Additional early readiness check: canvas + finite zoom/center
+						if (!window.testHelper.mapReady) {
+							const checkEarlyReadiness = () => {
+								const canvas = document.querySelector('#map canvas, .ol-layer canvas');
+								const view = map.getView();
+								const zoom = view && view.getZoom();
+								const center = view && view.getCenter();
+								if (canvas && Number.isFinite(zoom) && Array.isArray(center) && center.every(Number.isFinite)) {
+									console.log('[bootstrap] Fallback early readiness detected: canvas + finite view');
+									window.testHelper.mapReady = true;
+								}
+							};
+							checkEarlyReadiness();
+							// Also try again after a brief delay for dynamic canvas creation
+							setTimeout(checkEarlyReadiness, 50);
+						}
+
 						window.testHelper.renderComplete = true;
 					} catch (_) {}
 				});
@@ -302,7 +356,36 @@
 			console.warn('Fallback map bootstrap failed:', e);
 		}
 	}
-	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', onReady); else onReady();
+	// Wrapper to handle async onReady
+	async function initBootstrap() {
+		try {
+			await onReady();
+		} catch (error) {
+			console.error('[bootstrap] Initialization failed:', error);
+			// Fallback to sync version if async fails
+			try {
+				const container = document.getElementById('map');
+				if (verifyOlAvailableSync() && container && !window.map && !window.mapComponent) {
+					// Create basic fallback map
+					const map = new ol.Map({
+						target: 'map',
+						layers: [ new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) }) ],
+						view: new ol.View({ center: ol.proj.fromLonLat([-98.5795, 39.8283]), zoom: 4 })
+					});
+					window.map = map;
+					window.mapComponent = { map, getMap: () => map };
+				}
+			} catch (fallbackError) {
+				console.error('[bootstrap] Fallback initialization also failed:', fallbackError);
+			}
+		}
+	}
+
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', initBootstrap);
+	} else {
+		initBootstrap();
+	}
 	// Simple toast utility
 	function showToast(message) {
 		try {

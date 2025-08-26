@@ -1,6 +1,31 @@
 /**
  * Layer Manager Module
- * Manages all map layers including base maps, radar, and overlays
+ * Manages all map layers including base maps,         // Add satellite layer
+        const satelliteSource = new ol.source.XYZ({
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            crossOrigin: 'anonymous'
+        });
+
+        // Add tile error diagnostics for satellite
+        satelliteSource.on('tileloaderror', (e) => {
+            const key = e?.tile?.getKey?.() || '(unknown key)';
+            console.warn('[tiles] load error from satellite:', satelliteSource.getUrl(), 'key:', key);
+            // Prevent propagation to avoid EncodingErrors reaching the console
+            if (e.stopPropagation) e.stopPropagation();
+        });
+
+        // Add testHelper tracking for E2E tests
+        if (typeof window !== 'undefined' && window.testHelper) {
+            satelliteSource.on('tileloadstart', () => { window.testHelper.loadingCount++; });
+            satelliteSource.on('tileloadend', () => {
+                window.testHelper.loadingCount--;
+                if (window.testHelper.loadingCount <= 0) window.testHelper.layersLoaded = true;
+            });
+            satelliteSource.on('tileloaderror', () => {
+                window.testHelper.loadingCount--;
+                window.testHelper.errorCount++;
+            });
+        }lays
  * @author NEXRAD Radar Team
  * @version 2.0.0
  */
@@ -30,8 +55,33 @@ export class LayerManager extends EventTarget {
 
     initializeBaseLayers() {
         // Add street map layer (OSM)
+        const osmSource = new ol.source.OSM({
+            crossOrigin: 'anonymous'
+        });
+
+        // Add tile error diagnostics for OSM
+        osmSource.on('tileloaderror', (e) => {
+            const key = e?.tile?.getKey?.() || '(unknown key)';
+            console.warn('[tiles] load error from OSM:', osmSource.getUrls ? osmSource.getUrls() : 'OSM tiles', 'key:', key);
+            // Prevent propagation to avoid EncodingErrors reaching the console
+            if (e.stopPropagation) e.stopPropagation();
+        });
+
+        // Add testHelper tracking for E2E tests
+        if (typeof window !== 'undefined' && window.testHelper) {
+            osmSource.on('tileloadstart', () => { window.testHelper.loadingCount++; });
+            osmSource.on('tileloadend', () => {
+                window.testHelper.loadingCount--;
+                if (window.testHelper.loadingCount <= 0) window.testHelper.layersLoaded = true;
+            });
+            osmSource.on('tileloaderror', () => {
+                window.testHelper.loadingCount--;
+                window.testHelper.errorCount++;
+            });
+        }
+
         const streetLayer = new ol.layer.Tile({
-            source: new ol.source.OSM({ crossOrigin: 'anonymous' }),
+            source: osmSource,
             visible: true,
             zIndex: 0
         });
@@ -39,12 +89,22 @@ export class LayerManager extends EventTarget {
         this.map.addLayer(streetLayer);
 
         // Add satellite layer (ESRI World Imagery)
+        const satelliteSource = new ol.source.XYZ({
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            attributions: 'Source: Esri, DigitalGlobe, GeoEye, Earthstar Geographics',
+            crossOrigin: 'anonymous'
+        });
+
+        // Add tile error diagnostics for satellite
+        satelliteSource.on('tileloaderror', (e) => {
+            const key = e?.tile?.getKey?.() || '(unknown key)';
+            console.warn('[tiles] load error from satellite:', satelliteSource.getUrls ? satelliteSource.getUrls() : satelliteSource.getUrl?.(), 'key:', key);
+            // Prevent propagation to avoid EncodingErrors reaching the console
+            if (e.stopPropagation) e.stopPropagation();
+        });
+
         const satelliteLayer = new ol.layer.Tile({
-            source: new ol.source.XYZ({
-                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attributions: 'Source: Esri, DigitalGlobe, GeoEye, Earthstar Geographics',
-                crossOrigin: 'anonymous'
-            }),
+            source: satelliteSource,
             visible: false,
             zIndex: 0
         });
@@ -62,15 +122,30 @@ export class LayerManager extends EventTarget {
             const primarySource = new ol.source.XYZ({
                 url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
                 attributions: '© Iowa Environmental Mesonet',
-                crossOrigin: 'anonymous',
-                tileLoadFunction: (tile, src) => this.handleTileLoad(tile, src)
+                crossOrigin: 'anonymous'
             });
 
-            // Add tile error logging
+            // Add comprehensive tile error logging for primary radar
             primarySource.on('tileloaderror', (e) => {
-                const tile = e.tile;
-                console.warn('[tiles] Primary radar load error', tile && tile.getKey ? tile.getKey() : e);
+                const key = e?.tile?.getKey?.() || '(unknown key)';
+                const url = primarySource.getUrls ? primarySource.getUrls() : primarySource.getUrl?.();
+                console.warn('[tiles] load error from primary radar:', url, 'key:', key);
+                // Prevent propagation to avoid EncodingErrors reaching the console
+                if (e.stopPropagation) e.stopPropagation();
             });
+
+            // Add testHelper tracking for E2E tests
+            if (typeof window !== 'undefined' && window.testHelper) {
+                primarySource.on('tileloadstart', () => { window.testHelper.loadingCount++; });
+                primarySource.on('tileloadend', () => {
+                    window.testHelper.loadingCount--;
+                    if (window.testHelper.loadingCount <= 0) window.testHelper.layersLoaded = true;
+                });
+                primarySource.on('tileloaderror', () => {
+                    window.testHelper.loadingCount--;
+                    window.testHelper.errorCount++;
+                });
+            }
 
             // Fallback source - NOAA nowCOAST
             const fallbackSource = new ol.source.TileWMS({
@@ -80,15 +155,30 @@ export class LayerManager extends EventTarget {
                     'FORMAT': 'image/png',
                     'TRANSPARENT': true
                 },
-                crossOrigin: 'anonymous',
-                tileLoadFunction: (tile, src) => this.handleTileLoad(tile, src)
+                crossOrigin: 'anonymous'
             });
 
-            // Add tile error logging
+            // Add comprehensive tile error logging for fallback radar
             fallbackSource.on('tileloaderror', (e) => {
-                const tile = e.tile;
-                console.warn('[tiles] Fallback radar load error', tile && tile.getKey ? tile.getKey() : e);
+                const key = e?.tile?.getKey?.() || '(unknown key)';
+                const url = fallbackSource.getUrls ? fallbackSource.getUrls() : fallbackSource.getUrl?.();
+                console.warn('[tiles] load error from fallback radar WMS:', url, 'key:', key);
+                // Prevent propagation to avoid EncodingErrors reaching the console
+                if (e.stopPropagation) e.stopPropagation();
             });
+
+            // Add testHelper tracking for E2E tests
+            if (typeof window !== 'undefined' && window.testHelper) {
+                fallbackSource.on('tileloadstart', () => { window.testHelper.loadingCount++; });
+                fallbackSource.on('tileloadend', () => {
+                    window.testHelper.loadingCount--;
+                    if (window.testHelper.loadingCount <= 0) window.testHelper.layersLoaded = true;
+                });
+                fallbackSource.on('tileloaderror', () => {
+                    window.testHelper.loadingCount--;
+                    window.testHelper.errorCount++;
+                });
+            }
 
             // Create radar layer with primary source
             const radarLayer = new ol.layer.Tile({

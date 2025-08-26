@@ -181,14 +181,39 @@
 		let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null, args), ms); };
 	}
 
-	// Guarded OpenLayers presence logging
-	function verifyOlAvailable() {
-		if (typeof window.ol === 'undefined') {
-			console.error('OpenLayers global `ol` is undefined. CDN may have failed.');
-			showErrorBanner('OpenLayers failed to load. Trying fallback...', { onRetry: () => location.reload() });
-			return false;
+	// Guarded OpenLayers presence logging with proper fallback handling
+	async function verifyOlAvailable() {
+		if (typeof window.ol !== 'undefined') {
+			return true;
 		}
-		return true;
+
+		// Wait for potential fallback loading before logging errors
+		console.warn('[bootstrap] OpenLayers not immediately available, checking fallback...');
+
+		// Give fallback loader time to complete
+		const fallbackPromise = new Promise((resolve) => {
+			let attempts = 0;
+			const maxAttempts = 10; // 2 seconds total
+			const checkInterval = 200;
+
+			const checkOl = () => {
+				attempts++;
+				if (typeof window.ol !== 'undefined') {
+					console.log('[bootstrap] OpenLayers loaded via fallback');
+					resolve(true);
+				} else if (attempts >= maxAttempts) {
+					console.error('[bootstrap] OpenLayers fallback loading failed after 2s');
+					showErrorBanner('OpenLayers failed to load. Trying fallback...', { onRetry: () => location.reload() });
+					resolve(false);
+				} else {
+					setTimeout(checkOl, checkInterval);
+				}
+			};
+
+			setTimeout(checkOl, checkInterval);
+		});
+
+		return await fallbackPromise;
 	}
 
 	// Hook window for tests and other modules
@@ -208,9 +233,9 @@
 	}
 
 	// Initial validations when DOM ready
-	function onReady() {
+	async function onReady() {
 		validateMapContainer();
-		const hasOL = verifyOlAvailable();
+		const hasOL = await verifyOlAvailable();
 		// If no global app code will create a map, create a tiny fallback map so tests can proceed
 		try {
 			const container = document.getElementById('map');

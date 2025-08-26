@@ -231,6 +231,7 @@ export class RadarController extends EventTarget {
 
             const response = await fetch(url.toString());
             if (!response.ok) {
+                console.warn(`[radar] WMS source test failed (${response.status}): ${response.statusText}`);
                 throw new Error('WMS source test failed: ' + response.statusText);
             }
         } else {
@@ -246,6 +247,7 @@ export class RadarController extends EventTarget {
             });
 
             if (!response.ok) {
+                console.warn(`[radar] XYZ source test failed (${response.status}): ${response.statusText}`);
                 throw new Error('XYZ source test failed: ' + response.statusText);
             }
         }
