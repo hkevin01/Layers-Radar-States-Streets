@@ -668,14 +668,16 @@ footer {
     outline-offset: 2px;
 }
 
-/* Radar Controls */
+/* Radar Controls - Now integrated into sidebar */
 .radar-controls {
-    bottom: var(--spacing-lg);
+    /* Commented out floating positioning - now using sidebar integration */
+    /* bottom: var(--spacing-lg);
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%); */
     min-width: 400px;
     border: none;
     padding: var(--spacing-lg);
+    display: none; /* Hide floating controls since now integrated into sidebar */
 }
 
 .radar-controls-header {

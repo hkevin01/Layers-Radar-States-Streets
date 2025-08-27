@@ -18,7 +18,7 @@ export default defineConfig({
     ['junit', { outputFile: 'tests/reports/playwright-junit.xml' }]
   ],
   use: {
-    baseURL: 'http://127.0.0.1:8090',
+  baseURL: 'http://127.0.0.1:8089',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

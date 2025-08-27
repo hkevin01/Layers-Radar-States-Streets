@@ -1,38 +1,454 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Layers Radar States Streets Demo</title>
-  <!-- OpenLayers CDN -->
-  <link rel="stylesheet" href="https://openlayers.org/api/OpenLayers.js">
-  <script src="https://openlayers.org/api/OpenLayers.js"></script>
-  <!-- jQuery CDN -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <meta charset="utf-8" />
+  <title>Layers Radar States Streets — Map + Sidebar Layout</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- OpenLayers CSS: CDN with local fallback handled below -->
+  <link id="ol-css-cdn" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+  <link id="ol-css-local" rel="stylesheet" href="../public/vendor/ol/ol.css" media="print" onload="this.media='all'">
+
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    #map { width: 100vw; height: 90vh; }
-    header { padding: 1em; background: #222; color: #fff; text-align: center; }
-    footer { padding: 1em; background: #eee; text-align: center; }
+    /* Reset and base */
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #0b0e14;
+      color: #eaeef2;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    :root {
+      --banner-height: 0px; /* set >0px if you add a fixed header */
+      --sidebar-width: 340px;
+      --sidebar-collapsed: 48px;
+      --panel-bg: #0f1115;
+      --panel-border: rgba(255,255,255,0.08);
+      --accent: #4da3ff;
+    }
+
+    /* Strong utility */
+    .hidden { display: none !important; }
+
+    /* Layout: grid with map | sidebar */
+    #app-layout {
+      display: grid;
+      grid-template-columns: 1fr var(--sidebar-width);
+      height: calc(100vh - var(--banner-height));
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    #map-area {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      background: #0b0e14;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      /* Prevent unexpected scrolls from children */
+      overflow: hidden;
+    }
+
+    /* Sidebar as true page panel */
+    #sidebar {
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* Collapse header inside sidebar (inserted by UIControls) */
+    #sidebar .collapse-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 44px;
+      border-bottom: 1px solid var(--panel-border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+    }
+    #sidebar .collapse-toggle button {
+      background: none;
+      border: 0;
+      color: #cfd7df;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    /* Collapsed desktop sidebar */
+    #sidebar.collapsed {
+      width: var(--sidebar-collapsed);
+    }
+    #sidebar.collapsed .map-ui-controls {
+      display: none;
+    }
+
+    /* Controls block behaves as panel content (not overlay) */
+    .map-ui-controls {
+      position: static !important;
+      inset: auto !important;
+      z-index: auto !important;
+      width: auto;
+      height: auto;
+      max-height: calc(100vh - var(--banner-height) - 44px);
+      overflow: auto;
+      padding: 12px;
+      box-sizing: border-box;
+      background: transparent; /* sidebar provides background */
+    }
+    .map-ui-controls .controls-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 0 8px 0;
+    }
+    .map-ui-controls .controls-header h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+    .map-ui-controls .toggle-controls {
+      background: none;
+      border: 0;
+      color: #cfd7df;
+      cursor: pointer;
+    }
+    .map-ui-controls .layer-section,
+    .map-ui-controls .tools-section,
+    .map-ui-controls .animation-section,
+    .map-ui-controls .info-section {
+      margin-bottom: 12px;
+      padding: 10px;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.03);
+    }
+    .map-ui-controls h4 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: #cfe1ff;
+    }
+
+    /* Mobile slide-over */
+    @media (max-width: 900px) {
+      #app-layout {
+        grid-template-columns: 1fr; /* map full width */
+      }
+      #sidebar {
+        position: fixed;
+        right: 0;
+        top: 0;
+        height: 100vh;
+        width: min(90vw, 360px);
+        transform: translateX(100%);
+        transition: transform 200ms ease;
+        box-shadow: -12px 0 24px rgba(0,0,0,0.4);
+        z-index: 2500; /* above map on mobile when open */
+      }
+      #sidebar.open { transform: translateX(0); }
+      .mobile-sidebar-toggle {
+        position: fixed;
+        right: 12px;
+        bottom: 12px;
+        z-index: 2600;
+        width: 44px; height: 44px;
+        border-radius: 8px; border: 0;
+        background: #1a1f2b; color: #cfd7df; font-size: 18px;
+      }
+    }
+
+    /* Overlays for loading/errors (must be hidden when not in use) */
+    .loading-overlay,
+    .error-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.6);
+    }
+    .loading-content, .error-content {
+      background: #141824;
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      min-width: 260px;
+      text-align: center;
+      color: #eaeef2;
+    }
+    .spinner {
+      width: 28px; height: 28px; margin: 0 auto 10px auto;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Diagnostics overlay */
+    #diagnostics {
+      position: fixed;
+      left: 8px;
+      bottom: 8px;
+      z-index: 2700;
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      color: #d6e2ff;
+      background: rgba(20,24,36,0.9);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 8px 10px;
+      max-width: 92vw;
+      pointer-events: none;
+      white-space: pre-wrap;
+    }
+    .diag-badge {
+      position: fixed;
+      left: 8px;
+      bottom: 8px;
+      z-index: 2750;
+      pointer-events: auto;
+      border: 0;
+      border-radius: 8px;
+      background: #1f2638;
+      color: #cfe1ff;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* Visual box outlines to detect layout issues */
+    .outline-map { outline: 2px dashed #4da3ff88; outline-offset: -2px; }
+    .outline-area { outline: 2px dashed #00d3a488; outline-offset: -2px; }
+    .outline-sidebar { outline: 2px dashed #ffb84d88; outline-offset: -2px; }
+    .outline-controls { outline: 2px dashed #f56b6b88; outline-offset: -2px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Layers Radar States Streets Visualization</h1>
-    <p>Modernized OpenLayers demo with radar, states, and streets layers</p>
-  </header>
-  <div id="map"></div>
-  <footer>
-    &copy; 2025 Layers Radar States Streets
-  </footer>
-  <script src="js/main.js"></script>
+
+  <!-- Optional fixed header can go here; adjust --banner-height if used -->
+
+  <!-- Core layout -->
+  <div id="app-layout">
+    <div id="map-area" class="outline-area">
+      <div id="map" class="outline-map" role="application" aria-label="Weather Radar Map"></div>
+    </div>
+    <aside id="sidebar" class="outline-sidebar" aria-label="Map Controls Panel">
+      <!-- UIControls will inject collapse-toggle and .map-ui-controls here -->
+    </aside>
+  </div>
+
+  <!-- Diagnostics UI -->
+  <button id="diag-toggle" class="diag-badge" title="Toggle diagnostics (D)">Diagnostics</button>
+  <pre id="diagnostics" class="hidden"></pre>
+
+  <!-- OpenLayers JS: CDN first, fallback to local -->
   <script>
-    // Initialize the map when the page loads
-    window.onload = function() {
-      if (typeof window.initLoad === 'function') {
-        window.initLoad();
-      }
-    };
+    (function loadOpenLayers() {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js';
+      script.async = true;
+      script.onload = () => console.log('Loaded OL from CDN');
+      script.onerror = () => {
+        console.warn('CDN failed, loading local OpenLayers fallback from ../public/vendor/ol/ol.js');
+        const local = document.createElement('script');
+        local.src = '../public/vendor/ol/ol.js';
+        local.async = true;
+        local.onload = () => console.log('Loaded local OpenLayers fallback from ../public/vendor/ol/ol.js');
+        local.onerror = () => console.error('Failed to load both CDN and local OL.');
+        document.head.appendChild(local);
+      };
+      document.head.appendChild(script);
+    })();
   </script>
+
+  <!-- App scripts (update paths if needed) -->
+  <!-- Your build may output to js/ or src/components; include what your app expects -->
+  <script type="module">
+    // Import modules. Adjust paths if your dev server serves different locations.
+    // Using dynamic imports with fallbacks for flexibility in your repo.
+    async function importModule(paths) {
+      for (const p of paths) {
+        try { return await import(p); } catch (e) { /* try next */ }
+      }
+      throw new Error('Failed to import module: ' + paths.join(', '));
+    }
+
+    // Wait until OL global is present (CDN or local)
+    function waitForOL(timeoutMs = 5000) {
+      return new Promise((resolve, reject) => {
+        const t0 = performance.now();
+        const id = setInterval(() => {
+          if (window.ol && ol.Map && ol.layer && ol.source) {
+            clearInterval(id); resolve();
+          } else if (performance.now() - t0 > timeoutMs) {
+            clearInterval(id); reject(new Error('OpenLayers not available'));
+          }
+        }, 30);
+      });
+    }
+
+    // Layout diagnostics utilities
+    function measureRect(el) {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+    }
+
+    function writeDiagnostics(map) {
+      const diag = document.getElementById('diagnostics');
+      const area = document.getElementById('map-area');
+      const mapEl = document.getElementById('map');
+      const sidebar = document.getElementById('sidebar');
+      const controls = sidebar?.querySelector('.map-ui-controls');
+      const loader = document.getElementById('enhanced-loading');
+      const errorEl = document.getElementById('enhanced-error');
+
+      const areaR = measureRect(area);
+      const mapR = measureRect(mapEl);
+      const sideR = measureRect(sidebar);
+      const ctrR = measureRect(controls);
+      const loadR = measureRect(loader);
+      const errR = measureRect(errorEl);
+
+      let extent4326 = null;
+      let zoom = null;
+      try {
+        if (map) {
+          const view = map.getView();
+          zoom = view.getZoom();
+          const size = map.getSize();
+          const extent = view.calculateExtent(size);
+          extent4326 = ol.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326')
+            .map(v => Math.round(v * 1000) / 1000);
+        }
+      } catch {}
+
+      const lines = [
+        'Layout Diagnostics',
+        `viewport: ${window.innerWidth} x ${window.innerHeight}`,
+        `map-area: ${JSON.stringify(areaR)}`,
+        `map: ${JSON.stringify(mapR)}`,
+        `sidebar: ${JSON.stringify(sideR)} classes="${sidebar?.className || ''}"`,
+        `controls(.map-ui-controls): ${JSON.stringify(ctrR)}`,
+        `loader(#enhanced-loading hidden=${loader?.classList?.contains('hidden')}) rect=${JSON.stringify(loadR)}`,
+        `error(#enhanced-error hidden=${errorEl?.classList?.contains('hidden')}) rect=${JSON.stringify(errR)}`,
+        `zoom: ${zoom} extent4326: ${extent4326 ? `[${extent4326.join(', ')}]` : 'n/a'}`,
+      ];
+      diag.textContent = lines.join('\n');
+    }
+
+    function setupDiagnostics(map) {
+      const diag = document.getElementById('diagnostics');
+      const btn = document.getElementById('diag-toggle');
+      const toggle = () => {
+        diag.classList.toggle('hidden');
+        writeDiagnostics(map);
+      };
+      btn.addEventListener('click', toggle);
+      window.addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'd') toggle(); });
+
+      // Recompute on resize, sidebar changes, and map render
+      const ro = new ResizeObserver(() => writeDiagnostics(map));
+      ro.observe(document.getElementById('app-layout'));
+      ro.observe(document.getElementById('map-area'));
+      ro.observe(document.getElementById('sidebar'));
+      window.addEventListener('resize', () => writeDiagnostics(map));
+      map.on('moveend', () => writeDiagnostics(map));
+      map.once('rendercomplete', () => writeDiagnostics(map));
+    }
+
+    // Ensure map resizes when layout changes
+    function observeLayoutForMap(map) {
+      const area = document.getElementById('map-area');
+      const sidebar = document.getElementById('sidebar');
+      const callUpdate = () => { try { map.updateSize(); } catch {} };
+      if (window.ResizeObserver) {
+        const ro1 = new ResizeObserver(callUpdate);
+        const ro2 = new ResizeObserver(callUpdate);
+        ro1.observe(area);
+        ro2.observe(sidebar);
+      }
+      window.addEventListener('resize', callUpdate);
+    }
+
+    // Main initialization
+    (async () => {
+      // Wait for OpenLayers
+      try { await waitForOL(7000); } catch (e) {
+        console.error('OpenLayers failed to load:', e);
+        alert('OpenLayers failed to load. See console for details.');
+        return;
+      }
+
+      // Create the base map
+      const map = new ol.Map({
+        target: 'map',
+        layers: [
+          new ol.layer.Tile({
+            source: new ol.source.OSM({ crossOrigin: 'anonymous' }),
+            visible: true
+          })
+        ],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([-98.5795, 39.8283]),
+          zoom: 4
+        })
+      });
+
+      // Make map available globally for quick inspection
+      window.__map = map;
+
+      // Prevent black overlays: auto-hide loaders on first render
+      map.once('rendercomplete', () => {
+        document.getElementById('enhanced-loading')?.classList.add('hidden');
+        document.getElementById('enhanced-error')?.classList.add('hidden');
+      });
+
+      // Observe layout changes and keep OL canvas sized
+      observeLayoutForMap(map);
+
+      // Import your UIControls and initialize into #sidebar
+      let UIControls;
+      try {
+        ({ UIControls } = await importModule([
+          '/src/components/ui-controls.js',
+          '/js/ui-controls.js'
+        ]));
+      } catch (e) {
+        console.error('Unable to load UIControls module:', e);
+      }
+
+      if (UIControls) {
+        const layersRegistry = {
+          osm: map.getLayers().item(0).set('isBaseLayer', true),
+        };
+
+        const ui = new UIControls({ map, mapComponent: { getMap: () => map, layers: layersRegistry } });
+        ui.initialize();
+
+        const ctr = document.querySelector('#sidebar .map-ui-controls');
+        if (ctr) ctr.classList.add('outline-controls');
+      } else {
+        const sidebar = document.getElementById('sidebar');
+        const fallback = document.createElement('div');
+        fallback.className = 'map-ui-controls outline-controls';
+        fallback.innerHTML = '<div class="controls-header"><h3>🗺️ Map Controls (fallback)</h3></div><div>UIControls module not found.</div>';
+        sidebar.appendChild(fallback);
+      }
+
+      // Setup layout diagnostics
+      setupDiagnostics(map);
+
+      console.log('✅ Index layout initialized (map + sidebar).');
+    })();
+  </script>
+
 </body>
 </html>

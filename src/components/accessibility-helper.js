@@ -41,6 +41,38 @@ export class AccessibilityHelper {
   }
 
   /**
+   * Observe and apply reduced motion preferences
+   * - Syncs with system setting (prefers-reduced-motion)
+   * - Toggles a CSS hook on <html> for stylesheet-based adjustments
+   * - Emits a window event so other modules can adapt animations
+   */
+  setupReducedMotionSupport() {
+    try {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+      const apply = (enabled) => {
+        this.reducedMotion = !!enabled;
+        document.documentElement.classList.toggle('reduced-motion', this.reducedMotion);
+        try {
+          window.dispatchEvent(new CustomEvent('a11y:reduced-motion-changed', {
+            detail: { enabled: this.reducedMotion }
+          }));
+        } catch (_) {}
+      };
+
+      apply(mq.matches);
+
+      if (typeof mq.addEventListener === 'function') {
+        mq.addEventListener('change', (e) => apply(e.matches));
+      } else if (typeof mq.addListener === 'function') {
+        mq.addListener((e) => apply(e.matches));
+      }
+    } catch (err) {
+      console.warn('[a11y] Reduced motion setup skipped:', err);
+    }
+  }
+
+  /**
    * Create screen reader announcer
    */
   createScreenReaderAnnouncer() {

@@ -11,32 +11,6 @@ import { PerformanceOptimizer } from './components/performance-optimizer.js';
 import { PWAHelper } from './components/pwa-helper.js';
 import { UIControls } from './components/ui-controls.js';
 
-// Global error handler for EncodingErrors and other tile-related issues
-window.addEventListener('error', (event) => {
-  if (event.error && event.error.name === 'EncodingError') {
-    console.warn('[tiles] EncodingError caught and suppressed:', event.error.message);
-    event.preventDefault();
-    return false;
-  }
-  if (event.message && event.message.includes('Loading error')) {
-    console.warn('[tiles] Loading error caught and suppressed:', event.message);
-    event.preventDefault();
-    return false;
-  }
-});
-
-// Catch unhandled promise rejections related to tile loading
-window.addEventListener('unhandledrejection', (event) => {
-  if (event.reason && (
-    event.reason.name === 'EncodingError' ||
-    (event.reason.message && event.reason.message.includes('Loading error'))
-  )) {
-    console.warn('[tiles] Unhandled promise rejection caught and suppressed:', event.reason.message);
-    event.preventDefault();
-    return false;
-  }
-});
-
 // Build/version banner to verify the served asset in tests and detect staleness
 try {
   const stamp = `main.js build @ ${new Date().toISOString()}`;
@@ -52,71 +26,6 @@ let pwaHelper = null;
 let dataVisualization = null;
 let accessibilityHelper = null;
 let performanceOptimizer = null;
-
-/**
- * Setup ResizeObserver to handle map resizing when sidebar changes
- * @param {Object} mapInstance - The map component instance
- */
-function setupLayoutResizeObserver(mapInstance) {
-  try {
-    if (!window.ResizeObserver) {
-      console.warn('[RESIZE] ResizeObserver not supported, using fallback');
-      // Fallback for older browsers
-      window.addEventListener('resize', () => {
-        setTimeout(() => {
-          if (mapInstance && mapInstance.map) {
-            mapInstance.map.updateSize();
-            console.log('[RESIZE] Map size updated (fallback)');
-          }
-        }, 100);
-      });
-      return;
-    }
-
-    const mapContainer = document.getElementById('map');
-    const sidebar = document.getElementById('sidebar');
-    const appLayout = document.getElementById('app-layout');
-
-    if (!mapContainer || !sidebar || !appLayout) {
-      console.warn('[RESIZE] Layout containers not found, skipping ResizeObserver setup');
-      return;
-    }
-
-    // Create ResizeObserver to watch for layout changes
-    const resizeObserver = new ResizeObserver((entries) => {
-      // Debounce resize operations
-      clearTimeout(window.mapResizeTimeout);
-      window.mapResizeTimeout = setTimeout(() => {
-        if (mapInstance && mapInstance.map) {
-          mapInstance.map.updateSize();
-          console.log('[RESIZE] Map size updated due to layout change');
-        }
-      }, 100);
-    });
-
-    // Observe the main containers that affect map size
-    resizeObserver.observe(mapContainer);
-    resizeObserver.observe(sidebar);
-    resizeObserver.observe(appLayout);
-
-    // Also watch for sidebar collapse/expand
-    const toggleButton = document.querySelector('.sidebar-toggle');
-    if (toggleButton) {
-      toggleButton.addEventListener('click', () => {
-        setTimeout(() => {
-          if (mapInstance && mapInstance.map) {
-            mapInstance.map.updateSize();
-            console.log('[RESIZE] Map size updated due to sidebar toggle');
-          }
-        }, 300); // Wait for CSS transition to complete
-      });
-    }
-
-    console.log('[RESIZE] ResizeObserver setup complete');
-  } catch (error) {
-    console.warn('[RESIZE] Error setting up ResizeObserver:', error);
-  }
-}
 
 /**
  * Initialize the application with enhanced features and modern UI components
@@ -187,28 +96,6 @@ async function initializeApp(containerId = 'map') {
 
     mapComponent = weatherRadarApp.getMap();
 
-    // Add safety mechanism for stuck loading overlays
-    // 1. Hide after map renders (primary)
-    if (mapComponent && mapComponent.once) {
-      mapComponent.once('rendercomplete', () => {
-        // Hide any loading overlays that might be stuck
-        const enhancedLoader = document.getElementById('enhanced-loading');
-        if (enhancedLoader && !enhancedLoader.classList.contains('hidden')) {
-          console.warn('[MAIN] Auto-hiding stuck loading overlay after first render');
-          enhancedLoader.classList.add('hidden');
-        }
-      });
-    }
-
-    // 2. Fallback timeout safety mechanism
-    setTimeout(() => {
-      const enhancedLoader = document.getElementById('enhanced-loading');
-      if (enhancedLoader && !enhancedLoader.classList.contains('hidden')) {
-        console.warn('[MAIN] Safety timeout: auto-hiding stuck loading overlay after 5s');
-        enhancedLoader.classList.add('hidden');
-      }
-    }, 5000);
-
     // Update performance optimizer with map instance
     if (performanceOptimizer && mapComponent) {
       performanceOptimizer.setMapComponent(mapComponent);
@@ -224,15 +111,6 @@ async function initializeApp(containerId = 'map') {
     };
     uiControls = new UIControls({ mapComponent: mapComponentWrapper });
     uiControls.initialize();
-
-    // Safety mechanism: ensure loading overlay is hidden after initialization
-    setTimeout(() => {
-      const enhancedLoader = document.getElementById('enhanced-loading');
-      if (enhancedLoader && !enhancedLoader.classList.contains('hidden')) {
-        console.warn('[MAIN] Safety: hiding loading overlay after UI initialization');
-        enhancedLoader.classList.add('hidden');
-      }
-    }, 100);
 
     // Initialize mobile controls
     console.log('📱 Initializing mobile controls...');
@@ -253,10 +131,6 @@ async function initializeApp(containerId = 'map') {
       console.warn('[MAIN] Accessibility init skipped:', e);
     }
 
-    // Setup ResizeObserver for proper map sizing when sidebar changes
-    console.log('📐 Setting up layout resize observer...');
-    setupLayoutResizeObserver(mapComponent);
-
   // Expose instances globally for backward compatibility
   // weatherRadarApp.getMap() returns an ol.Map instance, which does not have getMap().
   // Provide both window.map (ol.Map) and window.mapComponent with a .map property for compatibility with tests.
@@ -275,16 +149,6 @@ async function initializeApp(containerId = 'map') {
     // Hide loading state
     if (typeof window.loading === 'function') {
       window.loading(false);
-    }
-
-    // Safety: Ensure enhanced loading overlays are hidden
-    const enhancedLoader = document.getElementById('enhanced-loading');
-    if (enhancedLoader) {
-      enhancedLoader.classList.add('hidden');
-    }
-    const enhancedError = document.getElementById('enhanced-error');
-    if (enhancedError) {
-      enhancedError.classList.add('hidden');
     }
 
     // Announce success
@@ -1191,18 +1055,26 @@ function initializeTestingInfrastructure(map) {
 }
 
 // Auto-initialize testing infrastructure when map becomes available
+// Skip in E2E mode to avoid interfering with simplified public/index.html flow
 if (typeof window !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
-    const checkForMap = () => {
-      if (window.map || (window.mapComponent && window.mapComponent.map)) {
-        const map = window.map || window.mapComponent.map;
-        initializeTestingInfrastructure(map);
-      } else {
-        setTimeout(checkForMap, 1000);
-      }
-    };
-    setTimeout(checkForMap, 2000);
-  });
+  const isE2E = (() => {
+    try { return (new URL(window.location.href)).searchParams.has('e2e') || !!window.__E2E_TEST__; } catch (_) { return !!window.__E2E_TEST__; }
+  })();
+  if (!isE2E) {
+    document.addEventListener('DOMContentLoaded', () => {
+      const checkForMap = () => {
+        if (window.map || (window.mapComponent && window.mapComponent.map)) {
+          const map = window.map || window.mapComponent.map;
+          initializeTestingInfrastructure(map);
+        } else {
+          setTimeout(checkForMap, 1000);
+        }
+      };
+      setTimeout(checkForMap, 2000);
+    });
+  } else {
+    console.warn('[MAIN] Skipping auto testing infrastructure in E2E mode');
+  }
 }
 
 // Export for testing frameworks

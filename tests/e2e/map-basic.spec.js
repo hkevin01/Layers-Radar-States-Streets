@@ -9,7 +9,7 @@ test.describe('Map Basic Functionality', () => {
     helper = new OpenLayersTestHelper(page);
     diagnostics = new DiagnosticsOverlay(page);
 
-  // Navigate to application using configured baseURL
+  // Navigate to application using configured baseURL; public is the site root
   await page.goto('/index.html?e2e=1');
 
     // Setup test helpers
@@ -160,7 +160,8 @@ test.describe('Map Basic Functionality', () => {
     // Final error check
     const finalErrorCount = await helper.getErrorCount();
     if (finalErrorCount > 0) {
-      console.warn(`Test completed with ${finalErrorCount} errors`);
+  const errs = await helper.getErrors();
+  console.warn(`Test completed with ${finalErrorCount} app errors:`, errs);
     }
   });
 });

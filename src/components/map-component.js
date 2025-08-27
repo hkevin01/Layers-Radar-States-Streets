@@ -49,6 +49,28 @@ export class MapComponent {
       if (z < this.options.minZoom) view.setZoom(this.options.minZoom);
     });
 
+    // Replace OpenLayers default layers container with overlay container
+    setTimeout(() => {
+      const mapElement = document.getElementById(this.containerId);
+      if (mapElement) {
+        const layersDiv = mapElement.querySelector('.ol-unselectable.ol-layers');
+        if (layersDiv) {
+          // Create new overlay container div
+          const overlayContainer = document.createElement('div');
+          overlayContainer.className = 'ol-overlaycontainer';
+          overlayContainer.style.position = 'absolute';
+          overlayContainer.style.zIndex = '0';
+          overlayContainer.style.width = '100%';
+          overlayContainer.style.height = '100%';
+          overlayContainer.style.pointerEvents = 'none';
+
+          // Replace the layers container
+          layersDiv.parentNode.replaceChild(overlayContainer, layersDiv);
+          console.log('OpenLayers layers container replaced with overlay container');
+        }
+      }
+    }, 100); // Small delay to ensure DOM is ready
+
     return this.map;
   }
 

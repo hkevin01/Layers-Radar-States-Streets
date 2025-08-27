@@ -1,6 +1,6 @@
 // ui-controls.js (OL v8 compatible)
-
-import { toLonLat } from 'ol/proj.js';
+// Note: Avoid ESM bare imports in browser; prefer global ol namespace when available.
+// We'll resolve toLonLat from window.ol.proj if present to work with CDN script usage.
 
 export class UIControls {
   // Accept either { map } or { mapComponent } or both
@@ -26,6 +26,13 @@ export class UIControls {
   }
 
   initialize() {
+    // If an existing controls container is already fully initialized, reuse and skip
+    const existing = document.querySelector('#sidebar .map-ui-controls, body > .map-ui-controls');
+    if (existing && existing.dataset && existing.dataset.initialized === 'true') {
+      this.controlsContainer = existing;
+      return; // Already initialized by another instance
+    }
+
     this.createControlsContainer();
     this.createLayerTogglePanel();
     this.createMapControls();
@@ -33,9 +40,21 @@ export class UIControls {
     this.createErrorDisplay();
     this.createInfoPanel();
     this.setupEventHandlers();
+
+    // Mark as initialized to avoid duplicate setup
+    if (this.controlsContainer && this.controlsContainer.dataset) {
+      this.controlsContainer.dataset.initialized = 'true';
+    }
   }
 
   createControlsContainer() {
+    // Reuse an existing controls container if present (prevents duplicates)
+    const existing = document.querySelector('#sidebar .map-ui-controls, body > .map-ui-controls');
+    if (existing) {
+      this.controlsContainer = existing;
+      return;
+    }
+
     this.controlsContainer = document.createElement('div');
     this.controlsContainer.className = 'map-ui-controls';
     this.controlsContainer.innerHTML = `
@@ -49,47 +68,13 @@ export class UIControls {
         <div id="info-panel"></div>
       </div>
     `;
-
-    // Append to sidebar instead of document.body
-    const target = document.getElementById('sidebar') || document.body;
-
-    // Create collapse toggle only once
-    if (!target.querySelector('.collapse-toggle')) {
-      const toggleBar = document.createElement('div');
-      toggleBar.className = 'collapse-toggle';
-      toggleBar.innerHTML = `<button id="sidebar-toggle" title="Toggle panel">☰ Controls</button>`;
-      target.prepend(toggleBar);
-
-      // Add toggle functionality
-      toggleBar.addEventListener('click', () => {
-        if (window.innerWidth <= 900) {
-          // Mobile: toggle slide-over
-          target.classList.toggle('open');
-        } else {
-          // Desktop: toggle collapse
-          target.classList.toggle('collapsed');
-          // Trigger map resize after panel animation
-          setTimeout(() => {
-            if (this.map && this.map.updateSize) {
-              this.map.updateSize();
-            }
-          }, 250);
-        }
-      });
-    }
-
-    target.appendChild(this.controlsContainer);
-
-    // Add mobile toggle button if on mobile
-    if (window.innerWidth <= 900 && !document.querySelector('.mobile-sidebar-toggle')) {
-      const mobileToggle = document.createElement('button');
-      mobileToggle.className = 'mobile-sidebar-toggle';
-      mobileToggle.innerHTML = '☰';
-      mobileToggle.title = 'Toggle Controls';
-      mobileToggle.addEventListener('click', () => {
-        target.classList.toggle('open');
-      });
-      document.body.appendChild(mobileToggle);
+    // Prefer placing controls inside the right-side panel for a single scroll area
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      sidebar.appendChild(this.controlsContainer);
+    } else {
+      // Fallback to body if sidebar is not present
+      document.body.appendChild(this.controlsContainer);
     }
   }
 
@@ -244,38 +229,6 @@ export class UIControls {
     this.setupMapTools();
     this.setupMouseTracking();
     this.setupZoomTracking();
-
-    // Setup ResizeObserver to handle map resize when sidebar changes
-    this.setupMapResizeHandler();
-  }
-
-  setupMapResizeHandler() {
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar && this.map && typeof ResizeObserver !== 'undefined') {
-      // Ensure map is fully initialized before setting up observer
-      setTimeout(() => {
-        const resizeObserver = new ResizeObserver(() => {
-          // Debounce the resize to avoid excessive calls
-          if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
-          this.resizeTimeout = setTimeout(() => {
-            if (this.map && this.map.updateSize) {
-              this.map.updateSize();
-            }
-          }, 100);
-        });
-        resizeObserver.observe(sidebar);
-      }, 100);
-    }
-
-    // Also handle window resize
-    window.addEventListener('resize', () => {
-      if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
-      this.resizeTimeout = setTimeout(() => {
-        if (this.map && this.map.updateSize) {
-          this.map.updateSize();
-        }
-      }, 100);
-    });
   }
 
   setupLayerToggles() {
@@ -358,12 +311,22 @@ export class UIControls {
     const coordsDisplay = this.controlsContainer.querySelector('#mouse-coords');
     if (!coordsDisplay) return;
 
+    // Resolve toLonLat from global ol if available; otherwise noop conversion
+    const toLonLatSafe = (coord) => {
+      try {
+        if (window.ol && window.ol.proj && typeof window.ol.proj.toLonLat === 'function') {
+          return window.ol.proj.toLonLat(coord);
+        }
+      } catch (_) {}
+      return Array.isArray(coord) ? coord : [0, 0];
+    };
+
     this.map.on('pointermove', (evt) => {
       if (!evt.coordinate) {
         coordsDisplay.textContent = '--, --';
         return;
       }
-      const lonLat = toLonLat(evt.coordinate);
+      const lonLat = toLonLatSafe(evt.coordinate);
       coordsDisplay.textContent = `${lonLat[0].toFixed(3)}°, ${lonLat[1].toFixed(3)}°`;
     });
   }

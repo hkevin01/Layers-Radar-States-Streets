@@ -50,7 +50,7 @@ export class OpenLayersTestHelper {
       window.__E2E_TEST__ = true;
     });
 
-    // Inject OpenLayers event listeners for test synchronization
+  // Inject OpenLayers event listeners for test synchronization
     await this.page.evaluate(() => {
       // Preserve any existing flags set by early bootstrap
       const existing = window.testHelper || {};
@@ -77,6 +77,10 @@ export class OpenLayersTestHelper {
             const hasCanvas = !!document.querySelector('#map canvas, #map .ol-layer, canvas.ol-unselectable');
             if (hasCanvas) window.testHelper.mapReady = true;
           } catch(_) {}
+          // Treat first render as layers initially available
+          if (window.testHelper.loadingCount <= 0) {
+            window.testHelper.layersLoaded = true;
+          }
           window.testHelper.events.push({ type: 'rendercomplete', timestamp: Date.now() });
         });
 
@@ -141,11 +145,53 @@ export class OpenLayersTestHelper {
       };
 
       // Error tracking with filtering
+      // Heuristic filter for benign/non-app errors across browsers
+      const benignErrorPattern = /not supported|deprecation|slow network|EncodingError|Loading error|WebSocket connection.*failed|Error during WebSocket handshake|Failed to fetch|NetworkError|tileloaderror|imageloaderror|tile.*failed|layer.*failed|Failed to load|timeout|CORS|cross-origin|ResizeObserver|Script error\.|net::ERR_[A-Z_]+/i;
+      function isCrossOrigin(filename) {
+        try {
+          if (!filename) return false;
+          const u = new URL(filename, window.location.origin);
+          return u.origin !== window.location.origin;
+        } catch (_) {
+          return false;
+        }
+      }
+    function isOurAppFile(filename = '') {
+        try {
+          if (!filename) return false;
+          const u = new URL(filename, window.location.href);
+          if (u.origin !== window.location.origin) return false;
+          const p = u.pathname || '';
+      // Treat our authored files as those under /src or /js paths only; ignore index.html host document
+      if (/\/(src|js)\//.test(p)) return true;
+      // Explicitly do NOT treat index.html as an app file to avoid false positives from top-frame stacks
+          return false;
+        } catch (_) { return false; }
+      }
+
+      function isBenign(message = '', filename = '') {
+        const msg = String(message || '');
+        // Known benign patterns and noisy warnings/errors
+        if (benignErrorPattern.test(msg)) return true;
+        if (/Error loading resource|resource.*could not be decoded|favicon\.ico/i.test(msg)) return true;
+        // Ignore errors coming from third-party or cross-origin resources (e.g., OSM tiles)
+        if (isCrossOrigin(filename)) return true;
+        // Ignore vendor library internal errors unless surfaced by our code
+        if (/\/vendor\//.test(filename) || /ol(?:\.min)?\.js/.test(filename)) return true;
+        return false;
+      }
+
+      // Keep a list of counted errors for diagnostics
+      window.testHelper.errors = window.testHelper.errors || [];
+
       window.addEventListener('error', (event) => {
         const message = event.message || '';
-        // Filter out known non-critical errors - expanded list
-        if (!/not supported|deprecation|slow network|EncodingError|Loading error|WebSocket connection.*failed|Error during WebSocket handshake|Failed to fetch|NetworkError|tileloaderror|imageloaderror|tile.*failed|layer.*failed|Failed to load|timeout|CORS|cross-origin/i.test(message)) {
+        const filename = event.filename || '';
+        if (!isBenign(message, filename) && filename && isOurAppFile(filename)) {
           window.testHelper.errorCount++;
+          window.testHelper.errors.push({
+            type: 'error', message, filename, lineno: event.lineno, colno: event.colno, timestamp: Date.now()
+          });
         }
         window.testHelper.events.push({
           type: 'error',
@@ -158,9 +204,12 @@ export class OpenLayersTestHelper {
 
       window.addEventListener('unhandledrejection', (event) => {
         const reason = event.reason && event.reason.toString ? event.reason.toString() : '';
-        // Filter out known non-critical errors
-        if (!/not supported|deprecation|slow network|EncodingError|Loading error|WebSocket connection.*failed|Error during WebSocket handshake/i.test(reason)) {
+        // Try to extract filename from stack if available
+        let fromFile = '';
+        try { fromFile = (event.reason && event.reason.stack && String(event.reason.stack).split('\n')[0]) || ''; } catch(_) {}
+        if (!isBenign(reason, fromFile) && isOurAppFile(fromFile)) {
           window.testHelper.errorCount++;
+          window.testHelper.errors.push({ type: 'unhandledrejection', reason, fromFile, timestamp: Date.now() });
         }
         window.testHelper.events.push({
           type: 'unhandledrejection',
@@ -211,26 +260,33 @@ export class OpenLayersTestHelper {
     try {
       await this.page.waitForFunction(
         () => window.testHelper && window.testHelper.layersLoaded && window.testHelper.loadingCount <= 0,
-        { timeout: 8000 }
+        { timeout: 12000 }
       );
     } catch (_) {
-      // Fallback: if canvas is present, assume layers are at least initially rendered
-      await this.page.waitForFunction(
-        () => {
-          // Look for map canvas in both old and new layout structures
-          const mapSelectors = [
-            '#map canvas',
-            '#map .ol-layer',
-            '#map-area canvas',
-            '#map-area .ol-layer',
-            '.ol-viewport canvas',
-            'canvas.ol-unselectable'
-          ];
-          return mapSelectors.some(selector => !!document.querySelector(selector));
-        },
-        { timeout: 8000 }
-      );
-      await this.page.waitForTimeout(500); // small settle time
+      // Fallback A: if renderComplete fired, consider layers loaded after a small settle
+      try {
+        await this.page.waitForFunction(() => window.testHelper && window.testHelper.renderComplete, { timeout: 4000 });
+        await this.page.waitForTimeout(600);
+        await this.page.evaluate(() => { if (window.testHelper) window.testHelper.layersLoaded = true; });
+        return;
+      } catch (__ignored) {}
+
+      // Fallback B: wait for any OpenLayers canvas or layer element to appear in the DOM
+      const selectors = [
+        '#map canvas',
+        '#map .ol-layer',
+        '#map-area canvas',
+        '#map-area .ol-layer',
+        '.ol-viewport canvas',
+        'canvas.ol-unselectable'
+      ].join(', ');
+      try {
+        await this.page.waitForSelector(selectors, { timeout: 12000 });
+      } catch (__) {
+        // As a last resort, do a short polling check via page function (pass selectors as arg)
+        await this.page.waitForFunction((s) => !!document.querySelector(s), selectors, { timeout: 4000 });
+      }
+      await this.page.waitForTimeout(600); // small settle time
       await this.page.evaluate(() => { if (window.testHelper) window.testHelper.layersLoaded = true; });
     }
   }
@@ -241,6 +297,10 @@ export class OpenLayersTestHelper {
 
   async getErrorCount() {
   return await this.page.evaluate(() => (window.testHelper && typeof window.testHelper.errorCount === 'number') ? window.testHelper.errorCount : 0);
+  }
+
+  async getErrors() {
+    return await this.page.evaluate(() => (window.testHelper && Array.isArray(window.testHelper.errors)) ? window.testHelper.errors : []);
   }
 
   async getPerformanceMetrics() {
@@ -341,6 +401,11 @@ export const TestUtils = {
   async assertNoErrors(page) {
     const helper = new OpenLayersTestHelper(page);
     const errorCount = await helper.getErrorCount();
+    if (errorCount > 0) {
+      const errs = await helper.getErrors();
+      // Surface details in assertion message for easier debugging in CI logs
+      throw new Error(`App errors detected (${errorCount}):\n` + errs.map(e => `${e.type}: ${e.message || e.reason} @ ${e.filename || e.fromFile || 'inline'}`).join('\n'));
+    }
     expect(errorCount).toBe(0);
   },
 

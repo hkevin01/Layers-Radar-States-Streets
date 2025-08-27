@@ -148,6 +148,11 @@ export class PerformanceOptimizer {
       return false;
     }
 
+    // Avoid duplicate enablement/logging
+    if (this.webGLEnabled) {
+      return true;
+    }
+
     this.webGLEnabled = true;
 
     // Configure map for WebGL rendering
@@ -155,7 +160,7 @@ export class PerformanceOptimizer {
       this.mapComponent.enableWebGL();
     }
 
-    console.log('🚀 WebGL acceleration enabled');
+  console.log('🚀 WebGL acceleration enabled');
     return true;
   }
 
@@ -828,7 +833,11 @@ export class PerformanceOptimizer {
     if (this.webGLSupported) {
       this.enableWebGLAcceleration();
     }
-    console.log('🎨 Quality mode enabled');
+    // Log once per session
+    if (!this._qualityLogged) {
+      console.log('🎨 Quality mode enabled');
+      this._qualityLogged = true;
+    }
   }
 
   // Device-specific optimizations
@@ -989,4 +998,30 @@ export class PerformanceOptimizer {
   }
 }
 
-// Intentionally no duplicate exported helper here; public build should import from src if needed.
+// Helper exported for unit tests and external utilities.
+// Safely compute visible bounds for a given map-like object in EPSG:4326.
+// Accepts an object with getView() and getSize() methods (like an ol.Map).
+export function getVisibleBounds4326(map) {
+  const DEFAULT = [-180, -85, 180, 85];
+  try {
+    const view = map && typeof map.getView === 'function' ? map.getView() : null;
+    const size = map && typeof map.getSize === 'function' ? map.getSize() : null;
+
+    if (!view || !size || !Array.isArray(size) || !isFinite(size[0]) || !isFinite(size[1]) || typeof view.calculateExtent !== 'function') {
+      return DEFAULT;
+    }
+
+    const extent = view.calculateExtent(size);
+    const proj = (globalThis.ol && globalThis.ol.proj) ? globalThis.ol.proj : null;
+    if (proj && typeof proj.transformExtent === 'function') {
+      try {
+        return proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
+      } catch (e) {
+        return DEFAULT;
+      }
+    }
+    return DEFAULT;
+  } catch (_) {
+    return DEFAULT;
+  }
+}
