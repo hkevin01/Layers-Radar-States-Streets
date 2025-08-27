@@ -54,6 +54,71 @@ let accessibilityHelper = null;
 let performanceOptimizer = null;
 
 /**
+ * Setup ResizeObserver to handle map resizing when sidebar changes
+ * @param {Object} mapInstance - The map component instance
+ */
+function setupLayoutResizeObserver(mapInstance) {
+  try {
+    if (!window.ResizeObserver) {
+      console.warn('[RESIZE] ResizeObserver not supported, using fallback');
+      // Fallback for older browsers
+      window.addEventListener('resize', () => {
+        setTimeout(() => {
+          if (mapInstance && mapInstance.map) {
+            mapInstance.map.updateSize();
+            console.log('[RESIZE] Map size updated (fallback)');
+          }
+        }, 100);
+      });
+      return;
+    }
+
+    const mapContainer = document.getElementById('map');
+    const sidebar = document.getElementById('sidebar');
+    const appLayout = document.getElementById('app-layout');
+
+    if (!mapContainer || !sidebar || !appLayout) {
+      console.warn('[RESIZE] Layout containers not found, skipping ResizeObserver setup');
+      return;
+    }
+
+    // Create ResizeObserver to watch for layout changes
+    const resizeObserver = new ResizeObserver((entries) => {
+      // Debounce resize operations
+      clearTimeout(window.mapResizeTimeout);
+      window.mapResizeTimeout = setTimeout(() => {
+        if (mapInstance && mapInstance.map) {
+          mapInstance.map.updateSize();
+          console.log('[RESIZE] Map size updated due to layout change');
+        }
+      }, 100);
+    });
+
+    // Observe the main containers that affect map size
+    resizeObserver.observe(mapContainer);
+    resizeObserver.observe(sidebar);
+    resizeObserver.observe(appLayout);
+
+    // Also watch for sidebar collapse/expand
+    const toggleButton = document.querySelector('.sidebar-toggle');
+    if (toggleButton) {
+      toggleButton.addEventListener('click', () => {
+        setTimeout(() => {
+          if (mapInstance && mapInstance.map) {
+            mapInstance.map.updateSize();
+            console.log('[RESIZE] Map size updated due to sidebar toggle');
+          }
+        }, 300); // Wait for CSS transition to complete
+      });
+    }
+
+    console.log('[RESIZE] ResizeObserver setup complete');
+  } catch (error) {
+    console.warn('[RESIZE] Error setting up ResizeObserver:', error);
+  }
+}
+
+/**
  * Initialize the application with enhanced features and modern UI components
  * @param {string} containerId - Map container element ID
  * @returns {Promise<MapComponent>} - Map component instance
@@ -187,6 +252,10 @@ async function initializeApp(containerId = 'map') {
     } catch (e) {
       console.warn('[MAIN] Accessibility init skipped:', e);
     }
+
+    // Setup ResizeObserver for proper map sizing when sidebar changes
+    console.log('📐 Setting up layout resize observer...');
+    setupLayoutResizeObserver(mapComponent);
 
   // Expose instances globally for backward compatibility
   // weatherRadarApp.getMap() returns an ol.Map instance, which does not have getMap().
