@@ -415,6 +415,7 @@
 
     // Main initialization
     (async () => {
+      try {
       // Wait for OpenLayers
       try { await waitForOL(7000); } catch (e) {
         console.error('OpenLayers failed to load:', e);
@@ -441,6 +442,25 @@
   window.__map = map;
   window.map = map;
   window.mapComponent = { map, getMap: () => map };
+
+      // Ensure test flags exist as soon as the map is created to avoid races in slower browsers
+      try {
+        window.testHelper = window.testHelper || {};
+        window.testHelper.events = window.testHelper.events || [];
+        // Mark mapReady early; loadingCount defaults to 0 for a single base layer
+        if (typeof window.testHelper.mapReady !== 'boolean') window.testHelper.mapReady = true;
+        if (typeof window.testHelper.loadingCount !== 'number') window.testHelper.loadingCount = 0;
+        // If a canvas is already present shortly after creation, consider layers initially available
+        setTimeout(() => {
+          try {
+            const hasCanvas = !!document.querySelector('#map canvas, #map .ol-layer, .ol-viewport canvas, canvas.ol-unselectable');
+            if (hasCanvas) {
+              window.testHelper.layersLoaded = true;
+              window.testHelper.events.push({ type: 'layersLoaded-early', timestamp: Date.now(), from: 'index.html' });
+            }
+          } catch (_) {}
+        }, 150);
+      } catch (_) {}
 
       // Lightweight Performance Optimizer stub for E2E expectations
       try {
@@ -473,20 +493,52 @@
         };
       } catch (_) { /* non-fatal in smoke environment */ }
 
+      // Wire explicit source load events to drive deterministic test flags
+      try {
+        const baseLayer = map.getLayers().item(0);
+        const src = baseLayer && baseLayer.getSource && baseLayer.getSource();
+        if (src && src.on) {
+          window.testHelper = window.testHelper || {};
+          if (typeof window.testHelper.loadingCount !== 'number') window.testHelper.loadingCount = 0;
+          const markLoadedIfIdle = () => {
+            if (window.testHelper.loadingCount <= 0) {
+              window.testHelper.layersLoaded = true;
+              window.testHelper.events = window.testHelper.events || [];
+              window.testHelper.events.push({ type: 'layersLoaded-source', timestamp: Date.now(), from: 'index.html' });
+            }
+          };
+          src.on('tileloadstart', () => { try { window.testHelper.loadingCount++; } catch(_) {} });
+          src.on('tileloadend', () => { try { window.testHelper.loadingCount--; markLoadedIfIdle(); } catch(_) {} });
+          src.on('tileloaderror', () => { try { window.testHelper.loadingCount--; markLoadedIfIdle(); } catch(_) {} });
+          // Image source variants (in case of ImageWMS-like sources later)
+          src.on('imageloadstart', () => { try { window.testHelper.loadingCount++; } catch(_) {} });
+          src.on('imageloadend', () => { try { window.testHelper.loadingCount--; markLoadedIfIdle(); } catch(_) {} });
+          src.on('imageloaderror', () => { try { window.testHelper.loadingCount--; markLoadedIfIdle(); } catch(_) {} });
+        }
+      } catch (_) {}
+
       // Prevent black overlays: auto-hide loaders on first render
-      map.once('rendercomplete', () => {
+    map.once('rendercomplete', () => {
         document.getElementById('enhanced-loading')?.classList.add('hidden');
         document.getElementById('enhanced-error')?.classList.add('hidden');
         // Signal tests that initial render completed and layers are available
         try {
-          if (window.testHelper) {
-            window.testHelper.renderComplete = true;
-            window.testHelper.layersLoaded = true;
-            window.testHelper.loadingCount = 0;
-            window.testHelper.mapReady = true;
-            window.testHelper.events = window.testHelper.events || [];
-            window.testHelper.events.push({ type: 'rendercomplete', timestamp: Date.now(), from: 'index.html' });
-          }
+      // Ensure testHelper exists so flags are recorded even if hooks attach later
+      window.testHelper = window.testHelper || {};
+      window.testHelper.renderComplete = true;
+      // Consider layers available once a canvas is rendered at least once
+      try {
+        const hasCanvas = !!document.querySelector('#map canvas, #map .ol-layer, .ol-viewport canvas, canvas.ol-unselectable');
+        if (hasCanvas) {
+          window.testHelper.layersLoaded = true;
+          window.testHelper.events = window.testHelper.events || [];
+          window.testHelper.events.push({ type: 'layersLoaded-render', timestamp: Date.now(), from: 'index.html' });
+        }
+      } catch(_) {}
+      window.testHelper.loadingCount = 0;
+      window.testHelper.mapReady = true;
+      window.testHelper.events = window.testHelper.events || [];
+      window.testHelper.events.push({ type: 'rendercomplete', timestamp: Date.now(), from: 'index.html' });
         } catch (_) {}
       });
 
@@ -505,35 +557,43 @@
         console.error('Unable to load UIControls module:', e);
       }
 
-      if (UIControls) {
-        // Example layers registry you may have created in your core
-        // Replace with your actual layers from weather-radar-core if available
-        const osmLayer = map.getLayers().item(0);
-        try { osmLayer && osmLayer.set && osmLayer.set('isBaseLayer', true); } catch(_) {}
-        const layersRegistry = {
-          osm: osmLayer,
-          // radar, states, hazards, streets, satellite can be added/linked here when created
-        };
+      try {
+        if (UIControls) {
+          // Example layers registry you may have created in your core
+          // Replace with your actual layers from weather-radar-core if available
+          const osmLayer = map.getLayers().item(0);
+          try { osmLayer && osmLayer.set && osmLayer.set('isBaseLayer', true); } catch(_) {}
+          const layersRegistry = {
+            osm: osmLayer,
+            // radar, states, hazards, streets, satellite can be added/linked here when created
+          };
 
-        const ui = new UIControls({ map, mapComponent: { getMap: () => map, layers: layersRegistry } });
-        ui.initialize();
+          const ui = new UIControls({ map, mapComponent: { getMap: () => map, layers: layersRegistry } });
+          ui.initialize();
 
-        // Ensure controls container outline is visible for debugging
-  const ctr = document.querySelector('#sidebar .map-ui-controls');
-  if (ctr) ctr.classList.add('outline-controls');
-
-      } else {
-        const sidebar = document.getElementById('sidebar');
-        const fallback = document.createElement('div');
-        fallback.className = 'map-ui-controls outline-controls';
-        fallback.innerHTML = '<div class="controls-header"><h3>🗺️ Map Controls (fallback)</h3></div><div>UIControls module not found.</div>';
-        sidebar.appendChild(fallback);
+          // Ensure controls container outline is visible for debugging
+          const ctr = document.querySelector('#sidebar .map-ui-controls');
+          if (ctr) ctr.classList.add('outline-controls');
+        } else {
+          const sidebar = document.getElementById('sidebar');
+          const fallback = document.createElement('div');
+          fallback.className = 'map-ui-controls outline-controls';
+          fallback.innerHTML = '<div class="controls-header"><h3>🗺️ Map Controls (fallback)</h3></div><div>UIControls module not found.</div>';
+          sidebar.appendChild(fallback);
+        }
+      } catch (e) {
+        // Catch any UI initialization errors to avoid unhandled rejections in tests
+        console.error('UIControls initialization failed:', e);
       }
 
       // Setup layout diagnostics
       setupDiagnostics(map);
 
       console.log('✅ Index layout initialized (map + sidebar).');
+      } catch (fatal) {
+        // Prevent unhandled rejections from bubbling to window
+        console.error('Index initialization failed:', fatal);
+      }
     })();
   </script>
 

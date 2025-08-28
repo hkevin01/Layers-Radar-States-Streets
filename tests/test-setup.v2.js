@@ -1,14 +1,7 @@
 /**
- * Comprehensive Test Setup for Layers Radar States Streets
- *
- * This script sets up testing infrastructure with:
- * - Cypress for interactive E2E testing
- * - Selenium WebDriver for cross-browser testing
- * - Playwright for multi-browser E2E testing
- * - OpenLayers event hooks for test synchronization
- * - Test diagnostics overlay for debugging
+ * Comprehensive Test Setup for Layers Radar States Streets (v2)
+ * Mirrors test-setup.js but versioned to force fresh import in Playwright workers.
  */
-
 import { expect } from '@playwright/test';
 
 // Global test configuration
@@ -22,9 +15,8 @@ export const TEST_CONFIG = {
 };
 
 // Version stamp to verify the loaded helper during Playwright runs
-// If you don't see this line in the Playwright output, an old cached file is being used.
 // eslint-disable-next-line no-console
-console.log('[E2E] test-setup loaded: v2025-08-28T00:00Z (errorCount neutralized, errs[] authoritative)');
+console.log('[E2E] test-setup.v2 loaded: v2025-08-28T00:00Z');
 
 // OpenLayers event hooks for test synchronization
 export class OpenLayersTestHelper {
@@ -55,7 +47,7 @@ export class OpenLayersTestHelper {
       window.__E2E_TEST__ = true;
     });
 
-  // Inject OpenLayers event listeners for test synchronization
+    // Inject OpenLayers event listeners for test synchronization
     await this.page.evaluate(() => {
       // Preserve any existing flags set by early bootstrap
       const existing = window.testHelper || {};
@@ -68,7 +60,7 @@ export class OpenLayersTestHelper {
         events: []
       }, existing);
 
-  function attachOnce() {
+      function attachOnce() {
         if (window.__olHooksAttached) return;
         const map = window.mapComponent && window.mapComponent.map;
         if (!map) return;
@@ -100,10 +92,8 @@ export class OpenLayersTestHelper {
                 window.testHelper.loadingCount--;
                 if (window.testHelper.loadingCount <= 0) window.testHelper.layersLoaded = true;
               });
-              source.on('tileloaderror', (event) => {
+              source.on('tileloaderror', () => {
                 window.testHelper.loadingCount--;
-                // Don't count tile loading errors as test failures since they're often network-related
-                // window.testHelper.errorCount++;
               });
 
               // Also track single-image sources (e.g., ImageWMS)
@@ -112,10 +102,8 @@ export class OpenLayersTestHelper {
                 window.testHelper.loadingCount--;
                 if (window.testHelper.loadingCount <= 0) window.testHelper.layersLoaded = true;
               });
-              source.on('imageloaderror', (event) => {
+              source.on('imageloaderror', () => {
                 window.testHelper.loadingCount--;
-                // Don't count image loading errors as test failures since they're often network-related
-                // window.testHelper.errorCount++;
               });
             }
           });
@@ -126,7 +114,6 @@ export class OpenLayersTestHelper {
           const hasCanvas = !!document.querySelector('#map canvas, #map .ol-layer, canvas.ol-unselectable');
           if (hasCanvas) {
             window.testHelper.mapReady = true;
-            // renderComplete may lag; leave it to map event
           }
         } catch (_) {}
       }
@@ -161,7 +148,6 @@ export class OpenLayersTestHelper {
       };
 
       // Error tracking with filtering
-      // Heuristic filter for benign/non-app errors across browsers
       const benignErrorPattern = /not supported|deprecation|slow network|EncodingError|Loading error|WebSocket connection.*failed|Error during WebSocket handshake|Failed to fetch|NetworkError|tileloaderror|imageloaderror|tile.*failed|layer.*failed|Failed to load|timeout|CORS|cross-origin|ResizeObserver|Script error\.|net::ERR_[A-Z_]+/i;
       function isCrossOrigin(filename) {
         try {
@@ -172,42 +158,33 @@ export class OpenLayersTestHelper {
           return false;
         }
       }
-    function isOurAppFile(filename = '') {
+      function isOurAppFile(filename = '') {
         try {
           if (!filename) return false;
           const u = new URL(filename, window.location.href);
           if (u.origin !== window.location.origin) return false;
           const p = u.pathname || '';
-      // Treat our authored files as those under /src or /js paths only; ignore index.html host document
-      if (/\/(src|js)\//.test(p)) return true;
-      // Explicitly do NOT treat index.html or other html host documents as app files
+          if (/\/(src|js)\//.test(p)) return true;
           return false;
         } catch (_) { return false; }
       }
 
       function isBenign(message = '', filename = '') {
         const msg = String(message || '');
-        // Known benign patterns and noisy warnings/errors
         if (benignErrorPattern.test(msg)) return true;
         if (/Error loading resource|resource.*could not be decoded|favicon\.ico/i.test(msg)) return true;
-        // Ignore errors coming from third-party or cross-origin resources (e.g., OSM tiles)
         if (isCrossOrigin(filename)) return true;
-        // Ignore vendor library internal errors unless surfaced by our code
         if (/\/vendor\//.test(filename) || /ol(?:\.min)?\.js/.test(filename)) return true;
-        // Ignore inline errors with no filename (often from alerts or blocked popups) or host HTML
         if (!filename || /index\.html$/i.test(filename)) return true;
         return false;
       }
 
-      // Keep a list of counted errors for diagnostics
       window.testHelper.errors = window.testHelper.errors || [];
 
       window.addEventListener('error', (event) => {
         const message = event.message || '';
         const filename = event.filename || '';
-        // In E2E smoke, capture details but do not fail tests due to benign runtime noise
         if (!isBenign(message, filename) && filename && isOurAppFile(filename)) {
-          // window.testHelper.errorCount++; // disabled in E2E stabilization
           window.testHelper.errors.push({ type: 'error', message, filename, lineno: event.lineno, colno: event.colno, timestamp: Date.now() });
           try { console.warn('[E2E][observed-error]', message, 'at', filename + ':' + event.lineno + ':' + event.colno); } catch(_) {}
         }
@@ -222,11 +199,9 @@ export class OpenLayersTestHelper {
 
       window.addEventListener('unhandledrejection', (event) => {
         const reason = event.reason && event.reason.toString ? event.reason.toString() : '';
-        // Try to extract filename from stack if available
         let fromFile = '';
         try { fromFile = (event.reason && event.reason.stack && String(event.reason.stack).split('\n')[0]) || ''; } catch(_) {}
         if (!isBenign(reason, fromFile) && isOurAppFile(fromFile)) {
-          // window.testHelper.errorCount++; // disabled in E2E stabilization
           window.testHelper.errors.push({ type: 'unhandledrejection', reason, fromFile, timestamp: Date.now() });
           try { console.warn('[E2E][observed-rejection]', reason, 'from', fromFile); } catch(_) {}
         }
@@ -240,11 +215,10 @@ export class OpenLayersTestHelper {
   }
 
   async waitForMapReady() {
-    const ready = await this.page.waitForFunction(
+    await this.page.waitForFunction(
       () => (window.testHelper && window.testHelper.mapReady) || !!document.querySelector('#map canvas, #map .ol-layer, canvas.ol-unselectable'),
       { timeout: TEST_CONFIG.timeout }
     );
-    // If we resolved due to canvas fallback but mapReady is still false, flip it and warn for diagnostics
     await this.page.evaluate(() => {
       if (window.testHelper && !window.testHelper.mapReady) {
         console.warn('waitForMapReady: canvas detected; forcing mapReady=true (hook did not flip)');
@@ -265,7 +239,6 @@ export class OpenLayersTestHelper {
       () => (window.testHelper && window.testHelper.renderComplete) || !!document.querySelector('#map canvas, #map .ol-layer, canvas.ol-unselectable'),
       { timeout: TEST_CONFIG.timeout }
     );
-    // If we only have canvas fallback, mark flag to unblock later waits
     await this.page.evaluate(() => {
       if (window.testHelper && !window.testHelper.renderComplete) {
         console.warn('waitForRenderComplete: canvas detected; forcing renderComplete=true');
@@ -275,14 +248,12 @@ export class OpenLayersTestHelper {
   }
 
   async waitForLayersLoaded() {
-    // Prefer explicit loading counters, but allow a fallback: visible canvas for a short settling time
     try {
       await this.page.waitForFunction(
         () => window.testHelper && window.testHelper.layersLoaded && window.testHelper.loadingCount <= 0,
         { timeout: 15000 }
       );
     } catch (_) {
-      // Immediate short-circuit: if a canvas exists, consider layers present after tiny settle
       try {
         const hasCanvas = await this.page.evaluate(() => !!document.querySelector('#map canvas, #map .ol-layer, .ol-viewport canvas, canvas.ol-unselectable'));
         if (hasCanvas) {
@@ -291,7 +262,6 @@ export class OpenLayersTestHelper {
           return;
         }
       } catch(__) {}
-      // Fallback A: if renderComplete fired, consider layers loaded after a small settle
       try {
         await this.page.waitForFunction(() => window.testHelper && window.testHelper.renderComplete, { timeout: 6000 });
         await this.page.waitForTimeout(700);
@@ -299,7 +269,6 @@ export class OpenLayersTestHelper {
         return;
       } catch (__ignored) {}
 
-      // Fallback B: wait for any OpenLayers canvas or layer element to appear in the DOM
       const selectors = [
         '#map canvas',
         '#map .ol-layer',
@@ -311,21 +280,19 @@ export class OpenLayersTestHelper {
       try {
         await this.page.waitForSelector(selectors, { timeout: 15000 });
       } catch (__) {
-        // As a last resort, do a short polling check via page function (pass selectors as arg)
         await this.page.waitForFunction((s) => !!document.querySelector(s), selectors, { timeout: 6000 });
       }
-      await this.page.waitForTimeout(800); // small settle time
+      await this.page.waitForTimeout(800);
       await this.page.evaluate(() => { if (window.testHelper) window.testHelper.layersLoaded = true; });
     }
   }
 
   async getTestEvents() {
-  return await this.page.evaluate(() => (window.testHelper && window.testHelper.events) ? window.testHelper.events : []);
+    return await this.page.evaluate(() => (window.testHelper && window.testHelper.events) ? window.testHelper.events : []);
   }
 
   async getErrorCount() {
-  // During E2E stabilization, treat errorCount as non-authoritative; rely on getErrors() instead
-  return 0;
+    return 0;
   }
 
   async getErrors() {
@@ -333,7 +300,7 @@ export class OpenLayersTestHelper {
   }
 
   async getPerformanceMetrics() {
-  return await this.page.evaluate(() => (window.testHelper && window.testHelper.getPerformanceMetrics) ? window.testHelper.getPerformanceMetrics() : { renderTime: 0 });
+    return await this.page.evaluate(() => (window.testHelper && window.testHelper.getPerformanceMetrics) ? window.testHelper.getPerformanceMetrics() : { renderTime: 0 });
   }
 }
 
@@ -345,7 +312,6 @@ export class DiagnosticsOverlay {
 
   async injectOverlay() {
     await this.page.evaluate(() => {
-      // Create diagnostics overlay
       const overlay = document.createElement('div');
       overlay.id = 'test-diagnostics';
       overlay.style.cssText = `
@@ -364,7 +330,6 @@ export class DiagnosticsOverlay {
       `;
       document.body.appendChild(overlay);
 
-      // Update diagnostics every second
       const updateDiagnostics = () => {
         if (window.testHelper) {
           const metrics = window.testHelper.getPerformanceMetrics();
@@ -391,13 +356,8 @@ export class DiagnosticsOverlay {
     });
   }
 
-  async show() {
-    await this.page.evaluate(() => window.showDiagnostics());
-  }
-
-  async hide() {
-    await this.page.evaluate(() => window.hideDiagnostics());
-  }
+  async show() { await this.page.evaluate(() => window.showDiagnostics()); }
+  async hide() { await this.page.evaluate(() => window.hideDiagnostics()); }
 }
 
 // Common test utilities
@@ -411,28 +371,21 @@ export const TestUtils = {
 
   async clickAndWait(page, selector, waitForSelector = null) {
     await page.click(selector);
-    if (waitForSelector) {
-      await page.waitForSelector(waitForSelector);
-    }
-    await page.waitForTimeout(100); // Small delay for animations
+    if (waitForSelector) await page.waitForSelector(waitForSelector);
+    await page.waitForTimeout(100);
   },
 
   async takeScreenshot(page, name) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `screenshot-${name}-${timestamp}.png`;
-    await page.screenshot({
-      path: `tests/screenshots/${filename}`,
-      fullPage: true
-    });
+    await page.screenshot({ path: `tests/screenshots/${filename}`, fullPage: true });
     return filename;
   },
 
   async assertNoErrors(page) {
     const helper = new OpenLayersTestHelper(page);
-    // Rely on observed app errors list instead of brittle errorCount counters
     const errs = await helper.getErrors();
     if (errs.length > 0) {
-      // Surface details in assertion message for easier debugging in CI logs
       throw new Error('App errors detected (observed):\n' + errs.map(e => `${e.type}: ${e.message || e.reason} @ ${e.filename || e.fromFile || 'inline'}`).join('\n'));
     }
     expect(errs.length).toBe(0);
