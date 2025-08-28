@@ -13,7 +13,7 @@ class GlobalWeatherRadar {
         this.map = null;
         this.initialized = false;
         this.layers = {};
-        
+
         console.log('🌦️ Global Weather Radar initialized');
     }
 
@@ -21,49 +21,49 @@ class GlobalWeatherRadar {
         try {
             console.log('🚀 Starting global weather radar initialization...');
             this.showLoadingMessage('Initializing NEXRAD radar...');
-            
+
             // Check if OpenLayers is available
             if (typeof ol === 'undefined') {
                 throw new Error('OpenLayers not loaded - ensure ol.js is included before this script');
             }
-            
+
             console.log('✅ OpenLayers global object found');
             console.log(`📦 OpenLayers version: ${ol.VERSION || 'unknown'}`);
-            
+
             this.showLoadingMessage('Creating map view...');
             this.createMap();
-            
+
             this.showLoadingMessage('Loading base layers...');
             await this.loadBaseLayers();
-            
+
             this.showLoadingMessage('Initializing weather services...');
             await this.initializeWeatherServices();
-            
+
             this.showLoadingMessage('Setting up user interface...');
             await this.initializeControls();
-            
+
             // Hide loading screen
             this.hideLoadingScreen();
-            
+
             this.initialized = true;
             console.log('✅ Global weather radar initialized successfully!');
-            
+
             this.updateStatus('Weather radar online');
-            
+
         } catch (error) {
             console.error('❌ Global weather radar initialization failed:', error);
             this.showError('Failed to initialize weather radar: ' + error.message);
         }
     }
-    
+
     createMap() {
         console.log('🗺️ Creating OpenLayers map...');
-        
+
         // Determine target element
-        const target = document.getElementById('main-map') || 
-                      document.getElementById('map') || 
+        const target = document.getElementById('main-map') ||
+                      document.getElementById('map') ||
                       'map';
-        
+
         this.map = new ol.Map({
             target: target,
             layers: [],
@@ -74,19 +74,19 @@ class GlobalWeatherRadar {
                 maxZoom: 15
             })
         });
-        
+
         // Set up map event handlers
         this.map.on('click', (event) => {
             const coordinate = ol.proj.toLonLat(event.coordinate);
             console.log('🗺️ Map clicked at:', coordinate);
         });
-        
+
         console.log('✅ Map created successfully');
     }
-    
+
     async loadBaseLayers() {
         console.log('🌍 Loading base layers...');
-        
+
         try {
             // OpenStreetMap base layer
             const osmLayer = new ol.layer.Tile({
@@ -95,11 +95,11 @@ class GlobalWeatherRadar {
                 visible: true,
                 source: new ol.source.OSM()
             });
-            
+
             this.map.addLayer(osmLayer);
             this.layers.osm = osmLayer;
             console.log('✅ OSM base layer added');
-            
+
             // Satellite layer
             const satelliteLayer = new ol.layer.Tile({
                 title: 'Satellite',
@@ -110,45 +110,83 @@ class GlobalWeatherRadar {
                     attributions: '© Esri'
                 })
             });
-            
+
             this.map.addLayer(satelliteLayer);
             this.layers.satellite = satelliteLayer;
             console.log('✅ Satellite layer added');
-            
+
         } catch (error) {
             console.warn('⚠️ Base layer loading issue:', error.message);
         }
     }
-    
+
     async initializeWeatherServices() {
         console.log('🌤️ Initializing weather services...');
-        
+
         try {
-            // Add NEXRAD radar layer
+            // Primary: WMS (time-enabled). Some deployments require TIME; often latest is default.
+            // We'll attempt WMS first, then fallback to NOAA TMS tiles if loading fails.
+            const wmsSource = new ol.source.ImageWMS({
+                url: 'https://opengeo.ncep.noaa.gov/geoserver/wms',
+                params: {
+                    'LAYERS': 'nexrad-n0r-wmst',
+                    'FORMAT': 'image/png',
+                    'TRANSPARENT': true
+                },
+                serverType: 'geoserver',
+                crossOrigin: 'anonymous'
+            });
+
             const radarLayer = new ol.layer.Image({
                 title: 'NEXRAD Radar',
                 opacity: 0.8,
                 visible: true,
-                source: new ol.source.ImageWMS({
-                    url: 'https://opengeo.ncep.noaa.gov/geoserver/wms',
-                    params: {
-                        'LAYERS': 'nexrad-n0r-wmst',
-                        'FORMAT': 'image/png',
-                        'TRANSPARENT': true
-                    },
-                    serverType: 'geoserver',
-                    crossOrigin: 'anonymous'
-                })
+                source: wmsSource
             });
-            
+
+            // Track load success/failure and provide a tile fallback if needed
+            let wmsHadError = false;
+            wmsSource.on('imageloadend', () => {
+                console.log('🛰️ NEXRAD WMS image loaded');
+                this.updateStatus('Radar image loaded');
+            });
+            wmsSource.on('imageloaderror', () => {
+                console.warn('⚠️ NEXRAD WMS image failed; switching to TMS fallback');
+                wmsHadError = true;
+                try {
+                    // Replace with NOAA GeoWebCache TMS tiles (bref, quality controlled)
+                    const tmsUrl = 'https://opengeo.ncep.noaa.gov/geoserver/gwc/service/tms/1.0.0/' +
+                        'radar:conus_bref_qcd@EPSG:900913@png/{z}/{x}/{-y}.png';
+                    const tmsSource = new ol.source.XYZ({
+                        url: tmsUrl,
+                        crossOrigin: 'anonymous',
+                        attributions: 'NOAA/NCEP'
+                    });
+                    const tmsLayer = new ol.layer.Tile({
+                        title: 'NEXRAD Radar (TMS Fallback)',
+                        opacity: 0.75,
+                        visible: true,
+                        source: tmsSource
+                    });
+                    this.map.removeLayer(radarLayer);
+                    this.map.addLayer(tmsLayer);
+                    this.layers.radar = tmsLayer;
+                    tmsSource.on('tileloadend', () => console.log('🧩 NEXRAD TMS tile loaded'));
+                    tmsSource.on('tileloaderror', (e) => console.warn('🧩 NEXRAD TMS tile error', e));
+                    this.updateStatus('Radar tile fallback active');
+                } catch (e) {
+                    console.error('Fallback to TMS failed:', e);
+                }
+            });
+
             this.map.addLayer(radarLayer);
             this.layers.radar = radarLayer;
-            console.log('✅ NEXRAD radar layer added');
-            
+            if (!wmsHadError) console.log('✅ NEXRAD radar layer added (WMS)');
+
         } catch (error) {
             console.warn('⚠️ NEXRAD radar loading issue:', error.message);
         }
-        
+
         try {
             // Create weather alerts layer
             const alertsSource = new ol.source.Vector();
@@ -166,27 +204,27 @@ class GlobalWeatherRadar {
                     })
                 })
             });
-            
+
             this.map.addLayer(alertsLayer);
             this.layers.alerts = alertsLayer;
             console.log('✅ Weather alerts layer created');
-            
+
         } catch (error) {
             console.warn('⚠️ Weather alerts layer issue:', error.message);
         }
     }
-    
+
     async initializeControls() {
         console.log('🎮 Initializing controls...');
-        
+
         // Set up layer toggles
         this.setupToggle('radar-toggle', 'radar');
         this.setupToggle('streets-toggle', 'osm');
         this.setupToggle('alerts-toggle', 'alerts');
-        
+
         // Set up opacity slider
         this.setupOpacitySlider('radar-opacity', 'radar');
-        
+
         // Set up navigation buttons
         this.setupButton('geolocation', () => this.centerOnLocation());
         this.setupButton('zoom-in', () => {
@@ -197,10 +235,10 @@ class GlobalWeatherRadar {
             const view = this.map.getView();
             view.setZoom(view.getZoom() - 1);
         });
-        
+
         console.log('✅ Controls initialized');
     }
-    
+
     setupToggle(elementId, layerKey) {
         const element = document.getElementById(elementId);
         if (element && this.layers[layerKey]) {
@@ -210,7 +248,7 @@ class GlobalWeatherRadar {
             });
         }
     }
-    
+
     setupOpacitySlider(elementId, layerKey) {
         const element = document.getElementById(elementId);
         if (element && this.layers[layerKey]) {
@@ -218,7 +256,7 @@ class GlobalWeatherRadar {
                 const opacity = e.target.value / 100;
                 this.layers[layerKey].setOpacity(opacity);
                 console.log(`🔄 ${layerKey} opacity:`, opacity);
-                
+
                 // Update display value
                 const valueDisplay = document.querySelector('.slider-value');
                 if (valueDisplay) {
@@ -227,17 +265,17 @@ class GlobalWeatherRadar {
             });
         }
     }
-    
+
     setupButton(elementId, handler) {
         const element = document.getElementById(elementId);
         if (element) {
             element.addEventListener('click', handler);
         }
     }
-    
+
     centerOnLocation() {
         console.log('📍 Attempting to center on user location...');
-        
+
         if (navigator.geolocation) {
             this.updateStatus('Locating...');
             navigator.geolocation.getCurrentPosition(
@@ -258,7 +296,7 @@ class GlobalWeatherRadar {
             this.updateStatus('Geolocation not supported', 'error');
         }
     }
-    
+
     showLoadingMessage(message) {
         const loadingText = document.getElementById('loading-text');
         if (loadingText) {
@@ -266,7 +304,7 @@ class GlobalWeatherRadar {
         }
         console.log(`📢 ${message}`);
     }
-    
+
     hideLoadingScreen() {
         const loadingScreen = document.getElementById('loading-screen');
         if (loadingScreen) {
@@ -277,7 +315,7 @@ class GlobalWeatherRadar {
             console.log('✅ Loading screen hidden');
         }
     }
-    
+
     showError(message) {
         const loadingText = document.getElementById('loading-text');
         if (loadingText) {
@@ -286,16 +324,16 @@ class GlobalWeatherRadar {
         }
         console.error('🚨 ' + message);
     }
-    
+
     updateStatus(message, type = 'normal') {
         console.log(`📊 Status: ${message}`);
-        
+
         const statusElement = document.getElementById('status-text');
         if (statusElement) {
             statusElement.textContent = message;
             statusElement.className = type === 'error' ? 'status-error' : 'status-online';
         }
-        
+
         const conditions = document.getElementById('conditions');
         if (conditions && message.includes('online')) {
             conditions.textContent = 'Radar Online';
@@ -315,7 +353,7 @@ function switchBaseLayer(layerType) {
                 layer.setVisible(false);
             }
         });
-        
+
         // Show selected layer
         if (globalWeatherRadarApp.layers[layerType]) {
             globalWeatherRadarApp.layers[layerType].setVisible(true);
@@ -354,9 +392,9 @@ function refreshData() {
 // Auto-initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('📄 DOM loaded, initializing global weather radar...');
-    
+
     globalWeatherRadarApp = new GlobalWeatherRadar();
-    
+
     // Wait a moment for OpenLayers to fully load
     setTimeout(async () => {
         await globalWeatherRadarApp.init();

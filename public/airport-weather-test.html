@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Airport Weather Test</title>
+	<style>
+		body { font-family: system-ui, sans-serif; margin: 20px; }
+		pre { background: #0f1115; color: #eaeef2; padding: 12px; border-radius: 8px; overflow: auto; }
+		.error { color: #ff6b6b; }
+	</style>
+	<script>
+		async function loadStations() {
+			const out = document.getElementById('out');
+			const status = document.getElementById('status');
+			status.textContent = 'Requesting /api/weather/stations…';
+			try {
+				// Query top airports as a small sample in JSON
+				const res = await fetch('http://localhost:8081/api/weather/stations?format=json&ids=%40TOP&hours=2');
+				const txt = await res.text();
+				status.textContent = 'HTTP ' + res.status;
+				out.textContent = txt;
+			} catch (e) {
+				status.innerHTML = 'Error: <span class="error">' + (e.message || e) + '</span>';
+			}
+		}
+		window.addEventListener('DOMContentLoaded', loadStations);
+	</script>
+	</head>
+	<body>
+		<h1>Airport Weather Test</h1>
+		<p id="status">Idle</p>
+		<pre id="out">(waiting…)</pre>
+	</body>
+	</html>
