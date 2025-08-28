@@ -35,7 +35,7 @@ test.describe('Map Basic Functionality v2', () => {
     await helper.waitForMapReady();
     await helper.waitForRenderComplete();
 
-  // Assert no JavaScript errors (errorCount is soft-disabled; rely on absence of observed errors list)
+  // Assert no JavaScript errors (use observed errors list)
   const errs = await helper.getErrors();
   expect(errs.length).toBe(0);
 
@@ -78,7 +78,7 @@ test.describe('Map Basic Functionality v2', () => {
 
     await helper.waitForRenderComplete();
 
-  // Assert no errors after interactions
+  // Assert no errors after interactions (use observed errors)
   const errs2 = await helper.getErrors();
   expect(errs2.length).toBe(0);
 

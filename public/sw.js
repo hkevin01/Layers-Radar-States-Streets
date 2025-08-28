@@ -1,13 +1,20 @@
 /**
  * Service Worker for Layers Radar States Streets PWA
  * Provides offline functionality, caching, and background sync
+ *
+ * When registered with a URL containing ?e2e=1, the worker becomes a no-op
+ * passthrough to avoid interference with E2E tests (no precache, no cache use).
  */
+
+// Detect E2E test mode by query parameter on the script URL
+const SCRIPT_URL = (typeof self !== 'undefined' && self.registration && self.registration.scriptURL) || '';
+const E2E_MODE = /[?&]e2e=1(?:&|$)/.test(SCRIPT_URL);
 
 const CACHE_NAME = "radar-map-v6.0.0";
 const STATIC_CACHE = "radar-static-v6.0.0";
 const DYNAMIC_CACHE = "radar-dynamic-v6.0.0";
 
-// Files to cache for offline usage
+// Files to cache for offline usage (ignored in E2E_MODE)
 const STATIC_FILES = [
   "/",
   "/public/weather-radar.html",
@@ -35,6 +42,11 @@ const CACHEABLE_DOMAINS = [
  */
 self.addEventListener("install", (event) => {
   console.log("🔧 Service Worker: Installing...");
+  if (E2E_MODE) {
+    // In E2E mode, do not precache to avoid unexpected network traffic
+    event.waitUntil(self.skipWaiting());
+    return;
+  }
 
   event.waitUntil(
     caches.open(STATIC_CACHE)
@@ -57,6 +69,11 @@ self.addEventListener("install", (event) => {
  */
 self.addEventListener("activate", (event) => {
   console.log("🚀 Service Worker: Activating...");
+  if (E2E_MODE) {
+    // In E2E mode, aggressively claim clients and skip cache cleanup to be fast
+    event.waitUntil(self.clients.claim());
+    return;
+  }
 
   event.waitUntil(
     caches.keys()
@@ -83,6 +100,12 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // In E2E mode, act as a transparent proxy
+  if (E2E_MODE) {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   // Skip non-GET requests
   if (request.method !== "GET") {
@@ -124,6 +147,7 @@ self.addEventListener("fetch", (event) => {
  */
 self.addEventListener("sync", (event) => {
   console.log("🔄 Service Worker: Background sync triggered:", event.tag);
+  if (E2E_MODE) return; // Disabled in E2E mode
 
   if (event.tag === "radar-data-sync") {
     event.waitUntil(syncRadarData());
@@ -137,6 +161,7 @@ self.addEventListener("sync", (event) => {
  */
 self.addEventListener("push", (event) => {
   console.log("📢 Service Worker: Push notification received");
+  if (E2E_MODE) return; // Disabled in E2E mode
 
   const options = {
     body: event.data ? event.data.text() : "Weather update available",
@@ -165,6 +190,7 @@ self.addEventListener("push", (event) => {
  */
 self.addEventListener("notificationclick", (event) => {
   console.log("🔔 Service Worker: Notification clicked:", event.action);
+  if (E2E_MODE) return; // Disabled in E2E mode
 
   event.notification.close();
 

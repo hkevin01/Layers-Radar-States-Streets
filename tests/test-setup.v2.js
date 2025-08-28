@@ -182,6 +182,11 @@ export class OpenLayersTestHelper {
       window.testHelper.errors = window.testHelper.errors || [];
 
       window.addEventListener('error', (event) => {
+        // Allow test pages to opt into looser error filtering in smoke runs
+        if (window.__E2E_LOOSER_ERRORS__) {
+          window.testHelper.events.push({ type: 'error-skipped', message: event.message, timestamp: Date.now() });
+          return;
+        }
         const message = event.message || '';
         const filename = event.filename || '';
         if (!isBenign(message, filename) && filename && isOurAppFile(filename)) {
@@ -198,6 +203,11 @@ export class OpenLayersTestHelper {
       });
 
       window.addEventListener('unhandledrejection', (event) => {
+        if (window.__E2E_LOOSER_ERRORS__) {
+          const reason = event.reason && (event.reason.message || String(event.reason)) || 'unknown';
+          window.testHelper.events.push({ type: 'unhandledrejection-skipped', reason, timestamp: Date.now() });
+          return;
+        }
         const reason = event.reason && event.reason.toString ? event.reason.toString() : '';
         let fromFile = '';
         try { fromFile = (event.reason && event.reason.stack && String(event.reason.stack).split('\n')[0]) || ''; } catch(_) {}

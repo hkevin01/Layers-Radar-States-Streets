@@ -95,6 +95,10 @@ export class UIControls {
           </label>
           <div class="layer-options">
             <label>Opacity: <input type="range" id="radar-opacity" min="0" max="100" value="80"></label>
+            <div class="layer-animation-controls" style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+              <button id="radar-play-pause" class="tool-btn" title="Play/Pause">⏯</button>
+              <label style="font-size:12px;opacity:.8;">Loop</label>
+            </div>
           </div>
         </div>
       </div>
@@ -242,6 +246,10 @@ export class UIControls {
         const layer = this.getLayer('radar');
         if (layer && typeof layer.setVisible === 'function') {
           layer.setVisible(e.target.checked);
+          // If the radar layer exposes animation controls, stop when hidden
+          if (!e.target.checked && typeof layer.stop === 'function') {
+            try { layer.stop(); } catch (_) {}
+          }
         }
       });
     }
@@ -252,6 +260,24 @@ export class UIControls {
         if (layer && typeof layer.setOpacity === 'function') {
           layer.setOpacity(Number(e.target.value) / 100);
         }
+      });
+    }
+
+    const radarPlayPause = this.controlsContainer.querySelector('#radar-play-pause');
+    if (radarPlayPause) {
+      radarPlayPause.addEventListener('click', () => {
+        const layer = this.getLayer('radar');
+        if (!layer) return;
+        try {
+          if (typeof layer.isPlaying === 'function' && layer.isPlaying()) {
+            if (typeof layer.stop === 'function') layer.stop();
+          } else if (typeof layer.start === 'function') {
+            // Pass a small callback to update info panel timestamp each frame
+            layer.start((timeIso) => {
+              this.updateInfo && this.updateInfo({ lastUpdate: timeIso });
+            });
+          }
+        } catch (_) {}
       });
     }
 
