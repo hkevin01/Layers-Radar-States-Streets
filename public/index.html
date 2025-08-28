@@ -409,6 +409,63 @@
       window.addEventListener('resize', callUpdate);
     }
 
+    // Add a NEXRAD radar layer with a robust fallback (normal mode only)
+    function addNexradRadar(map) {
+      try {
+        const primary = new ol.source.XYZ({
+          url: 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+          crossOrigin: 'anonymous',
+          attributions: 'IEM NEXRAD'
+        });
+
+        // Optional: track tile events for diagnostics/tests
+        try {
+          if (window.testHelper) {
+            primary.on('tileloadstart', () => { window.testHelper.loadingCount = (window.testHelper.loadingCount||0)+1; });
+            const done = () => {
+              window.testHelper.loadingCount = (window.testHelper.loadingCount||0)-1;
+              if (window.testHelper.loadingCount <= 0) window.testHelper.layersLoaded = true;
+            };
+            primary.on('tileloadend', done);
+            primary.on('tileloaderror', done);
+          }
+        } catch (_) {}
+
+        const radar = new ol.layer.Tile({
+          source: primary,
+          opacity: 0.7,
+          visible: true,
+          zIndex: 1,
+          className: 'nexrad-radar-layer'
+        });
+
+        // One-time swap to NOAA GeoWebCache TMS if primary errors
+        let swapped = false;
+        const swapToFallback = () => {
+          if (swapped) return;
+          swapped = true;
+          try {
+            const tms = new ol.source.XYZ({
+              url: 'https://opengeo.ncep.noaa.gov/geoserver/gwc/service/tms/1.0.0/radar:conus_bref_qcd@EPSG:900913@png/{z}/{x}/{-y}.png',
+              crossOrigin: 'anonymous',
+              attributions: 'NOAA/NCEP'
+            });
+            radar.setSource(tms);
+            console.warn('Radar primary failed; switched to NOAA TMS fallback');
+          } catch (e) {
+            console.error('Failed to switch radar to fallback:', e);
+          }
+        };
+        primary.on('tileloaderror', swapToFallback);
+
+        map.addLayer(radar);
+        return radar;
+      } catch (e) {
+        console.error('Failed to add NEXRAD radar layer:', e);
+        return null;
+      }
+    }
+
     // Main initialization
     (async () => {
       try {
@@ -548,6 +605,9 @@
       })();
 
       if (!isE2E) {
+    // Add NEXRAD radar layer in normal mode
+    const radarLayer = addNexradRadar(map);
+
         let UIControls;
         try {
           // Try src/components path (as per your repo)
@@ -567,6 +627,7 @@
             try { osmLayer && osmLayer.set && osmLayer.set('isBaseLayer', true); } catch(_) {}
             const layersRegistry = {
               osm: osmLayer,
+      radar: radarLayer,
               // radar, states, hazards, streets, satellite can be added/linked here when created
             };
 
