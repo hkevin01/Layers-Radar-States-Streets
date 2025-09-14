@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Enhanced runner for Weather Radar app with Spring Boot backend
 # Usage:
-#   ./run.sh                 # same as: up (full stack)
-#   ./run.sh up              # start full stack (frontend + backend)
+#   ./run.sh                 # default: start both services in Docker (docker-all)
+#   ./run.sh up              # start full stack locally (frontend + backend)
 #   ./run.sh frontend        # start only frontend
 #   ./run.sh backend         # start only backend
 #   ./run.sh dev             # start in development mode
@@ -16,6 +16,7 @@ set -euo pipefail
 #   ./run.sh open            # open browser
 #   ./run.sh api             # test API endpoints
 #   ./run.sh docker          # start backend via Docker, frontend locally
+#   ./run.sh docker-all      # start both frontend and backend in Docker
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -207,7 +208,7 @@ check_health() {
   fi
 }
 
-CMD="${1:-up}"
+CMD="${1:-docker-all}"
 shift || true
 
 DC=$(compose_cmd)
@@ -243,8 +244,21 @@ case "$CMD" in
       echo "ERROR: docker-compose.yml not found" >&2
       exit 1
     fi
-    $DC build backend
-    $DC up -d backend
+    # Pick host port for backend if 8081 is occupied
+    BACKEND_HOST_PORT=${BACKEND_HOST_PORT:-$BACKEND_PORT}
+    if is_port_in_use "$BACKEND_HOST_PORT"; then
+      # find a free port in range 8100-8199
+      for p in $(seq 8100 8199); do
+        if ! is_port_in_use "$p"; then BACKEND_HOST_PORT=$p; break; fi
+      done
+      echo "ℹ️ Port 8081 busy; using $BACKEND_HOST_PORT for backend"
+    fi
+  BACKEND_PORT=$BACKEND_HOST_PORT
+  FRONTEND_HOST_PORT=${FRONTEND_HOST_PORT:-$FRONTEND_PORT}
+  BACKEND_HOST_PORT=$BACKEND_HOST_PORT FRONTEND_HOST_PORT=$FRONTEND_HOST_PORT $DC build backend
+  BACKEND_HOST_PORT=$BACKEND_HOST_PORT FRONTEND_HOST_PORT=$FRONTEND_HOST_PORT $DC up -d backend
+  # Write runtime config for frontend pages that fetch the API (optional)
+  echo "window.__CONFIG__={BACKEND_BASE_URL:'http://localhost:$BACKEND_PORT'};" > "$SCRIPT_DIR/public/config.js"
     echo "Waiting for backend container health..."
     for i in {1..40}; do
       if curl -fsS "http://localhost:$BACKEND_PORT/api/weather/health" >/dev/null 2>&1; then
@@ -260,6 +274,59 @@ case "$CMD" in
     echo "  • Weather Data: http://localhost:$BACKEND_PORT/api/weather/stations"
     ;;
 
+  docker-all)
+    echo "🐳 Starting frontend and backend in Docker..."
+    if [[ ! -f "docker-compose.yml" ]]; then
+      echo "ERROR: docker-compose.yml not found" >&2
+      exit 1
+    fi
+    # Choose host ports if defaults are occupied
+    BACKEND_HOST_PORT=${BACKEND_HOST_PORT:-$BACKEND_PORT}
+    FRONTEND_HOST_PORT=${FRONTEND_HOST_PORT:-$FRONTEND_PORT}
+    if is_port_in_use "$BACKEND_HOST_PORT"; then
+      for p in $(seq 8100 8199); do
+        if ! is_port_in_use "$p"; then BACKEND_HOST_PORT=$p; break; fi
+      done
+      echo "ℹ️ Port 8081 busy; using $BACKEND_HOST_PORT for backend"
+    fi
+    if is_port_in_use "$FRONTEND_HOST_PORT"; then
+      for p in $(seq 8091 8110); do
+        if ! is_port_in_use "$p"; then FRONTEND_HOST_PORT=$p; break; fi
+      done
+      echo "ℹ️ Port 8089 busy; using $FRONTEND_HOST_PORT for frontend"
+    fi
+    # Export for compose
+    BACKEND_PORT=$BACKEND_HOST_PORT
+    FRONTEND_PORT=$FRONTEND_HOST_PORT
+  BACKEND_HOST_PORT=$BACKEND_HOST_PORT FRONTEND_HOST_PORT=$FRONTEND_HOST_PORT $DC build
+  BACKEND_HOST_PORT=$BACKEND_HOST_PORT FRONTEND_HOST_PORT=$FRONTEND_HOST_PORT $DC up -d
+  # Write runtime config for frontend pages that fetch the API (optional)
+  echo "window.__CONFIG__={BACKEND_BASE_URL:'http://localhost:$BACKEND_PORT'};" > "$SCRIPT_DIR/public/config.js"
+    echo "Waiting for backend container health..."
+    for i in {1..40}; do
+      if curl -fsS "http://localhost:$BACKEND_PORT/api/weather/health" >/dev/null 2>&1; then
+        echo "✅ Backend responded healthy"
+        break
+      fi
+      sleep 3
+    done
+    echo "Waiting for frontend container to serve index..."
+    for i in {1..40}; do
+      if curl -fsS "http://localhost:$FRONTEND_PORT/index.html" >/dev/null 2>&1; then
+        echo "✅ Frontend responded"
+        break
+      fi
+      sleep 2
+    done
+    echo "\n✅ Containers are up"
+    echo "Service URLs:"
+  echo "  • Frontend: http://localhost:$FRONTEND_PORT/index.html"
+  echo "  • Demo:     http://localhost:$FRONTEND_PORT/demo.html"
+  echo "  • Test:     http://localhost:$FRONTEND_PORT/airport-weather-test.html"
+  echo "  • API Health: http://localhost:$BACKEND_PORT/api/weather/health"
+  echo "  • Weather Data: http://localhost:$BACKEND_PORT/api/weather/stations"
+    ;;
+
   down|stop)
     echo "🛑 Stopping all services..."
     stop_backend
@@ -268,6 +335,8 @@ case "$CMD" in
     if [[ -f "docker-compose.yml" ]]; then
       $DC down -v 2>/dev/null || true
     fi
+  # Remove runtime config file
+  rm -f "$SCRIPT_DIR/public/config.js" 2>/dev/null || true
     echo "All services stopped"
     ;;
 

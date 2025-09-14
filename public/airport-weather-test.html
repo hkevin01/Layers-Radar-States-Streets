@@ -9,14 +9,36 @@
 		pre { background: #0f1115; color: #eaeef2; padding: 12px; border-radius: 8px; overflow: auto; }
 		.error { color: #ff6b6b; }
 	</style>
+	<!-- Optional runtime config injected by run.sh: defines window.__CONFIG__.BACKEND_BASE_URL -->
+	<script src="/config.js" defer></script>
 	<script>
+		function backendBase() {
+			// Prefer env-injected BACKEND_BASE_URL if present (set via reverse proxy or container env to window.__CONFIG__)
+			try {
+				if (window.__CONFIG__ && window.__CONFIG__.BACKEND_BASE_URL) return window.__CONFIG__.BACKEND_BASE_URL;
+			} catch (_) {}
+			// If page served from localhost, assume backend on same host but possibly different port
+			try {
+				const loc = window.location;
+				// default backend port 8081; if FRONTEND on 8089, keep host and swap port
+				const host = loc.hostname;
+				const port = (loc.port && loc.port !== '80' && loc.port !== '443') ? loc.port : '';
+				let backendPort = '8081';
+				if (port === '8089') backendPort = '8081';
+				return loc.protocol + '//' + host + ':' + backendPort;
+			} catch (_) {}
+			// Fallback hardcoded
+			return 'http://localhost:8081';
+		}
+
 		async function loadStations() {
 			const out = document.getElementById('out');
 			const status = document.getElementById('status');
 			status.textContent = 'Requesting /api/weather/stations…';
 			try {
 				// Query top airports as a small sample in JSON
-				const res = await fetch('http://localhost:8081/api/weather/stations?format=json&ids=%40TOP&hours=2');
+				const base = backendBase();
+				const res = await fetch(base + '/api/weather/stations?format=json&ids=%40TOP&hours=2');
 				const txt = await res.text();
 				status.textContent = 'HTTP ' + res.status;
 				out.textContent = txt;

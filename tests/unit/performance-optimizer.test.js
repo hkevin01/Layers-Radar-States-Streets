@@ -249,8 +249,13 @@ describe('PerformanceOptimizer', () => {
             };
 
             const optimizer2 = new PerformanceOptimizer(errorMapComponent);
-
-            await expect(optimizer2.optimizePerformance()).resolves.not.toThrow();
+            let didThrow = false;
+            try {
+                await optimizer2.optimizePerformance();
+            } catch (e) {
+                didThrow = true;
+            }
+            expect(didThrow).toBe(false);
         });
 
         it('should use fallback values when OpenLayers methods fail', () => {

@@ -95,9 +95,15 @@ export class UIControls {
           </label>
           <div class="layer-options">
             <label>Opacity: <input type="range" id="radar-opacity" min="0" max="100" value="80"></label>
-            <div class="layer-animation-controls" style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+            <div class="layer-animation-controls" style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <button id="radar-play-pause" class="tool-btn" title="Play/Pause">⏯</button>
-              <label style="font-size:12px;opacity:.8;">Loop</label>
+              <label for="radar-speed" style="font-size:12px;opacity:.8;">Speed</label>
+              <select id="radar-speed" title="Radar animation speed" style="padding:2px 4px;font-size:12px;">
+                <option value="normal" selected>Normal</option>
+                <option value="slow">Slow</option>
+                <option value="fast">Fast</option>
+                <option value="turbo">Turbo</option>
+              </select>
             </div>
           </div>
         </div>
@@ -238,6 +244,7 @@ export class UIControls {
   setupLayerToggles() {
     const radarToggle = this.controlsContainer.querySelector('#radar-toggle');
     const radarOpacity = this.controlsContainer.querySelector('#radar-opacity');
+  const radarSpeed = this.controlsContainer.querySelector('#radar-speed');
     const statesToggle = this.controlsContainer.querySelector('#states-toggle');
     const hazardToggle = this.controlsContainer.querySelector('#hazard-toggle');
 
@@ -246,9 +253,18 @@ export class UIControls {
         const layer = this.getLayer('radar');
         if (layer && typeof layer.setVisible === 'function') {
           layer.setVisible(e.target.checked);
-          // If the radar layer exposes animation controls, stop when hidden
+      // If the radar layer exposes animation controls, stop when hidden
           if (!e.target.checked && typeof layer.stop === 'function') {
             try { layer.stop(); } catch (_) {}
+          } else if (e.target.checked && typeof layer.start === 'function') {
+            try {
+        // Apply current speed preset before (re)starting
+        if (radarSpeed) this.applyRadarSpeedPreset(layer, radarSpeed.value);
+              // Start (or restart) animation on show and wire info updates
+              layer.start((timeIso) => {
+                this.updateInfo && this.updateInfo({ lastUpdate: timeIso });
+              });
+            } catch (_) {}
           }
         }
       });
@@ -272,12 +288,22 @@ export class UIControls {
           if (typeof layer.isPlaying === 'function' && layer.isPlaying()) {
             if (typeof layer.stop === 'function') layer.stop();
           } else if (typeof layer.start === 'function') {
+            // Apply current speed preset before starting
+            if (radarSpeed) this.applyRadarSpeedPreset(layer, radarSpeed.value);
             // Pass a small callback to update info panel timestamp each frame
             layer.start((timeIso) => {
               this.updateInfo && this.updateInfo({ lastUpdate: timeIso });
             });
           }
         } catch (_) {}
+      });
+    }
+
+    if (radarSpeed) {
+      radarSpeed.addEventListener('change', (e) => {
+        const layer = this.getLayer('radar');
+        if (!layer) return;
+        this.applyRadarSpeedPreset(layer, e.target.value);
       });
     }
 
@@ -303,6 +329,20 @@ export class UIControls {
         if (layer?.setVisible) layer.setVisible(e.target.checked);
       });
     }
+  }
+
+  // Translate UI speed preset into concrete timing and apply via layer.setSpeed
+  applyRadarSpeedPreset(layer, preset) {
+    if (!layer || typeof layer.setSpeed !== 'function') return;
+    // Defaults match current animation: holdMs=2200, fadeMs=900
+    const presets = {
+      slow:   { frameHoldMs: 3000, crossfadeMs: 1100 },
+      normal: { frameHoldMs: 2200, crossfadeMs: 900 },
+      fast:   { frameHoldMs: 1200, crossfadeMs: 600 },
+      turbo:  { frameHoldMs: 700,  crossfadeMs: 450 },
+    };
+    const p = presets[preset] || presets.normal;
+    try { layer.setSpeed(p); } catch (_) {}
   }
 
   setupMapTools() {

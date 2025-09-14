@@ -413,6 +413,26 @@
       window.addEventListener('resize', () => writeDiagnostics(map));
       map.on('moveend', () => writeDiagnostics(map));
       map.once('rendercomplete', () => writeDiagnostics(map));
+
+      // Expose diagnostics function for tests
+      window.__getMapDiagnostics = () => {
+        try {
+          const view = map.getView();
+          const size = map.getSize() || [0, 0];
+          let extent4326 = null;
+          try {
+            const extent = view.calculateExtent(size);
+            extent4326 = ol.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
+          } catch (_) {}
+          return {
+            size,
+            extent4326,
+            zoom: view.getZoom()
+          };
+        } catch (_) {
+          return { size: [0, 0], extent4326: null, zoom: 0 };
+        }
+      };
     }
 
     // Ensure map resizes when layout changes
@@ -645,16 +665,40 @@
         }
       }
 
-      function setVisible(v) {
+      // Capture original visibility setter to avoid recursion when extending behavior
+      const origGroupSetVisible = typeof group.setVisible === 'function' ? group.setVisible.bind(group) : null;
+      // If animation was playing when hidden, auto-restart when shown again
+      let autoRestartQueued = false;
+      function setGroupVisible(v) {
         const vis = !!v;
-        group.setVisible(vis);
+        try { if (origGroupSetVisible) origGroupSetVisible(vis); } catch(_) {}
         if (!vis) {
           // Ensure nothing renders or keeps animating when hidden
-          try { stop(); } catch(_) {}
-          try { layerA.setOpacity(0); layerB.setOpacity(0); } catch(_) {}
+          try {
+            // Remember if we should auto-restart on next show
+            autoRestartQueued = !!playing;
+            stop();
+          } catch(_) {}
+          try {
+            layerA.setOpacity(0); layerB.setOpacity(0);
+            if (typeof layerA.setVisible === 'function') layerA.setVisible(false);
+            if (typeof layerB.setVisible === 'function') layerB.setVisible(false);
+          } catch(_) {}
         } else {
           // When re-shown, restore base opacity proportions without auto-starting
-          try { layerA.setOpacity(currentBaseOpacity); layerB.setOpacity(0); } catch(_) {}
+          try {
+            if (typeof layerA.setVisible === 'function') layerA.setVisible(true);
+            if (typeof layerB.setVisible === 'function') layerB.setVisible(true);
+            layerA.setOpacity(currentBaseOpacity);
+            layerB.setOpacity(0);
+          } catch(_) {}
+          // Auto-restart animation if it was playing prior to being hidden
+          try {
+            if (autoRestartQueued) {
+              start(lastUpdateCb);
+            }
+          } catch(_) {}
+          autoRestartQueued = false;
         }
       }
 
@@ -754,8 +798,14 @@
       }
 
       // Expose a thin layer-like API expected by UIControls
-  const apiLayer = group;
-      apiLayer.setVisible = setVisible;
+      const apiLayer = group;
+      // Extend setVisible with animation/opacity handling while preserving original behavior
+      const __origSetVisible = apiLayer.setVisible?.bind(apiLayer);
+      apiLayer.setVisible = (v) => {
+        const vis = !!v;
+        try { if (typeof __origSetVisible === 'function') __origSetVisible(vis); } catch(_) {}
+        setGroupVisible(vis);
+      };
       const origSetOpacity = apiLayer.setOpacity?.bind(apiLayer);
       apiLayer.setOpacity = (op) => { setGroupOpacity(op); if (typeof origSetOpacity === 'function') origSetOpacity(op); };
   // Expose animation controls on the group so UI can call them
@@ -772,7 +822,7 @@
         isPlaying,
         setSpeed,
         setOpacity: setGroupOpacity,
-        setVisible,
+        setVisible: setGroupVisible,
       };
     }
 
