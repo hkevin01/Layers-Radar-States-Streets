@@ -146,8 +146,8 @@ show_diagnostics() {
     
     echo "🧪 Testing Infrastructure:"
     echo "  Vitest config: $([ -f 'tests/vitest.config.js' ] && echo '✅ Found' || echo '❌ Missing')"
-    echo "  Cypress config: $([ -f 'cypress.config.js' ] && echo '✅ Found' || echo '❌ Missing')"
-    echo "  Playwright config: $([ -f 'playwright.config.js' ] && echo '✅ Found' || echo '❌ Missing')"
+    echo "  Cypress config: $([ -f 'config/cypress.config.js' ] && echo '✅ Found' || echo '❌ Missing')"
+    echo "  Playwright config: $([ -f 'config/playwright.config.js' ] && echo '✅ Found' || echo '❌ Missing')"
     echo "  Selenium tests: $([ -f 'tests/selenium/selenium-test.js' ] && echo '✅ Found' || echo '❌ Missing')"
     echo ""
     

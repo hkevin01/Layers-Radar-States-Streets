@@ -1,0 +1,41 @@
+[
+  {
+    "url": "http://127.0.0.1:8082/index.html",
+    "isRepresentativeRun": false,
+    "htmlPath": "/home/kevin/Projects/layers-radar-stateboundaries/Layers-Radar-States-Streets/tests/reports/lighthouse/127_0_0_1-_index_html-2025_09_14_19_28_04.report.html",
+    "jsonPath": "/home/kevin/Projects/layers-radar-stateboundaries/Layers-Radar-States-Streets/tests/reports/lighthouse/127_0_0_1-_index_html-2025_09_14_19_28_04.report.json",
+    "summary": {
+      "performance": 0.92,
+      "accessibility": 1,
+      "best-practices": 1,
+      "seo": 0.91,
+      "pwa": 0.33
+    }
+  },
+  {
+    "url": "http://127.0.0.1:8082/index.html",
+    "isRepresentativeRun": false,
+    "htmlPath": "/home/kevin/Projects/layers-radar-stateboundaries/Layers-Radar-States-Streets/tests/reports/lighthouse/127_0_0_1-_index_html-2025_09_14_19_28_28.report.html",
+    "jsonPath": "/home/kevin/Projects/layers-radar-stateboundaries/Layers-Radar-States-Streets/tests/reports/lighthouse/127_0_0_1-_index_html-2025_09_14_19_28_28.report.json",
+    "summary": {
+      "performance": 0.92,
+      "accessibility": 1,
+      "best-practices": 1,
+      "seo": 0.91,
+      "pwa": 0.33
+    }
+  },
+  {
+    "url": "http://127.0.0.1:8082/index.html",
+    "isRepresentativeRun": true,
+    "htmlPath": "/home/kevin/Projects/layers-radar-stateboundaries/Layers-Radar-States-Streets/tests/reports/lighthouse/127_0_0_1-_index_html-2025_09_14_19_28_17.report.html",
+    "jsonPath": "/home/kevin/Projects/layers-radar-stateboundaries/Layers-Radar-States-Streets/tests/reports/lighthouse/127_0_0_1-_index_html-2025_09_14_19_28_17.report.json",
+    "summary": {
+      "performance": 0.92,
+      "accessibility": 1,
+      "best-practices": 1,
+      "seo": 0.91,
+      "pwa": 0.33
+    }
+  }
+]

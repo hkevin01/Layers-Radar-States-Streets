@@ -1,7 +1,7 @@
 // Verifies that when NEXRAD is unchecked and rechecked, the animation restarts.
 // This test intentionally loads normal mode (no ?e2e=1) so UIControls and radar loop initialize.
 
-const { test, expect } = require('@playwright/test');
+import { expect, test } from '@playwright/test';
 
 test.describe('NEXRAD toggle restart', () => {
   test('rechecking restarts animation if it was playing before hide', async ({ page, browserName }) => {
@@ -24,7 +24,26 @@ test.describe('NEXRAD toggle restart', () => {
     // Toggle off
     const toggle = page.locator('#radar-toggle');
     await expect(toggle).toBeVisible();
-    await toggle.uncheck();
+
+    // For mobile devices, ensure the controls panel is expanded and element is accessible
+    const controlsPanel = page.locator('.map-ui-controls');
+    await controlsPanel.scrollIntoViewIfNeeded();
+
+    // Expand controls if collapsed on mobile
+    const expandButton = page.locator('.toggle-controls');
+    await expandButton.click().catch(() => {}); // Ignore if already expanded
+
+    // Now scroll to and click the toggle
+    await toggle.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(1000); // Allow for panel expansion and scroll
+
+    // For mobile, try to get the bounding box and click at center
+    const boundingBox = await toggle.boundingBox();
+    if (boundingBox && (browserName.includes('Mobile') || browserName.includes('webkit'))) {
+      await page.mouse.click(boundingBox.x + boundingBox.width / 2, boundingBox.y + boundingBox.height / 2);
+    } else {
+      await toggle.click({ force: true });
+    }
 
     // Wait until animation stops
     await page.waitForFunction(() => {
@@ -32,7 +51,16 @@ test.describe('NEXRAD toggle restart', () => {
     }, { timeout: 8000 });
 
     // Toggle on
-    await toggle.check();
+    await toggle.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500); // Allow for scroll animation to complete
+
+    // For mobile, use coordinate-based clicking for second toggle
+    const boundingBox2 = await toggle.boundingBox();
+    if (boundingBox2 && (browserName.includes('Mobile') || browserName.includes('webkit'))) {
+      await page.mouse.click(boundingBox2.x + boundingBox2.width / 2, boundingBox2.y + boundingBox2.height / 2);
+    } else {
+      await toggle.click({ force: true });
+    }
 
     // Expect animation to auto-restart
     await page.waitForFunction(() => {
