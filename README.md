@@ -446,7 +446,10 @@ tests/
 ├── reports/                  # Test reports and artifacts
 ├── screenshots/              # Test screenshots
 ├── test-setup.js            # OpenLayers testing utilities
-├── vitest.config.js         # Vitest configuration
+├── config/                  # Configuration files
+│   ├── vitest.config.js     # Legacy vitest configuration (unused)
+│   ├── playwright.config.js # Playwright E2E testing configuration
+│   └── cypress.config.js    # Cypress interactive testing configuration
 ├── vitest.setup.js          # Test environment setup
 └── run-all-tests.js         # Comprehensive test runner
 ```
@@ -486,9 +489,9 @@ docker compose down
 
 ## �🔧 Configuration Files
 
-- **`playwright.config.js`** - Multi-browser Playwright configuration
-- **`cypress.config.js`** - Cypress interactive testing setup
-- **`vitest.config.js`** - Unit testing with coverage
+- **`config/playwright.config.js`** - Multi-browser Playwright configuration
+- **`config/cypress.config.js`** - Cypress interactive testing setup
+- **`tests/vitest.config.js`** - Unit testing with coverage (active configuration)
 - **`.lighthouserc.js`** - Performance testing configuration
 - **`.github/workflows/test-suite.yml`** - CI/CD pipeline
 

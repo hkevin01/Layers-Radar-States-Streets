@@ -33,18 +33,18 @@ show_help() {
 run_all_tests() {
     echo "🧪 Running comprehensive test suite..."
     echo ""
-    
+
     local start_time=$(date +%s)
     local failed_tests=0
     local total_tests=0
-    
+
     # Start dev server if not running
     if ! curl -s http://localhost:8082/ > /dev/null 2>&1; then
         echo "🚀 Starting development server..."
         npm run start:8082 &
         sleep 3
     fi
-    
+
     # Run unit tests
     echo "1️⃣ Running unit tests..."
     if npm run test:unit; then
@@ -55,7 +55,7 @@ run_all_tests() {
     fi
     ((total_tests++))
     echo ""
-    
+
     # Run integration tests
     echo "2️⃣ Running integration tests..."
     if npm run test:integration; then
@@ -66,17 +66,17 @@ run_all_tests() {
     fi
     ((total_tests++))
     echo ""
-    
+
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
-    
+
     echo "📊 Test Summary:"
     echo "  Total test suites: $total_tests"
     echo "  Passed: $((total_tests - failed_tests))"
     echo "  Failed: $failed_tests"
     echo "  Duration: ${duration}s"
     echo ""
-    
+
     if [ $failed_tests -eq 0 ]; then
         echo "🎉 All tests passed!"
         return 0
@@ -114,13 +114,13 @@ run_performance_tests() {
 show_diagnostics() {
     echo "🔍 System Diagnostics:"
     echo ""
-    
+
     echo "📋 Environment:"
     echo "  Node.js: $(node --version 2>/dev/null || echo 'Not installed')"
     echo "  NPM: $(npm --version 2>/dev/null || echo 'Not installed')"
     echo "  Git: $(git --version 2>/dev/null | cut -d' ' -f3 || echo 'Not installed')"
     echo ""
-    
+
     echo "🌐 Server Status:"
     if curl -s http://localhost:8082/ > /dev/null 2>&1; then
         echo "  Dev Server (8082): ✅ Running"
@@ -129,7 +129,7 @@ show_diagnostics() {
         echo "  Dev Server (8082): ❌ Not running"
     fi
     echo ""
-    
+
     echo "📦 Dependencies:"
     if [ -f "package.json" ]; then
         echo "  Package.json: ✅ Found"
@@ -143,25 +143,25 @@ show_diagnostics() {
         echo "  Package.json: ❌ Not found"
     fi
     echo ""
-    
+
     echo "🧪 Testing Infrastructure:"
     echo "  Vitest config: $([ -f 'tests/vitest.config.js' ] && echo '✅ Found' || echo '❌ Missing')"
     echo "  Cypress config: $([ -f 'config/cypress.config.js' ] && echo '✅ Found' || echo '❌ Missing')"
     echo "  Playwright config: $([ -f 'config/playwright.config.js' ] && echo '✅ Found' || echo '❌ Missing')"
     echo "  Selenium tests: $([ -f 'tests/selenium/selenium-test.js' ] && echo '✅ Found' || echo '❌ Missing')"
     echo ""
-    
+
     echo "📁 Project Structure:"
     echo "  Source files: $(find src/ -name '*.js' 2>/dev/null | wc -l || echo '0') JS files"
     echo "  Test files: $(find tests/ -name '*.test.js' 2>/dev/null | wc -l || echo '0') test files"
     echo "  Public files: $(find public/ -type f 2>/dev/null | wc -l || echo '0') files"
     echo ""
-    
+
     echo "💾 System Resources:"
     echo "  Memory: $(free -h 2>/dev/null | grep '^Mem:' | awk '{print $3"/"$2}' || echo 'Unknown')"
     echo "  Disk: $(df -h . 2>/dev/null | tail -1 | awk '{print $3"/"$2" ("$5" used)"}' || echo 'Unknown')"
     echo ""
-    
+
     echo "🔍 Application Health:"
     if [ -f "src/main.js" ]; then
         echo "  Main.js syntax: $(node -c src/main.js && echo '✅ Valid' || echo '❌ Invalid')"
@@ -175,47 +175,47 @@ show_diagnostics() {
 run_quick_tests() {
     echo "⚡ Running quick test suite..."
     echo ""
-    
+
     local start_time=$(date +%s)
-    
+
     # Quick unit tests
     echo "🧪 Quick unit tests..."
     npm run test:quick
-    
+
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
-    
+
     echo "⏱️  Quick tests completed in ${duration}s"
 }
 
 generate_test_report() {
     echo "📊 Generating comprehensive test report..."
     echo ""
-    
+
     local report_dir="tests/reports"
     mkdir -p "$report_dir"
     local report_file="$report_dir/test-report-$(date +%Y%m%d-%H%M%S).md"
-    
+
     echo "# Test Report - $(date)" > "$report_file"
     echo "" >> "$report_file"
-    
+
     echo "## Environment" >> "$report_file"
     echo "- Node.js: $(node --version)" >> "$report_file"
     echo "- NPM: $(npm --version)" >> "$report_file"
     echo "- Date: $(date)" >> "$report_file"
     echo "" >> "$report_file"
-    
+
     echo "## Test Results" >> "$report_file"
-    
+
     # Run tests and capture output
     echo "Running tests and capturing results..."
-    
+
     if npm run test:unit >> "$report_file" 2>&1; then
         echo "✅ Unit tests completed"
     else
         echo "❌ Unit tests failed"
     fi
-    
+
     echo "📋 Report generated: $report_file"
     echo "📂 View report: cat $report_file"
 }

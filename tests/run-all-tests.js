@@ -29,10 +29,10 @@ class TestRunner {
         try {
             // 1. Install dependencies if needed
             await this.checkDependencies();
-            
+
             // 2. Start development server
             await this.startServer();
-            
+
             // 3. Run test suites in sequence
             await this.runUnitTests();
             await this.runPlaywrightTests();
@@ -40,10 +40,10 @@ class TestRunner {
             await this.runSeleniumTests();
             await this.runPerformanceTests();
             await this.runIntegrationTests();
-            
+
             // 4. Generate comprehensive report
             await this.generateReport();
-            
+
         } catch (error) {
             console.error('❌ Test suite failed:', error);
             process.exit(1);
@@ -54,31 +54,31 @@ class TestRunner {
 
     async checkDependencies() {
         console.log('📦 Checking dependencies...');
-        
+
         const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
         const devDeps = packageJson.devDependencies || {};
-        
+
         const requiredPackages = [
             'playwright',
-            'cypress', 
+            'cypress',
             'selenium-webdriver',
             'vitest',
             '@vitest/ui'
         ];
 
         const missing = requiredPackages.filter(pkg => !devDeps[pkg]);
-        
+
         if (missing.length > 0) {
             console.log(`📥 Installing missing packages: ${missing.join(', ')}`);
             execSync(`npm install --save-dev ${missing.join(' ')}`, { stdio: 'inherit' });
         }
-        
+
         console.log('✅ Dependencies verified\n');
     }
 
     async startServer() {
         console.log('🌐 Starting development server...');
-        
+
         return new Promise((resolve, reject) => {
             this.serverProcess = spawn('npm', ['run', 'start:8082'], {
                 detached: true,
@@ -104,7 +104,7 @@ class TestRunner {
 
     async runCommand(command, args, description) {
         console.log(`🔧 ${description}...`);
-        
+
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
             const child = spawn(command, args, {
@@ -168,7 +168,7 @@ class TestRunner {
 
         this.results.playwright = await this.runCommand(
             'npx',
-            ['playwright', 'test', '--config=playwright.config.js'],
+            ['playwright', 'test', '--config=config/playwright.config.js'],
             'Running E2E tests with Playwright'
         );
     }
@@ -176,7 +176,7 @@ class TestRunner {
     async runCypressTests() {
         this.results.cypress = await this.runCommand(
             'npx',
-            ['cypress', 'run', '--config-file', 'cypress.config.js'],
+            ['cypress', 'run', '--config-file', 'config/cypress.config.js'],
             'Running interactive tests with Cypress'
         );
     }
@@ -193,7 +193,7 @@ class TestRunner {
         try {
             // Install Lighthouse CI if not present
             execSync('npm install -g @lhci/cli', { stdio: 'pipe' });
-            
+
             this.results.performance = await this.runCommand(
                 'lhci',
                 ['autorun', '--config=.lighthouserc.js'],
@@ -217,10 +217,10 @@ class TestRunner {
     async generateReport() {
         const endTime = Date.now();
         const totalDuration = endTime - this.startTime;
-        
+
         console.log('\n📊 TEST SUITE RESULTS');
         console.log('====================');
-        
+
         const report = {
             timestamp: new Date().toISOString(),
             totalDuration: totalDuration,
@@ -261,7 +261,7 @@ class TestRunner {
         if (!fs.existsSync(reportsDir)) {
             fs.mkdirSync(reportsDir, { recursive: true });
         }
-        
+
         fs.writeFileSync(
             path.join(reportsDir, 'comprehensive-report.json'),
             JSON.stringify(report, null, 2)
@@ -275,7 +275,7 @@ class TestRunner {
         );
 
         console.log(`\n📄 Reports saved to: ${reportsDir}/`);
-        
+
         // Exit with appropriate code
         const hasFailures = report.summary.failed > 0;
         if (hasFailures) {
@@ -350,7 +350,7 @@ class TestRunner {
 
     async cleanup() {
         console.log('\n🧹 Cleaning up...');
-        
+
         if (this.serverProcess) {
             try {
                 process.kill(-this.serverProcess.pid);
