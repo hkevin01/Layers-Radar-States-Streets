@@ -25,41 +25,109 @@
 
 ## 🏗️ System Architecture
 
-### High-Level Architecture Diagram
+### 1. Frontend Application Architecture
 
 ```mermaid
 graph TB
-    subgraph "Frontend Layer"
-        A[HTML5 Application] --> B[OpenLayers v8.2.0]
+    subgraph "User Interface Layer"
+        A[HTML5 Application] --> B[OpenLayers v8.2.0 Map Engine]
         A --> C[UI Controls System]
-        A --> D[Performance Optimizer]
+        A --> D[Mobile Touch Handler]
+        A --> E[Performance Optimizer]
     end
 
-    subgraph "Data Layer"
-        E[OpenStreetMap Tiles] --> B
-        F[Weather Radar Data] --> B
-        G[State Boundaries] --> B
+    subgraph "Component Integration"
+        B --> F[Map Renderer]
+        C --> G[Radar Toggle Controls]
+        C --> H[Layer Visibility Panel]
+        D --> I[Touch Gesture Recognition]
+        E --> J[Tile Preloader]
+        E --> K[View State Cache]
     end
 
-    subgraph "Testing Infrastructure"
-        H[Vitest Unit Tests] --> I[Test Suite]
-        J[Playwright E2E] --> I
-        K[Cypress Interactive] --> I
-        L[Lighthouse Performance] --> I
+    subgraph "Data Visualization"
+        F --> L[OpenStreetMap Base Layer]
+        F --> M[Weather Radar Overlay]
+        F --> N[State Boundary Vectors]
+        F --> O[Interactive Controls UI]
+    end
+
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style F fill:#e8f5e8
+```
+
+### 2. Data Sources & Integration
+
+```mermaid
+graph LR
+    subgraph "External Data Sources"
+        A[OpenStreetMap Tiles] --> D[Tile Service]
+        B[NEXRAD Weather Data] --> E[Weather API]
+        C[State Boundary GeoJSON] --> F[Vector Service]
+    end
+
+    subgraph "Data Processing Layer"
+        D --> G[Tile Cache Manager]
+        E --> H[Weather Data Processor]
+        F --> I[Vector Data Handler]
+    end
+
+    subgraph "Map Integration"
+        G --> J[OpenLayers Map Engine]
+        H --> J
+        I --> J
+        J --> K[Interactive Map Display]
+    end
+
+    subgraph "Performance Optimization"
+        J --> L[View State Management]
+        J --> M[Memory Optimization]
+        J --> N[Error Handling]
+    end
+
+    style A fill:#fff3e0
+    style B fill:#e3f2fd
+    style C fill:#f1f8e9
+    style J fill:#fce4ec
+```
+
+### 3. Testing & CI/CD Pipeline
+
+```mermaid
+graph TB
+    subgraph "Testing Framework"
+        A[Vitest Unit Tests] --> D[Test Suite Orchestrator]
+        B[Playwright E2E Tests] --> D
+        C[Cypress Interactive Tests] --> D
+        D --> E[Lighthouse Performance Audits]
     end
 
     subgraph "CI/CD Pipeline"
-        I --> M[GitHub Actions]
-        M --> N[Multi-Browser Testing]
-        M --> O[Coverage Reports]
-        M --> P[Performance Audits]
+        E --> F[GitHub Actions Workflow]
+        F --> G[Multi-Browser Matrix Testing]
+        F --> H[Coverage Report Generation]
+        F --> I[Performance Benchmark]
     end
 
-    subgraph "Backend Services"
-        Q[Spring Boot API] --> R[Weather Data]
-        Q --> S[Map Services]
-        T[Docker Container] --> Q
+    subgraph "Quality Gates"
+        G --> J[Desktop Browser Tests]
+        G --> K[Mobile Browser Tests]
+        H --> L[Coverage Threshold Check]
+        I --> M[Performance Score Validation]
     end
+
+    subgraph "Deployment & Monitoring"
+        J --> N[Test Results Dashboard]
+        K --> N
+        L --> N
+        M --> N
+        N --> O[Production Deployment]
+    end
+
+    style D fill:#f3e5f5
+    style F fill:#e1f5fe
+    style N fill:#e8f5e8
 ```
 
 ### Component Architecture
