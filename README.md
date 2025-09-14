@@ -52,9 +52,21 @@ graph TB
         F --> O[Interactive Controls UI]
     end
 
-    style A fill:#e1f5fe
-    style B fill:#f3e5f5
-    style F fill:#e8f5e8
+    style A fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style B fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style C fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style D fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style E fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style F fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style G fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style H fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style I fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style J fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style K fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style L fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style M fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style N fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style O fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
 ```
 
 ### 2. Data Sources & Integration
@@ -86,10 +98,20 @@ graph LR
         J --> N[Error Handling]
     end
 
-    style A fill:#fff3e0
-    style B fill:#e3f2fd
-    style C fill:#f1f8e9
-    style J fill:#fce4ec
+    style A fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style B fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style C fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style D fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style E fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style F fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style G fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style H fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style I fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style J fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style K fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style L fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style M fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style N fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
 ```
 
 ### 3. Testing & CI/CD Pipeline
@@ -125,9 +147,21 @@ graph TB
         N --> O[Production Deployment]
     end
 
-    style D fill:#f3e5f5
-    style F fill:#e1f5fe
-    style N fill:#e8f5e8
+    style A fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style B fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style C fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style D fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style E fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style F fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style G fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style H fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style I fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style J fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style K fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style L fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style M fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style N fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style O fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
 ```
 
 ### Component Architecture
@@ -168,6 +202,14 @@ classDiagram
     PerformanceOptimizer --> OpenLayers
     UIControls --> OpenLayers
     WeatherRadar --> OpenLayers
+
+    class MapApplication:::darkBox
+    class PerformanceOptimizer:::darkBox
+    class UIControls:::darkBox
+    class WeatherRadar:::darkBox
+    class OpenLayers:::darkBox
+
+    classDef darkBox fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
 ```
 
 ## 🛠️ Technology Stack & Architecture Decisions
@@ -202,12 +244,13 @@ classDiagram
 ### Tile Loading Strategy
 
 ```mermaid
+%%{init: {'theme':'dark'}}%%
 sequenceDiagram
-    participant User
-    participant App
-    participant PerformanceOptimizer
-    participant OpenLayers
-    participant TileServer
+    participant User as User
+    participant App as App
+    participant PerformanceOptimizer as Performance Optimizer
+    participant OpenLayers as OpenLayers
+    participant TileServer as Tile Server
 
     User->>App: Pan/Zoom Map
     App->>PerformanceOptimizer: Optimize Request
@@ -258,9 +301,22 @@ graph LR
     E --> L[Style Customization]
     F --> M[Touch Events]
     F --> N[Gesture Recognition]
-```
 
-## 🔧 Technical Implementation Details
+    style A fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style B fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style C fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style D fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style E fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style F fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style G fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style H fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style I fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style J fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style K fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style L fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style M fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style N fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+```## 🔧 Technical Implementation Details
 
 ### OpenLayers Integration Architecture
 
@@ -373,12 +429,13 @@ class WeatherDataService {
 ### Data Flow Architecture
 
 ```mermaid
+%%{init: {'theme':'dark'}}%%
 sequenceDiagram
-    participant User
-    participant App
-    participant Cache
-    participant API
-    participant Map
+    participant User as User
+    participant App as App
+    participant Cache as Cache
+    participant API as API
+    participant Map as Map
 
     User->>App: Request radar data
     App->>Cache: Check cached data
@@ -393,9 +450,7 @@ sequenceDiagram
 
     App->>Map: Update radar layer
     Map-->>User: Display updated radar
-```
-
-## 🚀 Quick Start
+```## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -820,6 +875,7 @@ if (window.location.search.includes('debug=true')) {
 ### Git Workflow
 
 ```mermaid
+%%{init: {'theme':'dark'}}%%
 gitGraph
     commit id: "Initial"
     branch feature
@@ -907,18 +963,20 @@ graph TD
     D --> L[iPad Safari]
     D --> M[Android Chrome]
 
-    style E fill:#90EE90
-    style F fill:#90EE90
-    style G fill:#90EE90
-    style H fill:#90EE90
-    style I fill:#90EE90
-    style J fill:#90EE90
-    style K fill:#90EE90
-    style L fill:#90EE90
-    style M fill:#90EE90
-```
-
-## 🏆 Achievements & Recognition
+    style A fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style B fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style C fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style D fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style E fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style F fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style G fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style H fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style I fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style J fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style K fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style L fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style M fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+```## 🏆 Achievements & Recognition
 
 ### Technical Excellence
 
