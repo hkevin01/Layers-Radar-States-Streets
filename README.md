@@ -6,13 +6,13 @@
 
 ### 🎯 **Why This Project Exists**
 
-| **Purpose** | **Description** |
+| <sub>**Purpose**</sub> | <sub>**Description**</sub> |
 |-------------|-----------------|
-| **Educational Showcase** | Demonstrates best practices in modern web mapping, testing, and CI/CD |
-| **Production Template** | Provides a robust foundation for enterprise mapping applications |
-| **Technology Integration** | Shows seamless integration of multiple mapping technologies |
-| **Performance Benchmark** | Establishes patterns for high-performance geospatial applications |
-| **Testing Excellence** | Exemplifies comprehensive testing strategies across multiple frameworks |
+| <sub>**Educational Showcase**</sub> | <sub>Demonstrates best practices in modern web mapping, testing, and CI/CD</sub> |
+| <sub>**Production Template**</sub> | <sub>Provides a robust foundation for enterprise mapping applications</sub> |
+| <sub>**Technology Integration**</sub> | <sub>Shows seamless integration of multiple mapping technologies</sub> |
+| <sub>**Performance Benchmark**</sub> | <sub>Establishes patterns for high-performance geospatial applications</sub> |
+| <sub>**Testing Excellence**</sub> | <sub>Exemplifies comprehensive testing strategies across multiple frameworks</sub> |
 
 ### 🌟 **Core Objectives**
 
@@ -216,28 +216,28 @@ classDiagram
 
 ### Frontend Technologies
 
-| **Technology** | **Version** | **Purpose** | **Why Chosen** |
+| <sub>**Technology**</sub> | <sub>**Version**</sub> | <sub>**Purpose**</sub> | <sub>**Why Chosen**</sub> |
 |----------------|-------------|-------------|------------------|
-| **OpenLayers** | v8.2.0 | Core mapping engine | Industry-standard for complex GIS applications with excellent performance, comprehensive projection support, and active development community |
-| **ES6+ Modules** | Native | Code organization | Enables tree-shaking for smaller bundles, better dependency management, modern browser support, and improved developer experience |
-| **HTML5/CSS3** | Latest | UI/UX foundation | Provides semantic markup for accessibility, CSS Grid/Flexbox for responsive layouts, native form validation, and progressive enhancement |
+| <sub>**OpenLayers**</sub> | <sub>v8.2.0</sub> | <sub>Core mapping engine</sub> | <sub>Industry-standard for complex GIS applications with excellent performance, comprehensive projection support, and active development community</sub> |
+| <sub>**ES6+ Modules**</sub> | <sub>Native</sub> | <sub>Code organization</sub> | <sub>Enables tree-shaking for smaller bundles, better dependency management, modern browser support, and improved developer experience</sub> |
+| <sub>**HTML5/CSS3**</sub> | <sub>Latest</sub> | <sub>UI/UX foundation</sub> | <sub>Provides semantic markup for accessibility, CSS Grid/Flexbox for responsive layouts, native form validation, and progressive enhancement</sub> |
 
 ### Testing Framework Ecosystem
 
-| **Framework** | **Version** | **Testing Scope** | **Strengths** |
+| <sub>**Framework**</sub> | <sub>**Version**</sub> | <sub>**Testing Scope**</sub> | <sub>**Strengths**</sub> |
 |---------------|-------------|-------------------|---------------|
-| **Vitest** | v1.6.1 | Unit & Integration Tests | Fast execution with Vite, built-in TypeScript support, Jest-compatible API, and excellent ES module support |
-| **Playwright** | v1.40.0 | E2E Cross-Browser Testing | Multi-browser automation, mobile device simulation, network interception, and visual regression testing |
-| **Cypress** | v13.x | Interactive Development Testing | Real-time browser testing, time-travel debugging, automatic waiting, and developer-friendly UI |
-| **Lighthouse CI** | Latest | Performance & Accessibility | Google-grade performance metrics, accessibility compliance, SEO optimization, and CI/CD integration |
+| <sub>**Vitest**</sub> | <sub>v1.6.1</sub> | <sub>Unit & Integration Tests</sub> | <sub>Fast execution with Vite, built-in TypeScript support, Jest-compatible API, and excellent ES module support</sub> |
+| <sub>**Playwright**</sub> | <sub>v1.40.0</sub> | <sub>E2E Cross-Browser Testing</sub> | <sub>Multi-browser automation, mobile device simulation, network interception, and visual regression testing</sub> |
+| <sub>**Cypress**</sub> | <sub>v13.x</sub> | <sub>Interactive Development Testing</sub> | <sub>Real-time browser testing, time-travel debugging, automatic waiting, and developer-friendly UI</sub> |
+| <sub>**Lighthouse CI**</sub> | <sub>Latest</sub> | <sub>Performance & Accessibility</sub> | <sub>Google-grade performance metrics, accessibility compliance, SEO optimization, and CI/CD integration</sub> |
 
 ### Development & Deployment Infrastructure
 
-| **Tool** | **Purpose** | **Benefits** |
+| <sub>**Tool**</sub> | <sub>**Purpose**</sub> | <sub>**Benefits**</sub> |
 |----------|-------------|--------------|
-| **Docker** | Containerization | Consistent development environments, easy deployment, service isolation, and scalability |
-| **GitHub Actions** | CI/CD Pipeline | Automated testing, multi-environment deployment, quality gates, and artifact management |
-| **Spring Boot** | Backend API | Rapid development, auto-configuration, production-ready features, and microservices architecture |
+| <sub>**Docker**</sub> | <sub>Containerization</sub> | <sub>Consistent development environments, easy deployment, service isolation, and scalability</sub> |
+| <sub>**GitHub Actions**</sub> | <sub>CI/CD Pipeline</sub> | <sub>Automated testing, multi-environment deployment, quality gates, and artifact management</sub> |
+| <sub>**Spring Boot**</sub> | <sub>Backend API</sub> | <sub>Rapid development, auto-configuration, production-ready features, and microservices architecture</sub> |
 
 ## 📊 Performance Optimization Architecture
 
@@ -264,24 +264,24 @@ sequenceDiagram
 
 ### Memory Management & Caching
 
-| **Optimization** | **Implementation** | **Impact** |
+| <sub>**Optimization**</sub> | <sub>**Implementation**</sub> | <sub>**Impact**</sub> |
 |------------------|-------------------|------------|
-| **Tile Preloading** | Adjacent tile prediction | 40% faster navigation |
-| **View State Caching** | Zoom level optimization | 60% reduced re-renders |
-| **Error Boundaries** | Graceful degradation | 99.9% uptime reliability |
-| **Progressive Loading** | Priority-based rendering | 25% faster initial load |
+| <sub>**Tile Preloading**</sub> | <sub>Adjacent tile prediction</sub> | <sub>40% faster navigation</sub> |
+| <sub>**View State Caching**</sub> | <sub>Zoom level optimization</sub> | <sub>60% reduced re-renders</sub> |
+| <sub>**Error Boundaries**</sub> | <sub>Graceful degradation</sub> | <sub>99.9% uptime reliability</sub> |
+| <sub>**Progressive Loading**</sub> | <sub>Priority-based rendering</sub> | <sub>25% faster initial load</sub> |
 
 ## 🎯 Feature Overview
 
 ### Core Mapping Features
 
-| **Feature** | **Technology** | **Description** | **Status** |
+| <sub>**Feature**</sub> | <sub>**Technology**</sub> | <sub>**Description**</sub> | <sub>**Status**</sub> |
 |-------------|----------------|-----------------|------------|
-| **Interactive Map** | OpenLayers v8.2.0 | Pan, zoom, and navigate with smooth animations | ✅ Production Ready |
-| **Weather Radar** | NEXRAD Integration | Real-time weather radar overlay with animation controls | ✅ Production Ready |
-| **State Boundaries** | Vector Layers | US state boundary overlays with customizable styling | ✅ Production Ready |
-| **Mobile Support** | Responsive Design | Touch gestures, mobile-optimized UI, and adaptive layouts | ✅ Production Ready |
-| **Performance Optimization** | Custom Engine | Tile preloading, caching, and view state management | ✅ Production Ready |
+| <sub>**Interactive Map**</sub> | <sub>OpenLayers v8.2.0</sub> | <sub>Pan, zoom, and navigate with smooth animations</sub> | <sub>✅ Production Ready</sub> |
+| <sub>**Weather Radar**</sub> | <sub>NEXRAD Integration</sub> | <sub>Real-time weather radar overlay with animation controls</sub> | <sub>✅ Production Ready</sub> |
+| <sub>**State Boundaries**</sub> | <sub>Vector Layers</sub> | <sub>US state boundary overlays with customizable styling</sub> | <sub>✅ Production Ready</sub> |
+| <sub>**Mobile Support**</sub> | <sub>Responsive Design</sub> | <sub>Touch gestures, mobile-optimized UI, and adaptive layouts</sub> | <sub>✅ Production Ready</sub> |
+| <sub>**Performance Optimization**</sub> | <sub>Custom Engine</sub> | <sub>Tile preloading, caching, and view state management</sub> | <sub>✅ Production Ready</sub> |
 
 ### Advanced Features
 
@@ -360,12 +360,12 @@ class MapApplication {
 
 ### Performance Optimization Strategies
 
-| **Strategy** | **Implementation** | **Benefit** | **Code Example** |
+| <sub>**Strategy**</sub> | <sub>**Implementation**</sub> | <sub>**Benefit**</sub> | <sub>**Code Example**</sub> |
 |--------------|-------------------|-------------|------------------|
-| **Tile Preloading** | Predict user movement | 40% faster navigation | `source.setPreload(2)` |
-| **View Caching** | Cache zoom states | 60% less re-rendering | `view.getState()` caching |
-| **Debounced Events** | Throttle user input | Smoother interactions | `debounce(handler, 100ms)` |
-| **Memory Management** | Clean unused tiles | Lower memory usage | Automatic garbage collection |
+| <sub>**Tile Preloading**</sub> | <sub>Predict user movement</sub> | <sub>40% faster navigation</sub> | <sub>`source.setPreload(2)`</sub> |
+| <sub>**View Caching**</sub> | <sub>Cache zoom states</sub> | <sub>60% less re-rendering</sub> | <sub>`view.getState()` caching</sub> |
+| <sub>**Debounced Events**</sub> | <sub>Throttle user input</sub> | <sub>Smoother interactions</sub> | <sub>`debounce(handler, 100ms)`</sub> |
+| <sub>**Memory Management**</sub> | <sub>Clean unused tiles</sub> | <sub>Lower memory usage</sub> | <sub>Automatic garbage collection</sub> |
 
 ### Error Handling & Resilience
 
@@ -398,11 +398,11 @@ class PerformanceOptimizer {
 
 ### Weather Data Sources
 
-| **Provider** | **Data Type** | **Endpoint** | **Update Frequency** |
+| <sub>**Provider**</sub> | <sub>**Data Type**</sub> | <sub>**Endpoint**</sub> | <sub>**Update Frequency**</sub> |
 |--------------|---------------|--------------|----------------------|
-| **NEXRAD** | Weather Radar | Iowa State Mesonet WMS | Real-time (5 min) |
-| **RainViewer** | Precipitation | RainViewer API | Real-time (10 min) |
-| **NOAA** | Weather Alerts | National Weather Service | Real-time |
+| <sub>**NEXRAD**</sub> | <sub>Weather Radar</sub> | <sub>Iowa State Mesonet WMS</sub> | <sub>Real-time (5 min)</sub> |
+| <sub>**RainViewer**</sub> | <sub>Precipitation</sub> | <sub>RainViewer API</sub> | <sub>Real-time (10 min)</sub> |
+| <sub>**NOAA**</sub> | <sub>Weather Alerts</sub> | <sub>National Weather Service</sub> | <sub>Real-time</sub> |
 
 ### API Integration Pattern
 
@@ -458,12 +458,12 @@ sequenceDiagram
 
 ### Prerequisites
 
-| **Requirement** | **Version** | **Purpose** |
+| <sub>**Requirement**</sub> | <sub>**Version**</sub> | <sub>**Purpose**</sub> |
 |-----------------|-------------|-------------|
-| **Node.js** | 18.x or 20.x | JavaScript runtime for development and testing |
-| **npm** | 8.x+ | Package manager for dependencies |
-| **Docker** (optional) | 20.x+ | For containerized backend services |
-| **Modern Browser** | Latest | Chrome, Firefox, Safari, or Edge for optimal experience |
+| <sub>**Node.js**</sub> | <sub>18.x or 20.x</sub> | <sub>JavaScript runtime for development and testing</sub> |
+| <sub>**npm**</sub> | <sub>8.x+</sub> | <sub>Package manager for dependencies</sub> |
+| <sub>**Docker** (optional)</sub> | <sub>20.x+</sub> | <sub>For containerized backend services</sub> |
+| <sub>**Modern Browser**</sub> | <sub>Latest</sub> | <sub>Chrome, Firefox, Safari, or Edge for optimal experience</sub> |
 
 ### Installation & Setup
 
