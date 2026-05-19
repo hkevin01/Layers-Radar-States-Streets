@@ -133,16 +133,16 @@ open public/index.html
 
 ## Documentation
 
-| Document | Purpose |
+| <sub>Document</sub> | <sub>Purpose</sub> |
 |----------|---------|
-| [REQUIREMENTS.md](REQUIREMENTS.md) | Functional and technical requirements |
-| [DESIGN.md](DESIGN.md) | System architecture and design decisions |
-| [API.md](API.md) | API documentation and integration guides |
-| [INSTALLATION.md](INSTALLATION.md) | Setup and deployment instructions |
-| [TESTING.md](TESTING.md) | Testing strategies and procedures |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and solutions |
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | Contribution guidelines |
-| [CHANGELOG.md](../CHANGELOG.md) | Version history and changes |
+| <sub>[REQUIREMENTS.md](REQUIREMENTS.md)</sub> | <sub>Functional and technical requirements</sub> |
+| <sub>[DESIGN.md](DESIGN.md)</sub> | <sub>System architecture and design decisions</sub> |
+| <sub>[API.md](API.md)</sub> | <sub>API documentation and integration guides</sub> |
+| <sub>[INSTALLATION.md](INSTALLATION.md)</sub> | <sub>Setup and deployment instructions</sub> |
+| <sub>[TESTING.md](TESTING.md)</sub> | <sub>Testing strategies and procedures</sub> |
+| <sub>[TROUBLESHOOTING.md](TROUBLESHOOTING.md)</sub> | <sub>Common issues and solutions</sub> |
+| <sub>[CONTRIBUTING.md](../CONTRIBUTING.md)</sub> | <sub>Contribution guidelines</sub> |
+| <sub>[CHANGELOG.md](../CHANGELOG.md)</sub> | <sub>Version history and changes</sub> |
 
 ## Contributing
 
